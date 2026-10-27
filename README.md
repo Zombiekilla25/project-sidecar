@@ -40,10 +40,6 @@ Complete the parallel qualification set, then run the full 322-case × 2-repeat 
 
 Bring-up is fail-closed with authenticated bitstreams, fixed hardware identity, independent recovery supervisors, bounded job renewal, authenticated rollback, and a retained BSCAN/JTAG recovery path. Public submission stays disabled during transport and sidecar qualification.
 
-Project Sidecar has first priority over physical FPGA hardware. Operator-local idle workloads may run only while Sidecar has released the affected resource and must be preempted before any Sidecar hardware action. The current development environment uses XBT mining as a private/test idle fallback; XBT is not a Project Sidecar dependency or project requirement.
-
-See [hardware priority and idle fallback](docs/hardware-priority-and-fallback.md) for the ownership contract.
-
 ## License
 
 A project license has not yet been selected. Do not assume permission to redistribute third-party RTL, vendor IP, bitstreams, or external source code.
