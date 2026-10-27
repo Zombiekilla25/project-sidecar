@@ -17,8 +17,14 @@ The FK33 PRL safety/qualification stack has reached a major checkpoint:
 - Programmer/tool provenance checks: **PASS**
 - Current serial qualification: **12/12 selected runs satisfy their declared oracle**
 - Deterministic repeat pairs in the serial qualification set: **6/6**
+- Full qualification catalog audit: **322/322 unique cases**
+- Qualification families represented: **24**
+- H0-site union represented by the full catalog: **114/114**
+- Cases without detected oracle fields in the catalog audit: **0**
+- Final read-only canary readiness: **PASS** for candidate authentication, rollback authentication, programmer authentication, USB identity, and submission-disabled latch state.
+- Four-worker rootns stress observation: **47/48 qualified**, with one T01 timeout under simultaneous heavy host load. This is being treated as a concurrency/timing investigation, not as a qualified PASS.
 
-No FPGA programming, real JTAG transaction, USB reset, service change, or pool submission was performed by the read-only physical stability soak.
+No FPGA programming, real JTAG transaction, USB reset, service change, or pool submission was performed by the read-only physical stability or canary-readiness checks.
 
 ## Qualification semantics
 
@@ -38,6 +44,16 @@ For the full qualification campaign, the target is:
 
 Raw PASS/FAIL counts are reported separately and are not substituted for oracle satisfaction.
 
+## Current validation notes
+
+A heavy parallel qualification farm was used to stress the validation environment. It produced several useful findings:
+
+- The 322-case catalog/oracle structural audit passed.
+- A determinism-fuzz lane failed before exercising the normalizer because its disposable snapshot omitted a local dependency; that result is a farm setup defect, not a qualification failure.
+- A high-concurrency H0 stress lane returned 120/120 failures and is under setup/path-forensics review before being interpreted.
+- A four-worker rootns stress lane qualified 47/48 runs; the single miss was a T01 timeout while the host was simultaneously running multiple heavy lanes.
+- Integrity checks found zero Python syntax failures, zero Bash syntax failures, zero broken symlinks, and zero world-writable input files. Extra generated Python cache files are treated as non-source contamination and are being kept out of authenticated inputs.
+
 ## Remaining gates
 
 Before the next supervised hardware canary:
@@ -46,6 +62,7 @@ Before the next supervised hardware canary:
 - Pass the full 322-case × 2-repeat campaign.
 - Confirm both repeats reach 114/114 H0-site coverage.
 - Confirm 322/322 deterministic repeat pairs.
+- Isolate the single rootns timeout observed under heavy parallel host load.
 - Re-authenticate the final candidate, rollback image, external tools, and recovery path.
 - Run one final supervised single-card hardware canary with submission disabled and mandatory rollback.
 
