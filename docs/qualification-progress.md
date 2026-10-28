@@ -1,6 +1,6 @@
 # Qualification Progress
 
-_Last updated: 2026-10-27_
+_Last updated: 2026-10-28_
 
 ## Current milestone
 
@@ -25,6 +25,10 @@ The FK33 PRL safety/qualification stack has reached a major checkpoint:
 - H0-site union represented by the full catalog: **114/114**
 - Cases without detected oracle fields in the catalog audit: **0**
 - Final read-only canary readiness: **PASS** for candidate authentication, rollback authentication, programmer authentication, USB identity, and submission-disabled latch state.
+- V4.1 integrated host candidate: **fixture-qualified** with 5/5 known bypass paths closed in the fixture model and no placeholder success paths remaining.
+- V4.1 integrated regression groups: **35/35, 16/16, 644/644, 37/37, and 44/44 PASS**, plus 105 D01 checks, 23 prestart checks, 17 refusal checks, and the new integrated failure-injection group passing.
+- Protected host installation: **PASS** with **6,278 candidate files verified**, static native admission installed, and direct unprivileged candidate/native execution denied.
+- One-card FK0957 canary: **not authorized and not executed**; protected-boundary qualification is the current gate.
 
 No FPGA programming, real JTAG transaction, USB reset, service change, or pool submission was performed by the read-only physical stability or canary-readiness checks.
 
@@ -69,16 +73,35 @@ A previous heavy parallel qualification farm also established:
 - final read-only canary readiness PASS
 - four-worker rootns stress at 47/48 under deliberately heavy simultaneous host load, with the single miss being a T01 timeout
 
+## V4.1 protected-host checkpoint
+
+The V4.1 host-authority work has converged from separate forensic/design lanes into one integrated candidate. The qualified fixture path now covers static native admission, clean environment enrollment, hash-bound candidate/interpreter identity, D01 target-policy enforcement, three-principal authority binding, two-inventory regeneration, publication ordering, rollback, simulated SIGKILL next-start recovery, and recovery idempotence.
+
+A protected release has now been installed on the development host. Public-safe install verification established:
+
+- 6,278 candidate files verified after installation
+- static native admission present
+- protected ownership/mode boundary present
+- direct unprivileged candidate access denied
+- direct unprivileged native execution denied
+- live source unchanged
+- no service restart, network action, FPGA programming, JTAG access, hardware access, or mining change
+
+This installation does **not** authorize a hardware canary. The next step is independent qualification of the installed production boundary against the fixture-qualified contract. A separate explicit owner authorization remains required before any one-card FK0957 hardware execution.
+
+See [V4.1 protected host boundary milestone](v41-protected-host-boundary.md) for the focused checkpoint.
+
 ## Remaining gates
 
 Before the next supervised hardware canary:
 
-- Resolve the first full-campaign unqualified case.
-- Resume and complete the full 322-case × 2-repeat campaign.
-- Confirm both repeats reach 114/114 H0-site coverage.
-- Confirm 322/322 deterministic repeat pairs.
-- Re-authenticate the final candidate, rollback image, external tools, and recovery path.
-- Run one final supervised single-card hardware canary with submission disabled and mandatory rollback.
+- Independently qualify the installed V4.1 protected production boundary.
+- Confirm the installed release identity and protected ownership/mode contract.
+- Confirm direct invocation remains denied outside the admitted path.
+- Re-authenticate rollback/recovery prerequisites at the installed boundary.
+- Resolve or formally disposition any remaining full-campaign qualification gaps that are still applicable to the final canary contract.
+- Obtain separate explicit owner authorization for the one-card canary.
+- Run one final supervised single-card FK0957 hardware canary with submission disabled and mandatory rollback.
 
 ## Repository hygiene
 
