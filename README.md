@@ -15,6 +15,9 @@ Proven:
 - A read-only physical FK33 USB stability soak completed 360/360 samples with zero disappearances, zero state changes, and zero serious kernel USB errors.
 - The current serial qualification set has 12/12 case-runs satisfying their declared oracle with 6/6 deterministic repeat pairs.
 - Qualification reporting now separates raw PASS/FAIL from oracle satisfaction so intentional fail-closed safety tests remain visible without being misclassified.
+- The V4.1 integrated host candidate is fixture-qualified, including 5/5 known bypass closures in the fixture model, bounded D01 target policy, three-principal authority binding, two-inventory regeneration, rollback/recovery, and integrated failure injection.
+- The protected host boundary has been installed successfully with 6,278 candidate files verified and direct unprivileged candidate/native execution denied.
+- The FK0957 one-card canary remains separately gated: it has not been authorized or executed.
 
 Not yet proven:
 - Full 322-case × 2-repeat qualification.
@@ -34,7 +37,9 @@ Project Sidecar tests whether an FK33 pod can accelerate selected PearlHash stag
 
 ## Immediate next milestone
 
-Complete the parallel qualification set, then run the full 322-case × 2-repeat campaign with 114/114 H0-site coverage on both repeats and deterministic repeat behavior. After those software gates pass, run one final supervised FK33 hardware canary with submission disabled and mandatory authenticated rollback.
+Independently qualify the installed V4.1 protected production boundary against the fixture-qualified contract. Confirm installed release identity, protected ownership/mode enforcement, direct-invocation denial, and rollback/recovery prerequisites. Only after that boundary passes review—and after a separate explicit owner authorization—proceed to the guarded single-card FK0957 hardware canary with submission disabled and mandatory authenticated rollback.
+
+See [V4.1 protected host boundary milestone](docs/v41-protected-host-boundary.md) for the current checkpoint.
 
 ## Safety
 
