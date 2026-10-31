@@ -10,6 +10,7 @@ Status: PASS
 - coordinated multi-card pod
 - V7 same-generation job renewal
 - controlled coordinator-loss recovery
+- L02 S05 authenticated persistent-quarantine recovery qualified offline (1,253/1,253 retained tests)
 
 ## Phase 2 — PCIe hardware bring-up
 

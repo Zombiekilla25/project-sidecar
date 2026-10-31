@@ -18,6 +18,7 @@ Proven:
 - The V4.1 integrated host candidate is fixture-qualified, including 5/5 known bypass closures in the fixture model, bounded D01 target policy, three-principal authority binding, two-inventory regeneration, rollback/recovery, and integrated failure injection.
 - The protected host boundary has been installed successfully with 6,278 candidate files verified and direct unprivileged candidate/native execution denied.
 - The FK0957 one-card canary remains separately gated: it has not been authorized or executed.
+- L02 S05 authenticated persistent-quarantine recovery is **offline-qualified**: **1,253/1,253 retained tests PASS**, including **44/44 dedicated recovery tests**, with 0 failures and 0 errors. Persistent quarantine remains fail-closed and no hardware, mining, production, or testbench changes were made.
 
 Not yet proven:
 - Full 322-case × 2-repeat qualification.
@@ -37,7 +38,7 @@ Project Sidecar tests whether an FK33 pod can accelerate selected PearlHash stag
 
 ## Immediate next milestone
 
-Independently qualify the installed V4.1 protected production boundary against the fixture-qualified contract. Confirm installed release identity, protected ownership/mode enforcement, direct-invocation denial, and rollback/recovery prerequisites. Only after that boundary passes review—and after a separate explicit owner authorization—proceed to the guarded single-card FK0957 hardware canary with submission disabled and mandatory authenticated rollback.
+Prepare the offline-qualified S05 candidate for controlled protected-boundary installation/readiness qualification. Independently verify installed identity, ownership/mode enforcement, authenticated recovery, direct-invocation denial, and rollback prerequisites. Only after that boundary passes review—and after a separate explicit owner authorization—proceed to the guarded single-card FK0957 hardware canary with submission disabled and mandatory authenticated rollback.
 
 See [V4.1 protected host boundary milestone](docs/v41-protected-host-boundary.md) for the current checkpoint.
 

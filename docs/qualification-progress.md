@@ -1,6 +1,6 @@
 # Qualification Progress
 
-_Last updated: 2026-10-28_
+_Last updated: 2026-10-31_
 
 ## Current milestone
 
@@ -29,6 +29,7 @@ The FK33 PRL safety/qualification stack has reached a major checkpoint:
 - V4.1 integrated regression groups: **35/35, 16/16, 644/644, 37/37, and 44/44 PASS**, plus 105 D01 checks, 23 prestart checks, 17 refusal checks, and the new integrated failure-injection group passing.
 - Protected host installation: **PASS** with **6,278 candidate files verified**, static native admission installed, and direct unprivileged candidate/native execution denied.
 - One-card FK0957 canary: **not authorized and not executed**; protected-boundary qualification is the current gate.
+- L02 S05 authenticated persistent-quarantine recovery: **OFFLINE QUALIFIED** with **1,253/1,253 retained tests PASS**, **44/44 dedicated recovery tests PASS**, 0 failures, and 0 errors. Persistent quarantine remains fail-closed; registry recovery alone does not release lifecycle quarantine.
 
 No FPGA programming, real JTAG transaction, USB reset, service change, or pool submission was performed by the read-only physical stability or canary-readiness checks.
 
@@ -90,6 +91,19 @@ A protected release has now been installed on the development host. Public-safe 
 This installation does **not** authorize a hardware canary. The next step is independent qualification of the installed production boundary against the fixture-qualified contract. A separate explicit owner authorization remains required before any one-card FK0957 hardware execution.
 
 See [V4.1 protected host boundary milestone](v41-protected-host-boundary.md) for the focused checkpoint.
+
+
+## S05 authenticated-recovery checkpoint
+
+The L02 S05 offline software gate is now closed.
+
+The remaining running-loss blocker was resolved by implementing an explicit authenticated lifecycle recovery transition rather than weakening persistent quarantine. The final retained suite passed 1,253/1,253 tests with zero failures and zero errors. Forty-four dedicated authenticated-recovery tests were added and all passed.
+
+The qualified contract preserves persistent quarantine across ordinary reconstruction. Registry/object recovery alone is insufficient to release lifecycle quarantine; an explicit authorized recovery transition is required before normal restart may resume.
+
+No hardware, FPGA, JTAG, mining, production-service, or protected-target installation action was part of this checkpoint.
+
+See [S05 authenticated persistent-quarantine recovery](s05-authenticated-quarantine-recovery.md).
 
 ## Remaining gates
 
