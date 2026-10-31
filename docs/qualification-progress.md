@@ -129,3 +129,7 @@ This public repository intentionally excludes:
 - local host paths and identifiers
 
 Only public-safe source, documentation, architecture notes, and summarized qualification progress should be committed here.
+
+## S05 target userspace compatibility checkpoint
+
+Full retained qualification passed locally and on target: **1,253/1,253**, zero failures and errors. Exact descriptor inventory and authenticated recovery semantics remain unchanged. No protected installation or hardware action occurred. See [target userspace compatibility](s05-target-userspace-compatibility.md).

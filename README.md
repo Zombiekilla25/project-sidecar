@@ -36,9 +36,11 @@ See [qualification progress](docs/qualification-progress.md) for the current saf
 
 Project Sidecar tests whether an FK33 pod can accelerate selected PearlHash stages alongside a GPU instead of operating only as independent miners. A sidecar is a win only if end-to-end throughput improves after transfer, synchronization, scheduling, FPGA processing, and return-path overhead are included.
 
+- S05 target userspace compatibility is **qualified**: **1,253/1,253 PASS** locally and on target, with the exact descriptor inventory retained. See [qualification details](docs/s05-target-userspace-compatibility.md).
+
 ## Immediate next milestone
 
-Prepare the offline-qualified S05 candidate for controlled protected-boundary installation/readiness qualification. Independently verify installed identity, ownership/mode enforcement, authenticated recovery, direct-invocation denial, and rollback prerequisites. Only after that boundary passes review—and after a separate explicit owner authorization—proceed to the guarded single-card FK0957 hardware canary with submission disabled and mandatory authenticated rollback.
+Prepare the target-userspace-qualified S05 candidate for controlled protected-boundary installation/readiness qualification. Independently verify installed identity, ownership/mode enforcement, authenticated recovery, direct-invocation denial, and rollback prerequisites. Only after that boundary passes review—and after a separate explicit owner authorization—proceed to the guarded single-card FK0957 hardware canary with submission disabled and mandatory authenticated rollback.
 
 See [V4.1 protected host boundary milestone](docs/v41-protected-host-boundary.md) for the current checkpoint.
 

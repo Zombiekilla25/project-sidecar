@@ -65,7 +65,7 @@ Private runtime evidence, machine-local paths, and local qualification artifacts
 
 ## Next gate
 
-S05 is closed offline.
+S05 is closed offline. The subsequent [target userspace compatibility gate](s05-target-userspace-compatibility.md) also passed 1,253/1,253 retained tests with exact descriptor inventory preserved.
 
 The next milestone is controlled installation/readiness qualification against the protected target boundary. The installed candidate must be independently verified before any hardware access.
 
