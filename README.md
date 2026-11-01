@@ -17,8 +17,11 @@ Proven:
 - Qualification reporting now separates raw PASS/FAIL from oracle satisfaction so intentional fail-closed safety tests remain visible without being misclassified.
 - The V4.1 integrated host candidate is fixture-qualified, including 5/5 known bypass closures in the fixture model, bounded D01 target policy, three-principal authority binding, two-inventory regeneration, rollback/recovery, and integrated failure injection.
 - The protected host boundary has been installed successfully with 6,278 candidate files verified and direct unprivileged candidate/native execution denied.
-- The FK0957 one-card canary remains separately gated: it has not been authorized or executed.
-- L02 S05 authenticated persistent-quarantine recovery is **offline-qualified**: **1,253/1,253 retained tests PASS**, including **44/44 dedicated recovery tests**, with 0 failures and 0 errors. Persistent quarantine remains fail-closed and no hardware, mining, production, or testbench changes were made.
+- L02 S05 authenticated persistent-quarantine recovery is **offline-qualified**: **1,253/1,253 retained tests PASS**, including **44/44 dedicated recovery tests**, with 0 failures and 0 errors.
+- S05 target userspace compatibility is **qualified**: **1,253/1,253 PASS** locally and on target, with the exact descriptor inventory retained.
+- The initial Project Sidecar production deployment is **complete**. The guarded production transaction committed with **60/60 planned mutations, 0 unexpected mutations**, **40/40 installed-file checks PASS**, successful supervisor/worker privilege separation and handoff, and no rollback.
+- The installed production runtime completed a **15-minute read-only soak PASS** with stable service health, unchanged restart counters, preserved protected workloads, preserved shared-ancestor metadata, and no FPGA/JTAG or mining changes.
+- The FK0957 one-card hardware canary remains separately gated and has not been authorized or executed.
 
 Not yet proven:
 - Full 322-case × 2-repeat qualification.
@@ -36,17 +39,17 @@ See [qualification progress](docs/qualification-progress.md) for the current saf
 
 Project Sidecar tests whether an FK33 pod can accelerate selected PearlHash stages alongside a GPU instead of operating only as independent miners. A sidecar is a win only if end-to-end throughput improves after transfer, synchronization, scheduling, FPGA processing, and return-path overhead are included.
 
-- S05 target userspace compatibility is **qualified**: **1,253/1,253 PASS** locally and on target, with the exact descriptor inventory retained. See [qualification details](docs/s05-target-userspace-compatibility.md).
-
 ## Immediate next milestone
 
-Prepare the target-userspace-qualified S05 candidate for controlled protected-boundary installation/readiness qualification. Independently verify installed identity, ownership/mode enforcement, authenticated recovery, direct-invocation denial, and rollback prerequisites. Only after that boundary passes review—and after a separate explicit owner authorization—proceed to the guarded single-card FK0957 hardware canary with submission disabled and mandatory authenticated rollback.
+Keep the newly installed production Sidecar on a stable, read-only observability path while returning engineering effort to the project’s core acceleration goal: qualify the next safe GPU↔FK33 data-path step, measure transport/runtime overhead, and determine whether real end-to-end throughput improves.
 
-See [V4.1 protected host boundary milestone](docs/v41-protected-host-boundary.md) for the current checkpoint.
+The production deployment is now a known-good baseline and should not be redesigned as part of ordinary acceleration experiments. Hardware execution remains separately gated and requires explicit authorization.
+
+See [initial production deployment milestone](docs/production-deployment-milestone.md) for the public-safe deployment checkpoint.
 
 ## Safety
 
-Bring-up is fail-closed with authenticated bitstreams, fixed hardware identity, independent recovery supervisors, bounded job renewal, authenticated rollback, and a retained BSCAN/JTAG recovery path. Public submission stays disabled during transport and sidecar qualification.
+Bring-up is fail-closed with authenticated releases, fixed hardware identity, independent recovery supervisors, bounded job renewal, authenticated rollback, and a retained BSCAN/JTAG recovery path. Public submission stays disabled during transport and sidecar qualification.
 
 ## License
 
