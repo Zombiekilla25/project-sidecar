@@ -1,0 +1,333 @@
+{
+  "schema": "FK_4X8_PACKED_OPERAND_BATCH_V1",
+  "payload_sha256": "7f4b421e8611725432061254f56e70a78a2c51210104e6674bcf10aaebe77b4b",
+  "payload_size_bytes": 196608,
+  "tile_count": 8,
+  "records_per_tile": 2048,
+  "record_width_bits": 96,
+  "payload_order": "tile-major then K-major; each record A0,A1,A2,A3,B0..B7 signed int8 two's-complement lane bytes",
+  "hardware_transmission_performed": false,
+  "target_image_compatibility": "NOT_COMPATIBLE_WITH_INTEGRATED_STAGE9_FP8_TOP",
+  "tile_payloads": [
+    {
+      "tile_index": 0,
+      "rows": [
+        0,
+        8
+      ],
+      "columns": [
+        0,
+        1,
+        8,
+        9,
+        16,
+        17,
+        24,
+        25
+      ],
+      "record_count": 2048,
+      "record_width_bits": 96,
+      "payload_bytes": 24576,
+      "payload_sha256": "100a1180ee385047e1ecdc41953a680396b6b59f830d2b50017459031f383547",
+      "roundtrip": "PASS",
+      "transcript_words": [
+        "0000184d",
+        "ffff2d40",
+        "fffe5636",
+        "fffedc0e",
+        "000169b2",
+        "fffe3803",
+        "fffeeada",
+        "ffffbfe0",
+        "0001fe3f",
+        "fffe8ede",
+        "fffe0800",
+        "ffffee14",
+        "00027324",
+        "ffffaf71",
+        "0000261e",
+        "fffd4b7f"
+      ]
+    },
+    {
+      "tile_index": 1,
+      "rows": [
+        0,
+        8
+      ],
+      "columns": [
+        32,
+        33,
+        40,
+        41,
+        48,
+        49,
+        56,
+        57
+      ],
+      "record_count": 2048,
+      "record_width_bits": 96,
+      "payload_bytes": 24576,
+      "payload_sha256": "5d1e7329f0b5ac5f61d22360adcdbc22f6b9bae75ad16c8554d2fd8673717004",
+      "roundtrip": "PASS",
+      "transcript_words": [
+        "000006c3",
+        "00015df8",
+        "fffe32bc",
+        "0001d5bc",
+        "00014516",
+        "fffe3259",
+        "fffc5ebb",
+        "000028e5",
+        "00030b5e",
+        "0001c19a",
+        "000347ef",
+        "0000b68d",
+        "fffc2820",
+        "ffff1ca4",
+        "fffd2bea",
+        "fffcfdbd"
+      ]
+    },
+    {
+      "tile_index": 2,
+      "rows": [
+        0,
+        8
+      ],
+      "columns": [
+        64,
+        65,
+        72,
+        73,
+        80,
+        81,
+        88,
+        89
+      ],
+      "record_count": 2048,
+      "record_width_bits": 96,
+      "payload_bytes": 24576,
+      "payload_sha256": "10036a8aa62ae1c809279ce3bdd51abdf130b3818b7ee7ec82810550140ec774",
+      "roundtrip": "PASS",
+      "transcript_words": [
+        "0000559a",
+        "000007b5",
+        "ffff4a50",
+        "fffe73be",
+        "ffff2369",
+        "fffff062",
+        "fffebc66",
+        "00010e88",
+        "fffe614e",
+        "fffd22f2",
+        "ffff4e3c",
+        "fffff6c6",
+        "ffffceb0",
+        "0002e219",
+        "fffce0ef",
+        "000124f4"
+      ]
+    },
+    {
+      "tile_index": 3,
+      "rows": [
+        0,
+        8
+      ],
+      "columns": [
+        96,
+        97,
+        104,
+        105,
+        112,
+        113,
+        120,
+        121
+      ],
+      "record_count": 2048,
+      "record_width_bits": 96,
+      "payload_bytes": 24576,
+      "payload_sha256": "365992062075018a46383282e9bfb90d81421befa016b0ccca058db1bdc0c2df",
+      "roundtrip": "PASS",
+      "transcript_words": [
+        "ffff2f48",
+        "0000ce32",
+        "0003bb0d",
+        "fffd4e4e",
+        "0002e02a",
+        "00031c57",
+        "00033522",
+        "0002fe5b",
+        "000238df",
+        "ffff06f9",
+        "fffc2c6c",
+        "0003a5d7",
+        "00017727",
+        "00063e15",
+        "fffc1413",
+        "fff9078b"
+      ]
+    },
+    {
+      "tile_index": 4,
+      "rows": [
+        0,
+        8
+      ],
+      "columns": [
+        128,
+        129,
+        136,
+        137,
+        144,
+        145,
+        152,
+        153
+      ],
+      "record_count": 2048,
+      "record_width_bits": 96,
+      "payload_bytes": 24576,
+      "payload_sha256": "72a2d3b4e5c4f89a10fb13d8f9580ea2cd96e6818487382cffd586dbb6bdba0f",
+      "roundtrip": "PASS",
+      "transcript_words": [
+        "000092d5",
+        "ffff3a51",
+        "00001e98",
+        "00019128",
+        "0001637e",
+        "fffddbe3",
+        "fffcb2e8",
+        "00029992",
+        "00034e2d",
+        "00008a3f",
+        "00017574",
+        "fffed5c8",
+        "0001385b",
+        "00007657",
+        "fffec377",
+        "ffff8309"
+      ]
+    },
+    {
+      "tile_index": 5,
+      "rows": [
+        0,
+        8
+      ],
+      "columns": [
+        160,
+        161,
+        168,
+        169,
+        176,
+        177,
+        184,
+        185
+      ],
+      "record_count": 2048,
+      "record_width_bits": 96,
+      "payload_bytes": 24576,
+      "payload_sha256": "1ff2f5e88ab1e444343b3eb5c4068edb793f2e69bf9b903bab8f5048ec98567d",
+      "roundtrip": "PASS",
+      "transcript_words": [
+        "0000486b",
+        "fffe7df8",
+        "fffec201",
+        "fffe4759",
+        "0001ab57",
+        "fffeb721",
+        "fffd48cf",
+        "ffffdfab",
+        "fffe77a1",
+        "ffff5b70",
+        "00013176",
+        "0003c793",
+        "0001c2af",
+        "0002c9a4",
+        "ffffc762",
+        "fffe129c"
+      ]
+    },
+    {
+      "tile_index": 6,
+      "rows": [
+        0,
+        8
+      ],
+      "columns": [
+        192,
+        193,
+        200,
+        201,
+        208,
+        209,
+        216,
+        217
+      ],
+      "record_count": 2048,
+      "record_width_bits": 96,
+      "payload_bytes": 24576,
+      "payload_sha256": "7a3c1b84bdd67d6353e16020daf54241097127b31a55db03b3e150c13fb8865a",
+      "roundtrip": "PASS",
+      "transcript_words": [
+        "ffffa2ef",
+        "00016c8f",
+        "fffe40b3",
+        "ffffe9bb",
+        "ffffa744",
+        "0000f02a",
+        "fffe5f73",
+        "00019926",
+        "0000c836",
+        "0000bee7",
+        "00012901",
+        "0000587e",
+        "0001bed0",
+        "00008425",
+        "00012118",
+        "fffe1341"
+      ]
+    },
+    {
+      "tile_index": 7,
+      "rows": [
+        0,
+        8
+      ],
+      "columns": [
+        224,
+        225,
+        232,
+        233,
+        240,
+        241,
+        248,
+        249
+      ],
+      "record_count": 2048,
+      "record_width_bits": 96,
+      "payload_bytes": 24576,
+      "payload_sha256": "7240f15dc77b9f250a7130bf79c9927f21dde6701323224acfbc28078e5d5663",
+      "roundtrip": "PASS",
+      "transcript_words": [
+        "000048d4",
+        "fffe7b67",
+        "fffe8526",
+        "fffeecff",
+        "ffffb361",
+        "00006f29",
+        "000075f5",
+        "0000f009",
+        "ffffb18e",
+        "fffee993",
+        "0003fc44",
+        "fffefb88",
+        "0003fa02",
+        "0002d8d7",
+        "00007520",
+        "00014495"
+      ]
+    }
+  ]
+}

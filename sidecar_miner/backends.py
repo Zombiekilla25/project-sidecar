@@ -23,3 +23,18 @@ class MockGpuBackend:
 class UnavailableFk33Backend:
     def prepare(self, job): raise RuntimeError("FK33 backend unavailable")
     def execute(self, job, candidates): raise RuntimeError("FK33 backend unavailable")
+
+
+def timed_gpu_batch(backend,job,batch_size,telemetry):
+    """Time a high-level GPU backend call; time is measured, never estimated."""
+    import time
+    start=time.perf_counter()
+    try: return backend.compute_batch(job,batch_size)
+    finally: telemetry.record_stage("gpu_backend",time.perf_counter()-start)
+
+def timed_fk_execute(backend,job,candidates,telemetry):
+    """Time one high-level FK backend call without exposing transport details."""
+    import time
+    start=time.perf_counter()
+    try: return backend.execute(job,candidates)
+    finally: telemetry.record_stage("fk_backend",time.perf_counter()-start)

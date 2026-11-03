@@ -9,6 +9,7 @@ class Config:
     wallet: str = ""
     worker: str = "sidecar"
     mode: str = "gpu-only"
+    gpu: str = ""
     reconnect_min: float = 1.0
     reconnect_max: float = 30.0
     @classmethod
@@ -18,8 +19,8 @@ class Config:
         if path:
             data = json.loads(Path(path).read_text())
             if not isinstance(data, dict): raise ValueError("config must be a JSON object")
-        def val(key, default): return env.get("SIDECAR_" + key.upper(), data.get(key, default))
+        def val(key, default): return env.get("SIDECAR_" + key.upper(), env.get(key.upper(), data.get(key, default)))
         mode = val("mode", "gpu-only")
         if mode not in ("gpu-only", "sidecar"): raise ValueError("MODE must be gpu-only or sidecar")
-        return cls(str(val("pool", "")), str(val("wallet", "")), str(val("worker", "sidecar")), mode,
-                   float(val("reconnect_min", 1)), float(val("reconnect_max", 30)))
+        return cls(pool=str(val("pool", "")), wallet=str(val("wallet", "")), worker=str(val("worker", "sidecar")), mode=mode,
+                   gpu=str(val("gpu", "")), reconnect_min=float(val("reconnect_min", 1)), reconnect_max=float(val("reconnect_max", 30)))

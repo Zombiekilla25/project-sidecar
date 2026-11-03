@@ -1,4 +1,4 @@
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 import time
 @dataclass
 class Telemetry:
@@ -18,7 +18,9 @@ class Telemetry:
     end_to_end_seconds: float = 0.0
     fallback_count: int = 0
     backend_health: dict | None = None
+    stage_seconds: dict = field(default_factory=dict)
     @property
-    def job_age_seconds(self): return None if self.job_received_at is None else max(0.0, time.time()-self.job_received_at)
+    def job_age_seconds(self): return None if self.job_received_at is None else max(0.0,time.time()-self.job_received_at)
+    def record_stage(self,name,seconds): self.stage_seconds[name]=self.stage_seconds.get(name,0.0)+max(0.0,float(seconds))
     def as_dict(self):
         d=asdict(self); d["job_age_seconds"]=self.job_age_seconds; return d

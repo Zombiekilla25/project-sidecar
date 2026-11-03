@@ -4,3 +4,4 @@ sidecar-miner.local.json
 __pycache__/
 *.py[cod]
 .pytest_cache/
+config.local.json

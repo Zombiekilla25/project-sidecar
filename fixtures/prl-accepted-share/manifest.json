@@ -1,0 +1,11 @@
+{
+  "fixture": "historical locally captured Kryptex accepted share proof",
+  "plain_proof_sha256": "eb0e7374cbaa91090f162e9f97bf05837ecc27a385756007097d3b05b25bc3da",
+  "plain_proof_bytes": 52369,
+  "native_base64_chars": 69828,
+  "krig_gzip_sha256": "f80b1812eb92f86dd0f9a62258e7a3d51a020877714f11ee4ceb84175f4153f6",
+  "krig_gzip_bytes": 2662,
+  "captured_submission_params": ["job_id", "plain_proof"],
+  "captured_pool_result": true,
+  "wallet_or_worker_included": false
+}

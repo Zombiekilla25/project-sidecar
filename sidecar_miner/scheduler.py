@@ -16,3 +16,16 @@ class Scheduler:
             self.fallback_count += 1
             self.mode = "gpu-only"
             return candidates
+
+    def run_fk_backends(self, backends, job, candidates):
+        """Apply zero, one, or many high-level FK backends without touching Stratum."""
+        if self.mode == "gpu-only" or not backends: return []
+        results=[]
+        try:
+            for backend in backends:
+                backend.prepare(job)
+                results.append(backend.execute(job,candidates))
+            return results
+        except Exception:
+            self.fallback_count+=1; self.mode="gpu-only"
+            return []
