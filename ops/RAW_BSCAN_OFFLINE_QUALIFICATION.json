@@ -1,0 +1,59 @@
+{
+  "schema": "sidecar-raw-bscan-offline-qualification-v1",
+  "status": "PASS_LIVE_IDENTITY_AND_OFFLINE_CONTROL",
+  "mapping_root_cause": "BRIDGE_LANE_ASSUMPTION / LOGICAL_INDEX_SWAP: physical card identity and miner workload suffixes are different namespaces; live bridge records bind board endpoints to physical SQRL identities",
+  "tests": {
+    "mpsse_backend": "18/18 PASS",
+    "exact_usb_selection": "7/7 PASS",
+    "current_target_lock_negative": "8/8 PASS",
+    "protocol_manifest_scans": "29/29 PASS",
+    "raw_vector_result": "PASS",
+    "canonical_vector_result": "PASS",
+    "program_to_raw_handoff": "19/19 PASS",
+    "phk1_protocol_regression": "15/15 PASS",
+    "existing_raw_bscan_control_model": "13/13 PASS"
+  },
+  "bit_accounting": {
+    "hello_logical_data_bits": 112,
+    "hello_ir_bits": 30,
+    "hello_tap_navigation_and_reset_bits": 61,
+    "hello_physical_jtag_bits": 203,
+    "vector_input_logical_bits": 1574912,
+    "vector_input_physical_jtag_bits": 1575048,
+    "vector_status_logical_bits": 256,
+    "vector_status_physical_jtag_bits": 392,
+    "vector_output_logical_bits": 6144,
+    "vector_output_physical_jtag_bits": 6280,
+    "vector_total_logical_data_bits": 1581312,
+    "vector_physical_jtag_bits": 1581726,
+    "chain_padding_bits": 0
+  },
+  "clock": {
+    "identity_smoke_hz": 100000,
+    "offline_supported_range_hz": [
+      100000,
+      1000000
+    ],
+    "hardware_clock_qualified": false
+  },
+  "live_identity_smoke": "PASS_READ_ONLY_IDCODE_ONLY",
+  "live_identity_clock_hz": 100000,
+  "live_target_identity_binding": "PASS; fresh exact-target lock plus independent read-only DNA evidence",
+  "libftdi_context_lifetime": "PASS; same context and non-null USB handle through both bitmode calls",
+  "bitmode_reset_return": 0,
+  "bitmode_mpsse_return": 0,
+  "post_open_string_lookup": "ABSENT",
+  "production_restore": "PASS_ATTACH_ONLY; eight workloads healthy; protected workers unchanged",
+  "host_callable_raw_jtag_backend": "PASS",
+  "program_to_raw_handoff_dryrun": "PASS (19/19)",
+  "fifth_canary_control_model": "PASS (13/13 previously qualified offline)",
+  "next_canary_ready": true,
+  "hardware_io": true,
+  "fpga_programmed": false,
+  "phk1_user_ir_selection_count": 0,
+  "phk1_program_attempts": 0,
+  "phk1_hello_attempts": 0,
+  "phk1_transaction_count": 0,
+  "pmic_writes": 0,
+  "mining_changed": false
+}
