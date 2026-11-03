@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/project-sidecar-logo.jpg" alt="Project Sidecar" width="1000">
+  <img src="assets/project-sidecar-logo.png" alt="Project Sidecar" width="512">
 </p>
 
 # Project Sidecar
