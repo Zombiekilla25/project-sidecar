@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/project-sidecar-logo.jpg" alt="Project Sidecar" width="1000">
+</p>
+
 # Project Sidecar
 
 GPU + FPGA cooperative compute research for PearlHash/PRL using NVIDIA RTX GPUs and SQRL FK33 accelerators.
@@ -46,6 +50,10 @@ Keep the newly installed production Sidecar on a stable, read-only observability
 The production deployment is now a known-good baseline and should not be redesigned as part of ordinary acceleration experiments. Hardware execution remains separately gated and requires explicit authorization.
 
 See [initial production deployment milestone](docs/production-deployment-milestone.md) for the public-safe deployment checkpoint.
+
+## Project logs
+
+GitHub is used for **public-safe milestone summaries**, not raw machine/runtime evidence. See [logging and evidence policy](docs/logging.md).
 
 ## Safety
 
