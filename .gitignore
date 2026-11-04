@@ -1,0 +1,16 @@
+# Local-only environments and build/package outputs for the release worktree.
+/.build-deps/
+/.venv/
+/build/
+/dist/
+/CANARY_EXECUTION_PLAN.json
+
+# Retained local soak checkpoints and failure reproductions are not release files.
+/soak/
+
+# Runtime bytecode caches.
+__pycache__/
+*.py[cod]
+
+# Local CUDA build output; source and reference fixtures are handled separately.
+/third_party/pearlhash-cuda-src/libp40cuda.so
