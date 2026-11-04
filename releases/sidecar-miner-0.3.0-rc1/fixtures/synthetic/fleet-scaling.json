@@ -1,0 +1,7 @@
+{
+  "label": "SYNTHETIC TEST FIXTURE ONLY",
+  "fixed_us": 1000,
+  "per_batch_us": 100,
+  "batch_count": 64,
+  "expected": "2/4 FKs improve modeled completion time over one FK; additional FKs stop helping after available batch count/overhead constraints"
+}

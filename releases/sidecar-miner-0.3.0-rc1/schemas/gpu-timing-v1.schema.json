@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sidecar-gpu-timing-v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "source",
+    "measured",
+    "identity",
+    "timings_us"
+  ],
+  "properties": {
+    "schema": {
+      "const": "sidecar-gpu-timing-v1"
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "measured": {
+      "type": "boolean"
+    },
+    "identity": {
+      "type": "object",
+      "required": [
+        "job_fingerprint"
+      ],
+      "properties": {
+        "job_fingerprint": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "timings_us": {
+      "type": "object",
+      "required": [
+        "total_us",
+        "batch_size"
+      ],
+      "properties": {
+        "job_setup_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "host_to_gpu_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "kernel_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "gpu_to_host_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "verification_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "total_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "batch_size": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "throughput": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,18 @@
+{
+  "schema": "sidecar-gpu-timing-v1",
+  "source": "SYNTHETIC TEST FIXTURE ONLY",
+  "measured": false,
+  "identity": {
+    "job_fingerprint": "fixture-job"
+  },
+  "timings_us": {
+    "job_setup_us": 0,
+    "host_to_gpu_us": 0,
+    "kernel_us": 1000,
+    "gpu_to_host_us": 0,
+    "verification_us": 0,
+    "total_us": 1000,
+    "batch_size": 1,
+    "throughput": 1000.0
+  }
+}

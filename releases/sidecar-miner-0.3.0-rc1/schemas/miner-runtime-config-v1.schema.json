@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sidecar-miner-runtime-config-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["pool_host", "pool_port", "wallet", "worker", "password", "mode", "canary_shares"],
+  "properties": {
+    "pool_host": {"type": "string", "minLength": 1},
+    "pool_port": {"type": "integer", "minimum": 1, "maximum": 65535},
+    "wallet": {"type": "string", "minLength": 1},
+    "worker": {"type": "string", "minLength": 1, "maxLength": 128},
+    "password": {"type": "string"},
+    "mode": {"enum": ["gpu-only", "sidecar", "auto"]},
+    "gpu_id": {"type": ["integer", "null"], "minimum": 0},
+    "fk_target": {"type": ["string", "null"]},
+    "canary_shares": {"const": 1},
+    "qualification_store": {"type": ["string", "null"]},
+    "cuda_qualification": {"type": ["string", "null"]},
+    "cuda_library_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "cuda_source_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "cuda_fixture_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "fk_qualification": {"type": ["string", "null"]},
+    "fk_bitstream_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"}
+  }
+}

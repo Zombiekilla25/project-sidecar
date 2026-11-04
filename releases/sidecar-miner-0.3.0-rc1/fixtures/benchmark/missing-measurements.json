@@ -1,0 +1,37 @@
+{
+  "schema": "sidecar-first-silicon-benchmark-v1",
+  "schema_version": 1,
+  "candidate_id": "synthetic-missing-measurements",
+  "measured": false,
+  "status": "PASS",
+  "identity": {
+    "job_fingerprint": "synthetic-job-balanced",
+    "result_identity": "synthetic-result-balanced"
+  },
+  "transaction_count": 100,
+  "item_count": 16,
+  "timings_us": {
+    "host_preparation_us": null,
+    "transport_in_us": null,
+    "fpga_compute_us": null,
+    "transport_out_us": null,
+    "composition_us": null,
+    "cpu_verification_us": null,
+    "total_e2e_us": null,
+    "backend_vector_total_us": null
+  },
+  "correctness": {
+    "raw_result_exact": null,
+    "canonical_result_exact": null,
+    "cpu_crosscheck": null
+  },
+  "qualification": {
+    "qualified": null,
+    "bitstream_sha256": null,
+    "runner_sha256": null
+  },
+  "rollback_available": null,
+  "backend_healthy": null,
+  "stale_result_count": null,
+  "source_kind": "SYNTHETIC_FIXTURE"
+}

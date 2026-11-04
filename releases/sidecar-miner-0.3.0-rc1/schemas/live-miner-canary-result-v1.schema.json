@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sidecar-live-miner-canary-result-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "started_at_utc", "ended_at_utc", "mode", "backend", "pool_connection", "job_received", "job_identity", "candidate_verification", "share_attempts", "share_verified", "share_submitted", "pool_response", "pool_response_reason", "timings", "qualification_identity", "shutdown_clean", "outcome"],
+  "properties": {
+    "schema": {"const": "sidecar-live-miner-canary-result-v1"},
+    "started_at_utc": {"type": "string", "format": "date-time"},
+    "ended_at_utc": {"type": "string", "format": "date-time"},
+    "mode": {"enum": ["auto", "gpu-only", "sidecar"]},
+    "backend": {"type": "string", "minLength": 1},
+    "pool_connection": {"type": "boolean"},
+    "job_received": {"type": "boolean"},
+    "job_identity": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "candidate_verification": {"enum": ["not-run", "pass", "fail"]},
+    "share_attempts": {"type": "integer", "minimum": 0, "maximum": 1},
+    "share_verified": {"type": "integer", "minimum": 0, "maximum": 1},
+    "share_submitted": {"type": "integer", "minimum": 0, "maximum": 1},
+    "pool_response": {"enum": ["none", "accepted", "rejected", "stale", "duplicate", "unauthorized", "server-error", "timeout", "disconnect", "verification-failed"]},
+    "pool_response_reason": {"type": "string", "maxLength": 512},
+    "timings": {"type": "object", "additionalProperties": {"type": ["number", "null"], "minimum": 0}},
+    "qualification_identity": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["backend_type", "artifact_sha256"],
+      "properties": {
+        "backend_type": {"enum": ["cuda-pearlhash", "fk33-phk1", "mock"]},
+        "artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "shutdown_clean": {"type": "boolean"},
+    "outcome": {"enum": ["PASS", "FAIL"]}
+  }
+}

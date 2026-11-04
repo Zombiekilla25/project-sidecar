@@ -1,0 +1,4 @@
+# Ubuntu development packages required to build the native shared library.
+libftdi1-dev
+libusb-1.0-0-dev
+pkg-config

@@ -1,0 +1,44 @@
+{
+  "cpu_oracle": {
+    "blake3_version": "1.0.10",
+    "identity": "open-pearl-miner/tests/test_pipeline_e2e.py::verify_tile",
+    "method": "int64 tile accumulation; int32 wrap; xor reduction; rotl32(13)-xor transcript; keyed BLAKE3",
+    "numpy_version": "2.5.3",
+    "upstream_source_sha256": "9c4d7e3eb692b75632e46b93ce6034d2e5f6c37beff250d08f95da0e57eb59d8"
+  },
+  "digest_byte_order": "BLAKE3 output byte sequence; CUDA uint32 words are little-endian on target",
+  "digest_count": 16,
+  "digest_size_bytes": 32,
+  "expected_bytes": 512,
+  "expected_file": "pearlhash-16x16-expected.bin",
+  "expected_sha256": "a36d6cfeb8ba3af180a280c41561669799d50fc462a0c9b22bd567a19bcdcb4a",
+  "input_bytes": 8256,
+  "input_encoding": "A_noised signed-int8 C-row-major; Bt_noised signed-int8 C-row-major; key32; target32",
+  "input_file": "pearlhash-16x16-input.bin",
+  "input_generator": "A[i,j]=((7*i+3*j)%127)-63; B[i,j]=((5*i+11*j)%127)-63; Bt=C-contiguous transpose(B); key[b]=(17*b+3)&255; target=0xff*32",
+  "input_item_count": 8192,
+  "input_sha256": "dd4d2e0159d7dc805e3c4fb14560e557ea0c78a7ddc9884817843047d1f83b88",
+  "kind": "pearlhash-raw-keyed-blake3-digests",
+  "ordering_and_matrix_contract": "A[m,k], Bt[n,k], signed int8 two's-complement; digest IDs match CUDA tile_id=(row/16)*(n/16)+(column/16)",
+  "output_encoding": "raw BLAKE3 digest bytes per tile; 32 bytes each",
+  "schema": "sidecar-cuda-raw-digest-v1",
+  "shape": {
+    "A_noised": [
+      64,
+      64
+    ],
+    "Bt_noised": [
+      64,
+      64
+    ],
+    "digest_count": 16,
+    "k": 64,
+    "reduction_R": 64,
+    "tile": [
+      16,
+      16
+    ]
+  },
+  "tile_order": "row-major: tile-row outer, tile-column inner; origin (0,0) then (0,16) ...",
+  "version": 1
+}

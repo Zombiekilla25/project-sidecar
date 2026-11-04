@@ -1,0 +1,256 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sidecar-phk1-canary-result-v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "job_fingerprint",
+    "result_identity",
+    "status",
+    "timings_us"
+  ],
+  "properties": {
+    "schema": {
+      "const": "sidecar-phk1-canary-result-v1"
+    },
+    "source": {
+      "type": "string"
+    },
+    "job_fingerprint": {
+      "type": "string",
+      "minLength": 1
+    },
+    "result_identity": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timings_us": {
+      "type": "object",
+      "required": [
+        "vector_total_us"
+      ],
+      "properties": {
+        "program_time_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "backend_open_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "target_revalidation_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "hello_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "host_pack_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "input_stream_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "fpga_compute_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "output_stream_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "host_compose_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "verify_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "vector_total_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "logical_input_bits": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "logical_output_bits": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "physical_scan_clocks": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "jtag_clock_hz": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "item_count": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "additionalProperties": true
+}

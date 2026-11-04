@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sidecar-miner-release-manifest-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["miner_version", "git_commit", "schema_versions", "supported_qualification_artifacts",
+    "configuration_schema_version", "launcher_identity", "qualification_schemas", "runtime_config_schema",
+    "release_manifest_schema"],
+  "properties": {
+    "miner_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "git_commit": {"type": "string", "minLength": 7},
+    "schema_versions": {"type": "object", "additionalProperties": {"type": "integer"}},
+    "supported_qualification_artifacts": {"type": "array", "minItems": 2, "items": {"type": "string"}},
+    "configuration_schema_version": {"const": 1},
+    "launcher_identity": {"type": "string"},
+    "qualification_schemas": {"type": "object", "additionalProperties": {"type": "string"}},
+    "runtime_config_schema": {"type": "string"},
+    "release_manifest_schema": {"type": "string"}
+  }
+}

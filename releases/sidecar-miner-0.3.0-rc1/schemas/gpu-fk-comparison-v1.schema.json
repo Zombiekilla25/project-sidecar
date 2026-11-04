@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-sidecar.local/schemas/gpu-fk-comparison-v1.schema.json",
+  "title": "Measured GPU and FK performance comparison",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "measured",
+    "gpu",
+    "fk",
+    "comparison"
+  ],
+  "properties": {
+    "schema": {
+      "const": "sidecar-gpu-fk-comparison-v1"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "measured": {
+      "type": "boolean"
+    },
+    "gpu": {
+      "$ref": "#/$defs/backend-output"
+    },
+    "fk": {
+      "$ref": "#/$defs/backend-output"
+    },
+    "comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "relative_fk_to_gpu_throughput_per_watt"
+      ],
+      "properties": {
+        "relative_fk_to_gpu_throughput_per_watt": {
+          "$ref": "#/$defs/value"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "value": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "backend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "throughput_per_second",
+        "watts",
+        "throughput_per_watt"
+      ],
+      "properties": {
+        "throughput_per_second": {
+          "$ref": "#/$defs/value"
+        },
+        "watts": {
+          "$ref": "#/$defs/value"
+        },
+        "throughput_per_watt": {
+          "$ref": "#/$defs/value"
+        }
+      }
+    },
+    "backend-output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "throughput_transactions_s",
+        "power_w",
+        "throughput_per_watt"
+      ],
+      "properties": {
+        "throughput_transactions_s": {
+          "$ref": "#/$defs/value"
+        },
+        "power_w": {
+          "$ref": "#/$defs/value"
+        },
+        "throughput_per_watt": {
+          "$ref": "#/$defs/value"
+        }
+      }
+    }
+  }
+}

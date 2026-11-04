@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sidecar-phk1-physical-qualification-v1",
+  "title": "Public-safe Sidecar PHK1 backend qualification",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifact_type", "schema_version", "backend_type", "qualified",
+    "bitstream_sha256", "runner_identity", "runner_sha256", "backend_identity",
+    "backend_sha256", "transport_version", "protocol_version", "vector_id",
+    "raw_result_exact", "canonical_result_exact", "cpu_crosscheck",
+    "rollback_verified", "qualification_timestamp"
+  ],
+  "properties": {
+    "artifact_type": { "const": "sidecar-backend-qualification" },
+    "schema_version": { "const": 1 },
+    "backend_type": { "const": "fk33-phk1" },
+    "qualified": { "const": true },
+    "bitstream_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "runner_identity": { "type": "string", "minLength": 1 },
+    "runner_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "backend_identity": { "type": "string", "minLength": 1 },
+    "backend_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "transport_version": { "const": "raw-bscan-v1" },
+    "protocol_version": { "const": 1 },
+    "vector_id": { "const": "operand-vector-001" },
+    "raw_result_exact": { "const": true },
+    "canonical_result_exact": { "const": true },
+    "cpu_crosscheck": { "const": true },
+    "rollback_verified": { "const": true },
+    "qualification_timestamp": { "type": "string", "format": "date-time" }
+  }
+}

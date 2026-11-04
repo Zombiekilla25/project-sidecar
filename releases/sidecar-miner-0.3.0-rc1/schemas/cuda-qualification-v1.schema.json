@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sidecar-cuda-qualification-v1",
+  "title": "Public-safe Sidecar CUDA backend qualification",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifact_type", "schema_version", "backend_type", "qualified",
+    "library_sha256", "source_sha256", "fixture_sha256", "result_sha256",
+    "device_name", "qualification_timestamp", "explicit_device_selection"
+  ],
+  "properties": {
+    "artifact_type": { "const": "sidecar-backend-qualification" },
+    "schema_version": { "const": 1 },
+    "backend_type": { "const": "cuda-pearlhash" },
+    "qualified": { "const": true },
+    "library_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "source_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "fixture_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "result_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "device_name": { "type": "string", "minLength": 1 },
+    "qualification_timestamp": { "type": "string", "format": "date-time" },
+    "explicit_device_selection": { "const": true }
+  }
+}

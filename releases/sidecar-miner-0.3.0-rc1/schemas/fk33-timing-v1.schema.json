@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fk33-timing-v1",
+  "title": "Project Sidecar FK33 timing sample; unknown components are null",
+  "type": "object",
+  "required": ["host_pack_us", "transport_in_us", "fpga_compute_us", "transport_out_us", "compose_us", "verify_us", "total_us"],
+  "properties": {
+    "host_pack_us": {"type": ["number", "null"], "minimum": 0},
+    "transport_in_us": {"type": ["number", "null"], "minimum": 0},
+    "fpga_compute_us": {"type": ["number", "null"], "minimum": 0},
+    "transport_out_us": {"type": ["number", "null"], "minimum": 0},
+    "compose_us": {"type": ["number", "null"], "minimum": 0},
+    "verify_us": {"type": ["number", "null"], "minimum": 0},
+    "total_us": {"type": ["number", "null"], "minimum": 0}
+  },
+  "additionalProperties": false
+}

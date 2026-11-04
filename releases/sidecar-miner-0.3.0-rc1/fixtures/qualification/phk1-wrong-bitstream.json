@@ -1,0 +1,19 @@
+{
+  "artifact_type": "sidecar-backend-qualification",
+  "backend_identity": "fixture-backend",
+  "backend_sha256": "822e92f84f28fc783a42bf436a2155d2008264cb6eeb7119716834e3200b34f5",
+  "backend_type": "fk33-phk1",
+  "bitstream_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "canonical_result_exact": true,
+  "cpu_crosscheck": true,
+  "protocol_version": 1,
+  "qualification_timestamp": "2026-11-03T12:00:00Z",
+  "qualified": true,
+  "raw_result_exact": true,
+  "rollback_verified": true,
+  "runner_identity": "fixture-runner",
+  "runner_sha256": "a90c3322b0c9d7902b6c266707ec7e2a8f6b8414b379609a8a228fd7579642a9",
+  "schema_version": 1,
+  "transport_version": "raw-bscan-v1",
+  "vector_id": "operand-vector-001"
+}

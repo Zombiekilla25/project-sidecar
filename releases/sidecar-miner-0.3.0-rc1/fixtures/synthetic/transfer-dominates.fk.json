@@ -1,0 +1,27 @@
+{
+  "schema": "sidecar-fk-timing-v1",
+  "source": "SYNTHETIC TEST FIXTURE ONLY",
+  "measured": false,
+  "identity": {
+    "job_fingerprint": "fixture-job",
+    "result_identity": "fixture-result"
+  },
+  "timings_us": {
+    "program_time_us": 10,
+    "backend_open_us": 10,
+    "target_revalidation_us": 10,
+    "hello_us": 10,
+    "host_pack_us": 10,
+    "input_stream_us": 12000,
+    "fpga_compute_us": 100,
+    "output_stream_us": 800,
+    "host_compose_us": 10,
+    "verify_us": 10,
+    "vector_total_us": 13000,
+    "logical_input_bits": 1574912,
+    "logical_output_bits": 6144,
+    "physical_scan_clocks": null,
+    "jtag_clock_hz": null,
+    "batch_size": 1
+  }
+}

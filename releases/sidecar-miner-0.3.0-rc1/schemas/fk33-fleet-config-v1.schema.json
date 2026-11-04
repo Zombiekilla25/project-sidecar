@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fk33-fleet-config-v1",
+  "title": "Project Sidecar offline FK33 fleet configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "cards"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "rollout_stage": {"const": "CANARY_1"},
+    "qualification_artifact": {"type": "string", "minLength": 1},
+    "expected_runner_sha256": {"$ref": "#/$defs/sha256"},
+    "expected_backend_sha256": {"$ref": "#/$defs/sha256"},
+    "protocol_version": {"type": "integer", "minimum": 1},
+    "cards": {"type": "array", "minItems": 1, "maxItems": 8, "items": {"$ref": "#/$defs/card"}}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "card": {
+      "type": "object", "additionalProperties": false,
+      "required": ["logical_id"],
+      "properties": {
+        "logical_id": {"type": "string", "pattern": "^fk[0-7]$"},
+        "physical_binding_id": {"type": ["string", "null"], "maxLength": 256},
+        "expected_bitstream_sha256": {"$ref": "#/$defs/sha256"},
+        "expected_runner_sha256": {"$ref": "#/$defs/sha256"},
+        "expected_backend_sha256": {"$ref": "#/$defs/sha256"},
+        "expected_protocol_version": {"type": "integer", "minimum": 1},
+        "rollback_image_sha256": {"$ref": "#/$defs/sha256"},
+        "enabled": {"type": "boolean"},
+        "measured_jobs_per_second": {"type": "number", "exclusiveMinimum": 0}
+      }
+    }
+  }
+}

@@ -1,0 +1,217 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-sidecar.local/schemas/first-silicon-benchmark-v1.schema.json",
+  "title": "Project Sidecar first silicon benchmark input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "candidate_id",
+    "measured",
+    "status",
+    "identity",
+    "transaction_count",
+    "item_count",
+    "timings_us",
+    "correctness",
+    "qualification",
+    "rollback_available",
+    "backend_healthy",
+    "stale_result_count",
+    "source_kind"
+  ],
+  "properties": {
+    "schema": {
+      "const": "sidecar-first-silicon-benchmark-v1"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "candidate_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96,
+      "pattern": "^[A-Za-z0-9._-]+$"
+    },
+    "measured": {
+      "type": "boolean"
+    },
+    "status": {
+      "enum": [
+        "PASS",
+        "FAIL"
+      ]
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "job_fingerprint",
+        "result_identity"
+      ],
+      "properties": {
+        "job_fingerprint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "result_identity": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "transaction_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "item_count": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "timings_us": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_preparation_us",
+        "transport_in_us",
+        "fpga_compute_us",
+        "transport_out_us",
+        "composition_us",
+        "cpu_verification_us",
+        "total_e2e_us",
+        "backend_vector_total_us"
+      ],
+      "properties": {
+        "host_preparation_us": {
+          "$ref": "#/$defs/measurement"
+        },
+        "transport_in_us": {
+          "$ref": "#/$defs/measurement"
+        },
+        "fpga_compute_us": {
+          "$ref": "#/$defs/measurement"
+        },
+        "transport_out_us": {
+          "$ref": "#/$defs/measurement"
+        },
+        "composition_us": {
+          "$ref": "#/$defs/measurement"
+        },
+        "cpu_verification_us": {
+          "$ref": "#/$defs/measurement"
+        },
+        "total_e2e_us": {
+          "$ref": "#/$defs/measurement"
+        },
+        "backend_vector_total_us": {
+          "$ref": "#/$defs/measurement"
+        }
+      }
+    },
+    "correctness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_result_exact",
+        "canonical_result_exact",
+        "cpu_crosscheck"
+      ],
+      "properties": {
+        "raw_result_exact": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "canonical_result_exact": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "cpu_crosscheck": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    },
+    "qualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "qualified",
+        "bitstream_sha256",
+        "runner_sha256"
+      ],
+      "properties": {
+        "qualified": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "bitstream_sha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "runner_sha256": {
+          "$ref": "#/$defs/hash"
+        }
+      }
+    },
+    "rollback_available": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "backend_healthy": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "stale_result_count": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "source_kind": {
+      "enum": [
+        "PHK1_CANARY",
+        "SYNTHETIC_FIXTURE",
+        "EXTERNAL_BENCHMARK"
+      ]
+    }
+  },
+  "$defs": {
+    "measurement": {
+      "anyOf": [
+        {
+          "type": "number",
+          "minimum": 0
+        },
+        {
+          "type": "null"
+        },
+        {
+          "const": "UNKNOWN"
+        }
+      ]
+    },
+    "hash": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

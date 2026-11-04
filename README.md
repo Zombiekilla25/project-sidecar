@@ -4,6 +4,12 @@
 
 # Project Sidecar
 
+## Sidecar miner 0.3.0-rc1
+
+This software release candidate combines the PRL miner frontend and CPU verifier, supervised one-share canary guard, backend qualification artifacts, offline FK33 fleet controller, and first-silicon benchmark/scaling analysis. The offline suite passes 244/244 tests; the mock fleet completed 10,000 assignments. Real CUDA and PHK1 physical backends remain unqualified, and live pool access remains disabled. The patched PHK1 candidate passed offline simulation, synthesis, implementation, timing, and DRC checks; VU33P bitstream generation is blocked because the available Vivado license does not permit `write_bitstream` for that target.
+
+See the [release-candidate source](releases/sidecar-miner-0.3.0-rc1/README.md) and [public software milestone](docs/run-logs/2026-11-03-sidecar-miner-0.3.0-rc1.md).
+
 GPU + FPGA cooperative compute research for PearlHash/PRL using NVIDIA RTX GPUs and SQRL FK33 accelerators.
 
 ## Current status

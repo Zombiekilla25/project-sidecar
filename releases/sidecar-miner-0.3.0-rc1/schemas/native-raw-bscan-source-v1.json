@@ -1,0 +1,54 @@
+{
+  "backend_sources": [
+    {
+      "path": "tools/phk1_raw_bscan/sidecar_transport_abi.cpp",
+      "sha256": "b0f18c9cd05d51c80042ecd63e95f927cde8d673456ec4bf5159c2bbe748aabc"
+    },
+    {
+      "path": "tools/phk1_raw_bscan/sidecar_transport_abi.h",
+      "sha256": "0e81c0a40cd28866a4a84ae39e51454f0ae0ba6e29d0637e67e0b3b634347a84"
+    },
+    {
+      "path": "tools/phk1_raw_bscan/mpsse_backend.cpp",
+      "sha256": "5926bc62c24bfc5c204c1b2cc3c4fe541b78814fcf7b74b40ce85f49570f8da1"
+    },
+    {
+      "path": "tools/phk1_raw_bscan/mpsse_backend.hpp",
+      "sha256": "f14b79ae94e6635ddb6bc92550adf59fd42df664a1fd8216bad5779f1fd61b4e"
+    },
+    {
+      "path": "tools/phk1_raw_bscan/libftdi_io.cpp",
+      "sha256": "4b61ff5c78f6c666e5888d56ffda885edf6923fc4d72b361b75b6e56ca949194"
+    },
+    {
+      "path": "tools/phk1_raw_bscan/libftdi_io.hpp",
+      "sha256": "bd82c8255534464b6f7a23c1b8c0baa873b4923b3b162949926e11955b19ab59"
+    },
+    {
+      "path": "tools/phk1_raw_bscan/usb_selection.cpp",
+      "sha256": "6bd03fd54b2a94d0a056c3eb155b6c50cdc65a530eae752aeb93f5fedf41df48"
+    },
+    {
+      "path": "tools/phk1_raw_bscan/usb_selection.hpp",
+      "sha256": "d073058c2d1a3149ebd7b4e96bec7b88c33396d4073fd57fe0215136a177896f"
+    },
+    {
+      "path": "tools/phk1_raw_bscan/usb_identity.hpp",
+      "sha256": "916e436168d4a7cf057e1019a06f0b2207d9122246e7bae22a73121549eb2fcb"
+    }
+  ],
+  "backend_sources_sha256": "822e92f84f28fc783a42bf436a2155d2008264cb6eeb7119716834e3200b34f5",
+  "runner_sources": [
+    {
+      "path": "sidecar_miner/phk1/frame_protocol.py",
+      "sha256": "f8796883c296ffd372d6dcf51c71e587b03ff6640f6d1f920eeb57417118c57d"
+    },
+    {
+      "path": "sidecar_miner/phk1/transport.py",
+      "sha256": "47ff2cad30ef42d45d76077aadd0bdd84875bbe0eeeb16bcf8b64a1e58ebae78"
+    }
+  ],
+  "runner_sources_sha256": "a90c3322b0c9d7902b6c266707ec7e2a8f6b8414b379609a8a228fd7579642a9",
+  "schema": "sidecar-native-raw-bscan-source-v1",
+  "version": 1
+}

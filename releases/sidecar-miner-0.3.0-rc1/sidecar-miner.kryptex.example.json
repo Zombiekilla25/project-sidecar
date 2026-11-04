@@ -1,0 +1,18 @@
+{
+  "pool_host": "POOL_HOST",
+  "pool_port": 7048,
+  "wallet": "REPLACE_WITH_OPERATOR_WALLET",
+  "worker": "REPLACE_WITH_WORKER_ALIAS",
+  "password": "x",
+  "mode": "gpu-only",
+  "gpu_id": null,
+  "fk_target": null,
+  "canary_shares": 1,
+  "qualification_store": "~/.local/share/project-sidecar/qualifications",
+  "cuda_qualification": null,
+  "cuda_library_sha256": null,
+  "cuda_source_sha256": null,
+  "cuda_fixture_sha256": null,
+  "fk_qualification": null,
+  "fk_bitstream_sha256": null
+}

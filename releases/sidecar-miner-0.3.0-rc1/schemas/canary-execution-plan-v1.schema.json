@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sidecar-canary-execution-plan-v1",
+  "title": "Public-safe Sidecar canary execution plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "mode", "selected_backend", "qualified_backends", "qualification",
+    "pool", "worker", "wallet_configured", "password_configured", "gpu_id",
+    "fk_target", "gpu_runtime_check", "share_limit", "live_requested", "live_enabled", "scheduler_decision",
+    "expected_behavior", "network_activity"
+  ],
+  "properties": {
+    "schema": { "const": "sidecar-canary-execution-plan-v1" },
+    "mode": { "enum": ["gpu-only", "sidecar", "auto"] },
+    "selected_backend": { "enum": ["gpu", "gpu+fk", "unqualified"] },
+    "qualified_backends": { "type": "array", "items": { "enum": ["gpu", "gpu+fk"] } },
+    "qualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gpu", "fk"],
+      "properties": {
+        "gpu": { "type": ["object", "null"] },
+        "fk": { "type": ["object", "null"] }
+      }
+    },
+    "pool": {
+      "type": "object", "additionalProperties": false, "required": ["host", "port"],
+      "properties": { "host": { "type": "string" }, "port": { "type": "integer", "minimum": 1, "maximum": 65535 } }
+    },
+    "worker": { "type": "string", "minLength": 1 },
+    "wallet_configured": { "type": "boolean" },
+    "password_configured": { "type": "boolean" },
+    "gpu_id": { "type": ["integer", "null"], "minimum": 0 },
+    "fk_target": { "type": ["string", "null"] },
+    "gpu_runtime_check": { "const": "deferred until qualified runtime preflight" },
+    "share_limit": { "const": 1 },
+    "live_requested": { "type": "boolean" },
+    "live_enabled": { "const": false },
+    "scheduler_decision": { "type": "string" },
+    "expected_behavior": { "const": "stop after first submitted share response" },
+    "network_activity": { "const": "not attempted" }
+  }
+}

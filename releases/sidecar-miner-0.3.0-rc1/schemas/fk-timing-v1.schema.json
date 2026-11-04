@@ -1,0 +1,276 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sidecar-fk-timing-v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "source",
+    "measured",
+    "identity",
+    "timings_us"
+  ],
+  "properties": {
+    "schema": {
+      "const": "sidecar-fk-timing-v1"
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "measured": {
+      "type": "boolean"
+    },
+    "identity": {
+      "type": "object",
+      "required": [
+        "job_fingerprint",
+        "result_identity"
+      ],
+      "properties": {
+        "job_fingerprint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "result_identity": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "timings_us": {
+      "type": "object",
+      "properties": {
+        "program_time_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "backend_open_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "target_revalidation_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "hello_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "host_pack_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "input_stream_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "fpga_compute_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "output_stream_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "host_compose_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "verify_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "vector_total_us": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "logical_input_bits": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "logical_output_bits": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "physical_scan_clocks": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "jtag_clock_hz": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        },
+        "batch_size": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            },
+            {
+              "const": "UNKNOWN"
+            }
+          ]
+        }
+      },
+      "required": [
+        "vector_total_us"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

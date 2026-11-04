@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "rollout_stage": "CANARY_1",
+  "protocol_version": 1,
+  "cards": [
+    {"logical_id": "fk0", "physical_binding_id": null, "enabled": true},
+    {"logical_id": "fk1", "physical_binding_id": null, "enabled": true},
+    {"logical_id": "fk2", "physical_binding_id": null, "enabled": true},
+    {"logical_id": "fk3", "physical_binding_id": null, "enabled": true},
+    {"logical_id": "fk4", "physical_binding_id": null, "enabled": true},
+    {"logical_id": "fk5", "physical_binding_id": null, "enabled": true},
+    {"logical_id": "fk6", "physical_binding_id": null, "enabled": true},
+    {"logical_id": "fk7", "physical_binding_id": null, "enabled": true}
+  ]
+}
