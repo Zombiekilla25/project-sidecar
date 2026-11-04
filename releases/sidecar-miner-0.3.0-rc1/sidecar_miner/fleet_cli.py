@@ -74,4 +74,3 @@ def main(argv=None):
     except (ValueError,KeyError,TypeError,QualificationGateError,RuntimeError) as exc:
         print(json.dumps({"status":"REJECTED","reason":str(exc),"hardware_access":"none"},sort_keys=True));return 3
     return 2
-

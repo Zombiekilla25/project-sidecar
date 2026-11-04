@@ -833,4 +833,3 @@ def atomic_write_json(path,value):
 
 def load_cards_config(path):
     return FleetController.from_config(path)
-
