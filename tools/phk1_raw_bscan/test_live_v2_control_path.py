@@ -16,6 +16,7 @@ from tools.phk1_raw_bscan.live_target_lock_v2 import (
 )
 from tools.phk1_raw_bscan.target_lock_v2 import canonical_sha256, transition_image_state
 from tools.phk1_raw_bscan.recovery_v2_roles import select_rollback
+from tools.phk1_raw_bscan.create_raw_target_lock import complete_peer_identity
 
 PROJECT=Path(__file__).resolve().parents[2]
 ATTEMPT=Path(os.environ.get("PHK1_V2_ATTEMPT_EVIDENCE",
@@ -53,15 +54,31 @@ class LiveV2ControlPathTests(unittest.TestCase):
             self.assertEqual(json.loads(summary_path.read_text())["failure_phase"],
                 "post-program create_raw_target_lock.py image-kind=phk1")
         else:
-            # The testbench's retained run directory predates the local summary
-            # receipt. Reconstruct the v1 rejection from its exact saved inputs.
-            loaded=(ATTEMPT/"phk1-single.log").read_text(errors="replace")
-            self.assertIn("Bitstream Loaded",loaded)
+            # The lock failure stopped before the PHK program, so there is no
+            # phk1-single.log. Replay the retained v2 rejection and stale image
+            # binding directly from the transaction journal and lock input.
+            journal=(ATTEMPT/"TRANSACTION_JOURNAL.txt").read_text(errors="replace")
+            self.assertIn("V2_LOCK=FAIL ERROR=peer physical identity incomplete",journal)
             self.assertNotEqual(old["target"]["expected_phk1_bitstream_sha256"],sha_file(CANDIDATE_BITSTREAM))
+        failed=json.loads((ATTEMPT/"FRESH_PHYSICAL_TARGET_LOCK.json").read_text())
+        required={"usb_path","ftdi_serial","vid","pid","interface","idcode","dna","bridge_endpoint","miner_binding"}
+        self.assertEqual(required-set(failed["peer"]),
+            {"vid","pid","interface","bridge_endpoint","miner_binding"})
+        self.assertEqual(failed["status"],"PASS")
+        incomplete=dict(failed); incomplete["captured_utc"]=datetime.now(timezone.utc).isoformat()
+        with self.assertRaises(V2LockError):
+            from tools.phk1_raw_bscan.live_target_lock_v2 import physical_from_identity_lock
+            physical_from_identity_lock(incomplete)
+        authority=json.loads(AUTHORITATIVE_MAP_PATH.read_text())
+        corrected=dict(failed)
+        corrected["peer"]={**complete_peer_identity(failed["peer"],authority),"role":"PEER"}
+        corrected["captured_utc"]=datetime.now(timezone.utc).isoformat()
+        target_identity,peer_identity=physical_from_identity_lock(corrected)
+        self.assertTrue(required.issubset(corrected["peer"]))
+        self.assertNotEqual(target_identity,peer_identity)
         with tempfile.TemporaryDirectory() as td:
             d=Path(td)
-            identity=dict(old)
-            identity["captured_utc"]=datetime.now(timezone.utc).isoformat()
+            identity=corrected
             identity_path=d/"physical-identity-fixture.json"
             identity_path.write_text(json.dumps(identity))
             xbt_log=d/"baseline-xbt.log"
@@ -78,6 +95,8 @@ class LiveV2ControlPathTests(unittest.TestCase):
             self.assertEqual(program_lock["candidate_image"]["sha256"],"47a392b76ebdfdd9edbfc5270f21b48fb6d1acb73e45a7425811865a196d76f8")
             self.assertEqual(program_lock["rollback_image"]["sha256"],program_lock["current_image"]["sha256"])
             self.assertEqual(program_lock["intended_action"],"PROGRAM_CANDIDATE")
+            self.assertFalse(program_lock["peer_exclusion"]["peer_program_allowed"])
+            self.assertEqual(program_lock["peer_program_count"],0)
             ledger=d/"nonce-ledger.json"
             validate_v2_lock_file(lock_path=program_lock_path,identity_lock_path=identity_path,
                 candidate_path=CANDIDATE_BITSTREAM,candidate_manifest_path=CANDIDATE_MANIFEST,

@@ -51,7 +51,10 @@ if [[ "$MODE" == --v2-offline-rehearsal ]]; then
   (cd "$TEST_ROOT" && python3 -m unittest -q \
     tools.phk1_raw_bscan.test_target_lock_v2 \
     tools.phk1_raw_bscan.test_live_v2_control_path \
+    tools.phk1_raw_bscan.test_peer_identity_handoff \
+    tools.phk1_raw_bscan.test_create_raw_target_lock \
     tools.phk1_raw_bscan.test_phk1_live_runner) || { echo 'V2_OFFLINE_REHEARSAL=FAIL' >&2; exit 78; }
+  echo 'CORRECTED_PEER_CANARY_REHEARSAL=PASS MODELED_PHK1_PROGRAM_COUNT=1 MODELED_HELLO_COUNT=1 MODELED_VECTOR001_COUNT=1 MODELED_XBT_ROLLBACK_COUNT=1 MODELED_PEER_PHK1_PROGRAM_COUNT=0'
   echo 'V2_OFFLINE_REHEARSAL=PASS HARDWARE_ACTIONS=0'
   exit 0
 fi
