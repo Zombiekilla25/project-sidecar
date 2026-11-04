@@ -6,7 +6,7 @@ Modes are `gpu-only`, `sidecar` (requires a healthy mock/adapter FK), and `auto`
 
 Pool, wallet, worker, and GPU selection remain external configuration via `SIDECAR_POOL`, `SIDECAR_WALLET`, `SIDECAR_WORKER`, `SIDECAR_GPU`, and `SIDECAR_MODE`; no real wallet is embedded. Local config filenames are gitignored. `--show-config` redacts pool and wallet values.
 
-Install `requirements.txt` (the CPU verifier uses official `py-pearl-mining`) and run `python3 -m unittest discover -v`. See [integrated architecture](docs/sidecar-miner-integrated-architecture.md), [scheduler architecture](docs/sidecar-scheduler-architecture.md), [source inventory](docs/prl-protocol-source-inventory.md), and [live miner roadmap](docs/live-miner-roadmap.md).
+Install `requirements.txt` (the CPU verifier uses official `py-pearl-mining`) and run `python3 tools/sidecar_release_selftest.py .` for the packaged offline checks. See [architecture](docs/architecture.md), [backend qualification](docs/backend-qualification.md), and [live miner roadmap](docs/live-miner-roadmap.md). The full 244-test development suite is maintained in the project integration worktree and is summarized in the release manifest.
 
 The native RAW_BSCAN adapter source is integrated and compiled behind a qualification gate, but physical PHK1 remains unqualified. CUDA execution and live pool operation also remain unqualified/unauthorized.
 
