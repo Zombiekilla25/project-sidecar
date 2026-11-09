@@ -1,15 +1,17 @@
 # Release-candidate notes draft
 
-Status: draft for the next Sidecar Miner release candidate. No public release or tag has been created.
+Status: draft for a future Sidecar Miner release candidate. No release or tag has been created.
 
 ## Summary
 
-This milestone records software and release-preparation progress for experimental PHK1 work. It covers the v2 candidate/current/rollback lock architecture, peer protection, bounded RAW_BSCAN transport qualification, and a single-card canary design with rollback. A PHK1 candidate has routed at 200 MHz, and software can generate a patched bitstream candidate.
+This documentation milestone records offline PHK1 diagnostic-runtime reliability work and PHK2 production-work-generation/core RTL progress. It also reports an initial PHK2 VU33P synthesis resource measurement and the resulting move toward sequential work generation.
 
 ## Qualification and limitations
 
-First-silicon correctness remains under qualification. Routing and software-side checks do not establish correct PHK1 operation on physical silicon. This candidate makes no PHK1 physical-correctness, production-readiness, or speedup claim. The single-card canary remains gated, with rollback required. Production service restoration to the 8/8 worker baseline after controlled tests is complete.
+The PHK1 launcher and target-host fixtures are software-qualified, but PHK1 physical protocol qualification is still open. A previous silicon tile-0 error remains unresolved, and a later fail-closed preflight blocked before FPGA programming because diagnostic evidence/attestation integration did not match the required identify-phase contract.
+
+PHK2 production operand and core RTL checks passed within their documented offline scope, including the tested batch-64 flow. Initial PHK2 synthesis completed, but timing analysis and routing did not. No PHK2 bitstream or silicon result is claimed. Neither project has a demonstrated end-to-end acceleration result.
 
 ## Package contents
 
-This public update contains status and release documentation only. It does not include FPGA binaries, raw hardware traces, private evidence, or the unsanitized local v2 live-runner implementation. The software changes described here remain subject to public source review before a later package includes them.
+This update contains public-safe status and milestone documentation only. It contains no FPGA images, raw hardware traces, private evidence bundles, credentials, or private runtime binaries.

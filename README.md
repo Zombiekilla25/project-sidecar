@@ -6,28 +6,38 @@
 
 GPU + FPGA cooperative compute research for PearlHash/PRL using NVIDIA RTX GPUs and SQRL FK33 accelerators.
 
-## Current status
+## Current status — November 2026
 
-The PHK1 control design uses a v2 candidate/current/rollback lock architecture for controlled canary work. It binds candidate use to a current-image baseline, keeps a distinct rollback image available, and checks peer identity to protect peer devices from candidate programming. A single-card canary and rollback path is being prepared around these locks.
+Project Sidecar is testing whether an FK33 pod can accelerate selected PearlHash stages alongside a GPU. The project evaluates end-to-end work, including transfer, synchronization, scheduling, FPGA processing, and host verification.
 
-A PHK1 candidate has been routed at 200 MHz, and the software can generate a patched bitstream candidate. These are experimental FPGA results. First-silicon correctness is still under qualification; no claim of PHK1 physical correctness or production readiness is made.
+### PHK1 diagnostic path
 
-The bounded RAW_BSCAN transport path is qualified at the software/transport level. Production service restoration to the eight-worker baseline after controlled tests has been completed. See the [PHK1 milestone draft](docs/phk1-public-milestone-draft.md) for the concise status and remaining limits.
+The PHK1 work now has a candidate-aware diagnostic launcher, a versioned evidence capture flow, split USER3 error reporting, and a bounded RAW_BSCAN transport backend. Target/peer checks fail closed, and the control path has modeled rollback and recovery behavior. The candidate runtime has passed target-host no-hardware fixtures and deployment-binding checks.
 
-## Goal
+The 72-hour offline reliability campaign completed 2,815,825,360 modeled attempts and 72 of 72 deterministic regression checkpoints passed. It found no product defects or safety-invariant violations. One mock-harness defect was corrected during the campaign; its failure record was retained, and subsequent regressions passed. No hardware activity occurred during the campaign.
 
-Project Sidecar tests whether an FK33 pod can accelerate selected PearlHash stages alongside a GPU instead of operating only as independent miners. A sidecar is a win only if end-to-end throughput improves after transfer, synchronization, scheduling, FPGA processing, and return-path overhead are included.
+PHK1 physical protocol qualification is **not complete**. A prior silicon diagnostic observed a tile-0 error whose internal source remains unresolved. The latest fail-closed preflight also found an identify-phase diagnostic evidence/attestation integration mismatch before FPGA programming. The launcher continues to block attempts when identity or evidence prerequisites are incomplete. No correct PearlHash silicon result or acceleration claim is made.
 
-## Qualification state and limitations
+### PHK2 autonomous work generation
 
-Routing, software-generated patched images, transport qualification, and lock/recovery rehearsal do not establish that PHK1 computes correctly on physical silicon. That remains an open qualification gate. Experimental FPGA use remains isolated from production, bounded to a single-card canary, and paired with a rollback path. Public submission and broad deployment are outside the current qualification scope.
+Retained production captures were recovered and replayed against a production-backed CPU oracle. Production operand generation and the PHK2 core now have offline RTL qualification, including exact production operands, CPU/RTL differential checks, batch-64 exactness, and abort, reset, backpressure, and stale-generation tests. This establishes functional equivalence within the tested profiles and fixtures; it does not establish physical implementation or mining performance.
+
+### PHK2 synthesis findings
+
+An **initial synthesis baseline** for the first fully combinational work-generation design completed for the VU33P family. It used approximately 327,854 LUTs (74.57%), 1,372 DSPs (47.64%), 2,202 flip-flops, and no BRAM or URAM. This is a resource measurement for an unoptimized architecture, not a routed design. Timing analysis did not complete, and the measurement wrapper was unsuitable for placement and routing. The result motivated a sequential, time-multiplexed keyed-BLAKE3/work-generation architecture.
+
+### Next steps
+
+1. Resolve the PHK1 identify-phase evidence/attestation preflight mismatch, then separately authorize and run the one-card diagnostic silicon canary.
+2. Develop and verify the resource-efficient sequential PHK2 work generator against the CPU golden model.
+3. Synthesize PHK2 behind a realistic interface, then measure routing and timing before any silicon qualification or scaling decision.
+
+## Qualification boundaries
+
+The evidence types above are distinct: software and RTL results are offline-qualified; the PHK2 resource figures are synthesis-only; neither establishes silicon correctness, timing, or end-to-end speedup. PHK1 physical qualification remains open. PHK2 routing and silicon qualification have not been demonstrated.
 
 The project license has not yet been selected. Do not assume permission to redistribute third-party RTL, vendor IP, bitstreams, or external source code.
 
-## Future work
-
-Complete first-silicon correctness qualification, review the public-safe lock and rollback implementation, and only then consider a separately authorized canary. Measure end-to-end GPU/FPGA performance after correctness is established. See [qualification progress](docs/qualification-progress.md) for the broader project validation record.
-
 ## Project logs
 
-GitHub is used for public-safe milestone summaries, not raw machine/runtime evidence. See [logging and evidence policy](docs/logging.md).
+GitHub contains public-safe milestone summaries, not raw machine/runtime evidence. See [logging and evidence policy](docs/logging.md) and the [November 2026 PHK1/PHK2 milestone](docs/milestones/2026-11-phk1-phk2-progress.md).

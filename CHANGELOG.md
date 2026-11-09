@@ -2,9 +2,10 @@
 
 Project changes are recorded here when prepared for public release. This file does not itself announce a published release.
 
-## Unreleased — 2026-11-04
+## Unreleased — 2026-11-08
 
-- Document the PHK1 200 MHz routed candidate and patched-bitstream generation capability as experimental progress.
-- Describe the v2 candidate/current/rollback lock architecture, peer protection, bounded RAW_BSCAN transport qualification, and single-card canary/rollback design at a public-safe level.
-- Clarify that first-silicon correctness remains under qualification and make no PHK1 physical-correctness claim.
-- Update README status and add ignore rules for private evidence and generated FPGA artifacts.
+- Record PHK1 diagnostic launcher, Evidence-v2 capture, bounded transport, fail-closed target/peer controls, rollback modeling, and the completed 72-hour offline reliability campaign.
+- Clarify that PHK1 physical protocol qualification remains incomplete and that the current identify-phase evidence/attestation preflight mismatch blocks a live canary before programming.
+- Record PHK2 production-capture recovery, CPU golden-model work, offline core RTL qualification, and batch-64 exactness within the tested scope.
+- Publish the initial PHK2 VU33P synthesis resource baseline and its limits: timing and routing were not established, and the result motivates sequential work generation.
+- Update the architecture roadmap and explicitly separate offline qualification, synthesis, routing, and silicon qualification.

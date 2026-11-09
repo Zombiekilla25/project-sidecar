@@ -1,26 +1,20 @@
-# Sanitized public diff review
+# Public milestone diff review
 
-Review scope: public `main` at `976ebbb` to the files prepared in this branch.
+Review scope: public `main` at `976ebbb` plus this documentation and repository-hygiene update.
 
-## Proposed changes
+## Proposed contents
 
-- Replace the README's detailed deployment and qualification inventory with a concise architecture, software status, experimental FPGA status, qualification boundary, limitations, and next-work summary.
-- Add a public-safe PHK1 milestone draft, an unreleased changelog entry, release-candidate notes, and a public/local gap inventory.
-- Add ignore rules for generated build output, FPGA files, raw traces, local evidence, credentials, and local/vendor license artifacts.
+- Summarize PHK1 candidate-aware diagnostics, Evidence-v2, target-host no-hardware qualification, the completed offline reliability campaign, and the current preflight blocker.
+- Summarize PHK2 production-capture recovery, CPU golden-model work, offline core RTL qualification, batch-64 exactness, and the initial VU33P synthesis resource baseline.
+- State clearly that PHK1 physical protocol qualification is incomplete; PHK2 timing, routing, and silicon qualification remain unproven.
+- Add a dated detailed milestone, update the README/changelog/release-note draft, and maintain ignore rules for private/generated artifacts.
 
-The public update is documentation and repository hygiene only. It contains no private evidence, hardware identity values, raw traces, bitstreams, or local live-runner code. The unsafe local v2 commits are not ancestors of this branch.
+## Verification
 
-## Checks
-
-- Changed-content leak scan: PASS; no IP addresses, numeric serial values, DNA values, USB topology paths, wallet addresses, credential assignments, private absolute paths, or binary artifacts were found in proposed files.
-- Ignore probes: PASS for FPGA outputs, traces, evidence directories, environment files, and local license artifacts.
-- Python offline tests: 4/4 PASS.
-- Native MPSSE mock suite: 18/18 PASS.
-- Native USB selection mock suite: 7/7 PASS.
+- Documentation/native public offline tests: Python raw identity runner 4/4; MPSSE mock 18/18; USB selection mock 7/7.
 - `git diff --check`: PASS.
+- Public-content scan: PASS; no private IPs, hardware serials/DNA, USB topology, wallet values, credentials, private absolute paths, lock contents, or private image/binary artifacts appear in the new milestone content.
+- Artifact review: documentation and `.gitignore` only; no FPGA image, DCP, private runner binary, fixture payload, production capture, or license file is added.
+- Claim review: each status claim is qualified as offline software/RTL, synthesis-only, or not yet silicon-qualified. The PHK1 physical error remains unresolved; the reported preflight blocker is explicitly before programming.
 
-No package manifest or root build target exists on public `main`. The available package tests were run directly. The FTDI context lifetime fixture could not be built in this environment because the libftdi1 and libusb development packages are unavailable; it does not contact hardware.
-
-## Disposition
-
-PASS for this sanitized documentation-only diff. The local candidate-aware lock implementation remains a source-code gap and needs a synthetic-identity public extraction and review before it is included in a future software package.
+No private local implementation or raw evidence bundle is copied into this public branch.
