@@ -1,6 +1,6 @@
 """Offline protocol qualification checks and seeded randomized state-machine run."""
 import random,gzip,json
-from runtime import Descriptor,MockDevice,fixture_descriptor,fixture_path,mock_cpu_oracle,TimeoutOnce,verify_exact,verify_result_set,sha
+from runtime import Descriptor,MockDevice,fixture_descriptor,fixture_path,mock_cpu_oracle,fixture_batch64_provider,TimeoutOnce,verify_exact,verify_result_set,sha
 from oracle import fixture_oracle,predict
 
 def qualify():
@@ -66,8 +66,10 @@ def qualify():
  oracle=fixture_oracle(); assert oracle['checks']['exact']
  for item in inv['items']:
   case_desc=Descriptor.decode((fixture_path().parents[0]/'authoritative-descriptors'/item['descriptor_file']).read_bytes()); assert predict(case_desc)['checks']['exact']
- expected_results=mock_cpu_oracle(d,d.generation)
- raw_exact=len(rs)==64 and all(a.raw_result==b.raw_result for a,b in zip(rs,expected_results))
- canonical_exact=len(rs)==64 and all(a.canonical_result==b.canonical_result for a,b in zip(rs,expected_results))
+ batch_answer=predict(d,0,64)
+ golden_dev=MockDevice(result_provider=fixture_batch64_provider); golden_dev.load_job(raw); golden_results=golden_dev.start_range(d.generation,0,64,1)
+ raw_exact=len(golden_results)==64 and all(verify_exact(a.raw_result,b) for a,b in zip(golden_results,batch_answer['expected_compact_result']))
+ canonical_exact=len(golden_results)==64 and all(verify_exact(a.canonical_result,b) for a,b in zip(golden_results,batch_answer['canonical_result']))
+ batch=verify_result_set(golden_results) and raw_exact and canonical_exact and batch_answer['checks']['exact']
  assert matrix==10 and unexpected==0
- return {'PHK2_DESCRIPTOR_ENCODER_TESTS':f"{inv['count']}/{inv['count']}",'PHK2_DESCRIPTOR_DECODER_TESTS':f"{inv['count']}/{inv['count']}",'AUTHORITATIVE_DESCRIPTOR_ROUNDTRIPS':f"{inv['count']}/{inv['count']}",'PHK2_HOST_BATCH64_MOCK':'PASS','PHK2_HOST_STALE_JOB_TESTS':f'{stale}/1','PHK2_HOST_RECOVERY_TESTS':f'{recovery}/5','RAW_RESULT_EXACT':'PASS' if raw_exact else 'FAIL','CANONICAL_RESULT_EXACT':'PASS' if canonical_exact else 'FAIL','CPU_CROSSCHECK':'PASS' if oracle['checks']['exact'] else 'FAIL','PHK2_HOST_FAILURE_MATRIX':f'{matrix}/10','PHK2_HOST_FUZZ_EVENTS':fuzz,'UNEXPECTED_FAILURES':unexpected,'PHK2_EVIDENCE_SCHEMA':'PASS','PHK2_BENCHMARK_SCHEMA':'PASS'}
+ return {'PHK2_DESCRIPTOR_ENCODER_TESTS':f"{inv['count']}/{inv['count']}",'PHK2_DESCRIPTOR_DECODER_TESTS':f"{inv['count']}/{inv['count']}",'AUTHORITATIVE_DESCRIPTOR_ROUNDTRIPS':f"{inv['count']}/{inv['count']}",'PHK2_HOST_BATCH64_MOCK':'PASS' if batch else 'FAIL','PHK2_HOST_STALE_JOB_TESTS':f'{stale}/1','PHK2_HOST_RECOVERY_TESTS':f'{recovery}/5','RAW_RESULT_EXACT':'PASS' if raw_exact else 'FAIL','CANONICAL_RESULT_EXACT':'PASS' if canonical_exact else 'FAIL','CPU_CROSSCHECK':'PASS' if oracle['checks']['exact'] else 'FAIL','PHK2_HOST_FAILURE_MATRIX':f'{matrix}/10','PHK2_HOST_FUZZ_EVENTS':fuzz,'UNEXPECTED_FAILURES':unexpected,'PHK2_EVIDENCE_SCHEMA':'PASS','PHK2_BENCHMARK_SCHEMA':'PASS'}

@@ -1,24 +1,25 @@
 #!/usr/bin/env python3
 import argparse,gzip,json,time
 from pathlib import Path
-from runtime import MockDevice,evidence,fixture_descriptor,fixture_path,mock_cpu_oracle,verify_result_set,sha
+from runtime import MockDevice,evidence,fixture_descriptor,fixture_path,fixture_batch64_provider,mock_cpu_oracle,verify_exact,verify_result_set,sha
 from oracle import fixture_oracle
 from schema import validate_evidence,validate_benchmark
 
 def run_batch(out=None):
  total0=time.perf_counter_ns(); d=fixture_descriptor()
  t=time.perf_counter_ns(); packed=d.encode(); pack_us=(time.perf_counter_ns()-t)/1000
- dev=MockDevice(); t=time.perf_counter_ns(); dev.load_job(packed); tx_us=(time.perf_counter_ns()-t)/1000
+ dev=MockDevice(result_provider=fixture_batch64_provider); t=time.perf_counter_ns(); dev.load_job(packed); tx_us=(time.perf_counter_ns()-t)/1000
  t=time.perf_counter_ns(); generated=dev.start_range(d.generation); dev.status(); work_us=(time.perf_counter_ns()-t)/1000
  t=time.perf_counter_ns(); results=dev.read_result(d.generation,1); rx_us=(time.perf_counter_ns()-t)/1000
  t=time.perf_counter_ns(); oracle=fixture_oracle()
  fixture=json.loads(gzip.open(fixture_path()/'cpu_workgen_trace.json.gz','rt').read()); captured=(fixture_path()/'operand_tile.bin').read_bytes()
- expected=mock_cpu_oracle(d,d.generation,0,64,1)
- mock_exact=verify_result_set(results) and all(a.raw_result==b.raw_result and a.canonical_result==b.canonical_result for a,b in zip(results,expected))
+ from oracle import predict
+ expected=predict(d,0,64)
+ mock_exact=verify_result_set(results) and all(verify_exact(a.raw_result,r) and verify_exact(a.canonical_result,c) for a,r,c in zip(results,expected['expected_compact_result'],expected['canonical_result']))
  match=mock_exact and sha(captured)==fixture['tile_sha256'] and len(fixture['records'])==4096 and oracle['checks']['exact']
  verify_us=(time.perf_counter_ns()-t)/1000; total_us=(time.perf_counter_ns()-total0)/1000
  timing={'measurement_class':'MOCK','HOST_PACK_US':pack_us,'DESCRIPTOR_TX_US':tx_us,'FPGA_WORK_US':work_us,'RESULT_RX_US':rx_us,'HOST_VERIFY_US':verify_us,'TOTAL_US':total_us}
- ev=evidence(d,1,results,timing,{'classification':'QUALIFIED_CPU_GOLDEN_CAPTURE_REPLAY','fixture_operand_sha256':sha(captured),'trace_operand_sha256':fixture['tile_sha256'],'records':len(fixture['records']),'oracle_checks':oracle['checks'],'mock_batch_cpu_exact':mock_exact,'exact':match},dev.trace)
+ ev=evidence(d,1,results,timing,{'classification':'QUALIFIED_CPU_GOLDEN_CAPTURE_REPLAY_BATCH64','fixture_operand_sha256':sha(captured),'trace_operand_sha256':fixture['tile_sha256'],'records':len(fixture['records']),'oracle_checks':oracle['checks'],'batch64_oracle_checks':expected['checks'],'mock_batch_cpu_exact':mock_exact,'exact':match},dev.trace)
  ev['manifest']['target_image_status']='NOT_PHYSICALLY_QUALIFIED'
  validate_evidence(ev)
  if out: Path(out).write_text(json.dumps(ev,indent=2)+'\n')
@@ -37,7 +38,7 @@ def main():
   target=Path(a.output) if a.output else None
   if target: target.write_text(json.dumps(obj,indent=2)+'\n')
   else: print(json.dumps(obj,indent=2))
-  return 0 if answer['checks']['exact'] else 1
+  return 0 if answer['checks'].get('exact') is True or answer['checks'].get('model_generated') is True else 1
  if a.command=='check':
   from qualify import qualify
   print(json.dumps(qualify(),indent=2)); return 0

@@ -48,525 +48,525 @@
       "generation": 8,
       "row_tile": 0,
       "col_tile": 0,
-      "raw_result_hex": "911c4501c8d10c00543e2ffb5aec4970379de377c7517d79c201ba3096079661",
-      "canonical_result_hex": "cd9743dc2a9d83770d6f89031af2cd421b50a3730cba8b2ee95a836f94ca397f"
+      "raw_result_hex": "8005743203e9466067f0e97969c1eeb2ef3dc912ed22bd3e4353f8edee6bd8d9",
+      "canonical_result_hex": "b16ffeff72de00009326fcff702a0200c7bf020007c20200e3b7f9ff46d303005753ffffb328f9ff619400005fee050058540100e524feff6b27fbff6d0df9ff"
     },
     {
       "slot": 1,
       "generation": 8,
       "row_tile": 0,
       "col_tile": 1,
-      "raw_result_hex": "d0b0ae1d478b99a390c91c6a53558585c4ad0010f739a0d5a90705278241f76c",
-      "canonical_result_hex": "5bc2a5584d6bfd68ea0693e151c358c97c470e9fede91eb40cdf41fa256dd73d"
+      "raw_result_hex": "3f7c9402f46ae79ea25a70781a4cc33c20a34dd706a298c7dee60562df96e6a3",
+      "canonical_result_hex": "3210010095dafeff74bf00000f730100f211fdffee5bfcff90a9000087e40300e7e5f9ffa22dfdffe0b6010003f5f8ffc1a70300c75cfbffae9f070066720300"
     },
     {
       "slot": 2,
       "generation": 8,
       "row_tile": 0,
       "col_tile": 2,
-      "raw_result_hex": "331ea492209e9bcc902e6ec2f947c5ee8cab0d59b1fdb1a70857910171c390e6",
-      "canonical_result_hex": "64bb7746dd5722bf94eeb0f0c36eb69ccc99c44ecfa11e33e88186bb6bff8d7a"
+      "raw_result_hex": "79dd8ed2eb79c724ade983a7eba5a3906a4e9dacf71ec87f81008d6d7dba6502",
+      "canonical_result_hex": "9017ffff215d0100f87303001ab50100f15d0100582cffff2900fdff0d54f9ffd99d0400dd940300bd04f8ff64dd0000dcfd06008fbaf9ff77630700e53afbff"
     },
     {
       "slot": 3,
       "generation": 8,
       "row_tile": 0,
       "col_tile": 3,
-      "raw_result_hex": "2ba4abd83615dc32500ddacb88d6fd921d4ebd81fe9a31d663b4b82e722bb17a",
-      "canonical_result_hex": "f5d618be1cec8c68533c79dcc2ed6b49437b7ece4b31c846c6fddc2701a13183"
+      "raw_result_hex": "01804063fc7cf01e064ef8d399e9bee2c0c8231daade5a5956a4efb0a602e75f",
+      "canonical_result_hex": "76fb0100596e02004d41030065840200737cfeff9aff04007bf00400285c02004d90fdff909304001e98fbff43350600ea7403007d00fcffcd3d03004f1ef8ff"
     },
     {
       "slot": 4,
       "generation": 8,
       "row_tile": 0,
       "col_tile": 4,
-      "raw_result_hex": "dbf7a286cbc387d818eba78da3c3c69887bc373c9a145d3ddffb27ce43452b81",
-      "canonical_result_hex": "42dd6cfe8e2f98e3daf5f4ca9c3dca774c8b8cc77f02ade24e62863cf25321d7"
+      "raw_result_hex": "254beb25351247dcf41ba2a78e0d5ea92354c65aa8d1abae74a3f473d4583ebe",
+      "canonical_result_hex": "788200001cb1ffffbe3c01001ef102000b1b020091720300c3bf00004758fdff14070500b33df8ff8876fcffa5dbfeff8802f9ff5091faff0f8bfdff0957feff"
     },
     {
       "slot": 5,
       "generation": 8,
       "row_tile": 0,
       "col_tile": 5,
-      "raw_result_hex": "675c6b1baf1cc74bafe1df92c8f056b305f76bf9e2c48377b63e8bbd7a8f8ff3",
-      "canonical_result_hex": "512a352d8b7a0429f5b79dc4f88afcc4764038d641263fc27721ef7a3b309f78"
+      "raw_result_hex": "31f03d0592c80b994e81476c8ac550c2b3fe8e30d15b709de8eddda490251725",
+      "canonical_result_hex": "90e40000620e01009faf0300c3e201004bd803003d50fdffd45dfeff6cbc04009aabfdff8281faff65270700b9e10000f6980500676907009d7404002bcb0200"
     },
     {
       "slot": 6,
       "generation": 8,
       "row_tile": 0,
       "col_tile": 6,
-      "raw_result_hex": "de7bc11c690148d36ef6a758f3993ffb539203ea1d1c23954710b3e67758e7b7",
-      "canonical_result_hex": "8213beb134684ec2fdaeb6291efae3c8bc3be95b863c6146c658fd875a53313a"
+      "raw_result_hex": "18e9289e4701d88271052f457ff2e2c366a50b90a4c50d6ba8682df698d2a87b",
+      "canonical_result_hex": "04590000096efeffba1603002e920200c97d01009672fcffcc59feff8802040037450200eb9c0700f55efeffe651feffdd570100320401002b86fdffdda90400"
     },
     {
       "slot": 7,
       "generation": 8,
       "row_tile": 0,
       "col_tile": 7,
-      "raw_result_hex": "1cadc02a005f566a47c55d3a9059ad7f657bddd8d1503f05a1de162ac9c18a8c",
-      "canonical_result_hex": "6e065f9074e0dfbb175b9d5880c3e35963f7fdc2efebd50e6942aaf765dc4ba5"
+      "raw_result_hex": "5823b7caa44bededb04267ca53b11dcdfcdcc28a91b0320331566cd3d46ab845",
+      "canonical_result_hex": "47ed00002d4d02001f2103001321feff9de1fcff11fdfaff752cfaffe5f00400ca62040090520200bd85fdff73920400181dfaff851cfaffb51cfdffc6a9f9ff"
     },
     {
       "slot": 8,
       "generation": 8,
       "row_tile": 1,
       "col_tile": 0,
-      "raw_result_hex": "aee5f5f44b5bf4868eac5f52f001d80f8660e1d7be867b8c2bc7da01f50a77f8",
-      "canonical_result_hex": "790a080b6a27f2b66eec7f323b7da444be9eea24f43235d4bbd402d064109bb4"
+      "raw_result_hex": "13536390f4e5d8d210eff637eaba4d430ec0e7f5b8b59903b32ad0f90a686c76",
+      "canonical_result_hex": "d217feff44ea0200e6ab02004668fcff1166fcfffc0907006d050000383605002f3ffaff999f0100bc2fffff3ab90100f2fcfdff18d1ffffa6c7f8ff2d5dfaff"
     },
     {
       "slot": 9,
       "generation": 8,
       "row_tile": 1,
       "col_tile": 1,
-      "raw_result_hex": "804d5fe4b78c627f1bd6293cc522ee579c76e21ae351fd37205a676439189f24",
-      "canonical_result_hex": "641d339d229a7c1e9e6089e78cfe4e40dce0f58aa8a88a594b4a7a45dd0e4b4c"
+      "raw_result_hex": "23c21e089e1a298d3360bb741d95421df07b46666c36cf0eb57c6f1b4eaaf41d",
+      "canonical_result_hex": "a96dfeff9f22fdff55a7fdff2eed020039ddfcff4f0802004e7dfcffdc1f0000f98201002f8cfcff93c7fdff5b35faff138afdff2805faff88e1f8ff359c0600"
     },
     {
       "slot": 10,
       "generation": 8,
       "row_tile": 1,
       "col_tile": 2,
-      "raw_result_hex": "c6ccb2df34d992256a76d3e2801efb166a8740c5c270028c76527caae6242c0e",
-      "canonical_result_hex": "1bbb2e62cf431ccffa743b57b20093da6582633acef924b1a51f82900788fe4d"
+      "raw_result_hex": "b92d3506e84632c86bce76c5918dfb531f7979d646f1f86c1cca9c6509d90250",
+      "canonical_result_hex": "4b86feff56d5ffff414b0300194f0000a1defeff007f030071abfaff64d005003de2ffffb302f8ff556bf9ff21fcf8ffff6207001fa904002bf2feff68450100"
     },
     {
       "slot": 11,
       "generation": 8,
       "row_tile": 1,
       "col_tile": 3,
-      "raw_result_hex": "b21ad3eaa779ffa3d6dc8650db4c6196225dea54c49be29d4849659e5abb893d",
-      "canonical_result_hex": "314bc9c690e0b025770bac43f64f77dc8ceac9473f8f7b99bf0c4f38510b36ba"
+      "raw_result_hex": "60fa6c7ac4073b47c30a8bb065820a398e15d23859dd8e31cca7fba0e5b7d10a",
+      "canonical_result_hex": "01dcffff7d25000029ccffff7220fcff469e0200de3901005d19f8ff57410000fd01ffff12590100f284faff921b02008e050000b9a700006decfbff7dd4fcff"
     },
     {
       "slot": 12,
       "generation": 8,
       "row_tile": 1,
       "col_tile": 4,
-      "raw_result_hex": "4866dc362b99bc44242d7f8f1c0fc5c66122f15521e9f76d5d3362d8d31b8403",
-      "canonical_result_hex": "8f768aad8bef3a890178f9cb703fea3a1f01329dccf348d7b2ca83d583cfe352"
+      "raw_result_hex": "831ec0350c13a2f12f81d07122bde4ccaae02625e5f3b06332b18314d42a6df1",
+      "canonical_result_hex": "274603002192fcff46020200c801fcff6051060051d5faff673e0000dc7d04000e1bfdffe0c70200e120f9ff7fbd06004bf50000d7e4040072cf02007549feff"
     },
     {
       "slot": 13,
       "generation": 8,
       "row_tile": 1,
       "col_tile": 5,
-      "raw_result_hex": "e36e04d673ef928ea1308490d12fe1a48035738dc13279fb5ba6962c407b1ad1",
-      "canonical_result_hex": "354ab4046c591d7edbe1b1643e00dc1f826e99c9ffc05dc0f881274060959837"
+      "raw_result_hex": "10ceb4973126379b51bb96cb53709654cd17446a542a37166ba81823fb0e50f4",
+      "canonical_result_hex": "518600004fc70200f9450100d039ffff0518010087720200c6f60500b40302008583feffe9620500a624f8ff168ff9ff63a10600409b0700d5d9fbff462df8ff"
     },
     {
       "slot": 14,
       "generation": 8,
       "row_tile": 1,
       "col_tile": 6,
-      "raw_result_hex": "27739dff5dd18bd9744bae8fab613bf53d5d613cd1460a090bf6c94aad1bd3a6",
-      "canonical_result_hex": "1102f8af5e38bc155d81421193d735419379b9360a596f5e9fd34d82baf876c0"
+      "raw_result_hex": "2cdfa0cb93276f99e1c13e22ddd3cae7d6cf2435e538ae3da7a1b50afb4a2429",
+      "canonical_result_hex": "c53dffff7c70fcffe3bf02009b140000489efcff1f8cfeff3db2feffc228fefff189feffcd870100f262f8ff25c903001109fcff2caef9ff1a54fdffa6cff6ff"
     },
     {
       "slot": 15,
       "generation": 8,
       "row_tile": 1,
       "col_tile": 7,
-      "raw_result_hex": "1698d38799fb6feb2cb7d447880ef635bcc80cff47ef9e3d98b3d6f2d5dbeaf9",
-      "canonical_result_hex": "e28e76b97b04193215c7e3942bb9c589e8813554ecf4d4425d0321d76bc6ac2a"
+      "raw_result_hex": "930c27160c5255757f11cd26617d66d99e4ff23cafbee44fe2362b03a6246a32",
+      "canonical_result_hex": "d37c0000ed55feff4f34feff9cecfeffe76ffeffe916fdff0eadfeff228506005b69feff0a1e05002380fcff33e607005773ffff9f7efbffee37000071140400"
     },
     {
       "slot": 16,
       "generation": 8,
       "row_tile": 2,
       "col_tile": 0,
-      "raw_result_hex": "c0d78c7140cada4e5b2320cab180b1d67504141bda7c99bc8563b04d812bb782",
-      "canonical_result_hex": "d6e708aa0d91e0b9cf7c145f4f4e79d92ce1b727e20b3e9e578b27590f35dbf4"
+      "raw_result_hex": "90df343a44b368950a174548edcf05e1729766abce3244d724ab382de47418f9",
+      "canonical_result_hex": "50b70100be790300a0c7fcff905a0200cc00fdff410c0300c6ee04007975f8ffa8bd00008580feff7983fbffb1a80100d0440600e198fdff7e74fbff341cfaff"
     },
     {
       "slot": 17,
       "generation": 8,
       "row_tile": 2,
       "col_tile": 1,
-      "raw_result_hex": "e6c760041d8d1492991a594f00c5b85b16a8d4fd5bc65afed8af00167adfff4a",
-      "canonical_result_hex": "a3ef806666c52f6e66cbf24311ebc0625a707d6e1cfd1304b5b40da9f3192cf5"
+      "raw_result_hex": "c0dd8e802ef1a60110235cb4298bbee52da58f0e3b4eee70613588ea1414bdf5",
+      "canonical_result_hex": "ce49feff0fa10100b799ffff2622fffff7d7faff8e9e02000beb0100841206008aa5fbff6c920700e1c6fbffdeb701006f1cf9ffa361fdffc887ffff72130700"
     },
     {
       "slot": 18,
       "generation": 8,
       "row_tile": 2,
       "col_tile": 2,
-      "raw_result_hex": "b5f59712198c3f9bf9f47b4c1fa540b82a5d1bce43a8b525249b3e5b3e5c905e",
-      "canonical_result_hex": "2022c570c79bdcb19728d8993354477d62361f7d3fc314ddfc93ab2cbccc7ba3"
+      "raw_result_hex": "1932c457808371de9d60995ead8d074ba6cec654b29d47fd2117e8e773ca3e1e",
+      "canonical_result_hex": "15eb0000aebc030037ccffff3df9fcffa3bd0000d85ffefff061faff9dbcfbff5fcef9fff12401009057fdfffd7000009694fcff4091fbff2965fdff1fe6faff"
     },
     {
       "slot": 19,
       "generation": 8,
       "row_tile": 2,
       "col_tile": 3,
-      "raw_result_hex": "e06ff24d7665937960b2f2a9745feb7d829c6a59a6bab9ffb2ed2a03b6801b7c",
-      "canonical_result_hex": "2b595018c7bcfaaec320ef76c7e2d941d259ce944898eeb5251250efd6d972b8"
+      "raw_result_hex": "2e426e527c84bf0c1ffe28794e8ba79ed655f15ceed6170335ac1d7716cf7bfb",
+      "canonical_result_hex": "9e4e0100a01b0000bd7cfcffb584030061ecfeff353efdff4558fcffbda2ffff77d107003be7feff96b2050067890200333afbff92410400e0e7fdfff875ffff"
     },
     {
       "slot": 20,
       "generation": 8,
       "row_tile": 2,
       "col_tile": 4,
-      "raw_result_hex": "3895eac70c2fbd02f707acb2050644bd962159ada5ceb793cf216a2e1ba17501",
-      "canonical_result_hex": "5d196427bc3aaf639a4530c58f26b066d835b79f3c6e7d752d2e2575d95fbe1a"
+      "raw_result_hex": "06ebce5b5a93ff665cd6389e9af6a07ab363b0e1b706b19af95841c2b2d59399",
+      "canonical_result_hex": "bf6b01003ecafdff02e1fcff7c850000b6acfeff963d03005388fdff8ffa0600d3db0400da7503001ee0000067540300b8760000822bf9ff2a9efaff17080600"
     },
     {
       "slot": 21,
       "generation": 8,
       "row_tile": 2,
       "col_tile": 5,
-      "raw_result_hex": "f1134cfd0495733867c286cb9099fc4e1e64149389456b849e6482cbdaa028fd",
-      "canonical_result_hex": "a49f46073661099b5237d832960e899bca185728c4a1f4762daa38dab93b2a35"
+      "raw_result_hex": "511a6b380e7224f37be0913393a87dc8ba28d554b478b8122d4136b0742882de",
+      "canonical_result_hex": "de380000fbe60100d4270100b7510300dee9feff3ee2fcff41630100fbd7feff7bd00700f1f2ffffd57c05008d50feff4b450000889ffeff5eb3fbff8bb7fcff"
     },
     {
       "slot": 22,
       "generation": 8,
       "row_tile": 2,
       "col_tile": 6,
-      "raw_result_hex": "70e1bf92921c7fae4ddddb44102124d2bc30ab486e44aee91ef2894ee1f8fc19",
-      "canonical_result_hex": "14822a39560516dd8e5124d7f9d786a416b82c31866969d74ae3120ebddb58d5"
+      "raw_result_hex": "711ad677329aaf92901647889b2c8f6e98d7729d4b2930062e8eac6a893768b1",
+      "canonical_result_hex": "0feaffff1b8c02009205fdff8b6902006842fcffa4880100fa6afbff6a830600edf6feff13990700d0d4f8ff2dad0400b69206009677f9ff5031fbff54e10400"
     },
     {
       "slot": 23,
       "generation": 8,
       "row_tile": 2,
       "col_tile": 7,
-      "raw_result_hex": "9c92663861e1bbfa4630f148aeb9e3be230fdaf9b483d30948598e4218a94d0b",
-      "canonical_result_hex": "b824f63619766f1f9e8980511d5a65c90d41f849d4e9c95dfae545200dd0fab5"
+      "raw_result_hex": "0cbbbc4036e8dc04e383b62236552a83d20cec3dc1fc442edbcd790feff9cac2",
+      "canonical_result_hex": "7125feff34df0300d8c3ffff1165fffff9a8fcff8dcbfeffe8b3faff8c39feff8dea0000e83500004c0e040031580200464bfeff0975ffff502101002b3a0400"
     },
     {
       "slot": 24,
       "generation": 8,
       "row_tile": 3,
       "col_tile": 0,
-      "raw_result_hex": "d4a753995772c01580762983276e4efe8430a0ab5d6148572a53e2d277b1a154",
-      "canonical_result_hex": "a402270f32f0fa098d17c6a593a8fa6c45f0d461332a46f673aa742aaa8cd02c"
+      "raw_result_hex": "6fe0a8126fc55a428f59bc9398adf08a243119d106ae55470ff51f76570e7d17",
+      "canonical_result_hex": "0e2dffff8390fcffded1fcff121703004fb6fcff30910000a82e01003b960300d3dff9ff18d9070054000000efaafdfff6600200686901005c03fbff4e400600"
     },
     {
       "slot": 25,
       "generation": 8,
       "row_tile": 3,
       "col_tile": 1,
-      "raw_result_hex": "27d15c724bf9cf105ce8ee9fe4d51f95987b3c30cc0e93ad475548ec0f2083ee",
-      "canonical_result_hex": "e4b4abae0e11647af3ec8b13aeb0021402a26508472fc8d510da73d7e3833789"
+      "raw_result_hex": "ab45d4aff1bd74fefd6dfd3e0a1b81d6cc8a8917e33e07ea25bcc762b062ec5b",
+      "canonical_result_hex": "eadb0100371f01003ebefdff11f10300164dfeffda350300edbf0000280c0200fe3f01005863faff7b40ffff37730600530f0100d408feff0d0af9ffba8e0200"
     },
     {
       "slot": 26,
       "generation": 8,
       "row_tile": 3,
       "col_tile": 2,
-      "raw_result_hex": "2f6a62caead1de43f85176b445a7a0924009a260a7e64f370850a11cb184670b",
-      "canonical_result_hex": "2c42858d25ad271b06a790c94dd7952631314fc90859c82a62fb1bd7e467ec51"
+      "raw_result_hex": "6713d0e78bc81981087dad5cdd8c52c75015fb845448bdf159493144ad5bf5e9",
+      "canonical_result_hex": "96d000004967feffa3e703001f71fcff1bc7ffffbc730000e0cb0000078cf9ff839ffeffe29afdffaa03ffff207dfdff5ca7feffa5bf05008128f8ffba3bffff"
     },
     {
       "slot": 27,
       "generation": 8,
       "row_tile": 3,
       "col_tile": 3,
-      "raw_result_hex": "739b501b049ea6cad7421e204cb3b2f898955e8e2700ed23675277f943c4fda0",
-      "canonical_result_hex": "e04a2328b7b168614b01634015a65599437096ee0193f8a1e978f012ba6743b3"
+      "raw_result_hex": "f716d35286d43d40bf239cf32fb64db83aa89965e9c1203fd395b4fe839003f9",
+      "canonical_result_hex": "186f0000ed700000f6c0fcffd491feffdf21fdff033bfdfffd5b0000dae804001aa7f9ff5b59fbffa6f1f8ffb87f020011f001006c840700e6c90300b3f5ffff"
     },
     {
       "slot": 28,
       "generation": 8,
       "row_tile": 3,
       "col_tile": 4,
-      "raw_result_hex": "5315cf93c284946eedc636c4b48dd99d510362a4fedee02f3153eb77c9119e11",
-      "canonical_result_hex": "0cf7ddc2922c9b41107625bbeff94b3b4f6f429989397edbe849a93149e71ab9"
+      "raw_result_hex": "4162d06aeb1bb67e3a604f14661f17ab0ef0d3e8e76f7c69fcf443ecf37d8033",
+      "canonical_result_hex": "b48a00006f75fdff23bcfdffaeb8020003270300cf4201001c4b0500c123000074020100222ffbff48c5f9ffb35b00002b7b06009c9704008233feff512e0200"
     },
     {
       "slot": 29,
       "generation": 8,
       "row_tile": 3,
       "col_tile": 5,
-      "raw_result_hex": "f9de796b58407b9e3cf1d4e8c9f4716b1dff2f14f98dff3fb383dab7d998cc47",
-      "canonical_result_hex": "9a5c2cd030ebb2d825b23167ee767199ee502fe5304c1b4bcbf8d06a90d44a6a"
+      "raw_result_hex": "be44477efe4e38a5f596dab32fa1d9ec89cac5866c912c49e3ce307257e355da",
+      "canonical_result_hex": "341601002fa80100430ffcff10cafeffe5ef01001254fcff3b360300d89200009b88fcffa7c0faffe7eafaff51b1fcffddd7fcff1991feff98890300f9c10600"
     },
     {
       "slot": 30,
       "generation": 8,
       "row_tile": 3,
       "col_tile": 6,
-      "raw_result_hex": "a33f6b8260bf073a150cf74491a5c1769d3e48e18cebcc3e1da464cbc165f875",
-      "canonical_result_hex": "132f785aff34360346caa445ab6709c6a5b297c602f384b5e707cc9e5f5517a2"
+      "raw_result_hex": "a97679765584593f3ebbf9732c850dbabefb0f0808879589372d24a1397ba591",
+      "canonical_result_hex": "66a10100a4eafeff04fa02004e3d000032720000342203007f31fdff7fce05004fa507006fbafaff3471fcff189705009811020024c30700f17afeff4aa40500"
     },
     {
       "slot": 31,
       "generation": 8,
       "row_tile": 3,
       "col_tile": 7,
-      "raw_result_hex": "68a7deba3b5d3e84c9ab3ca16d7228c4989f83d0c2d380a5190212d19b1029fe",
-      "canonical_result_hex": "eff79498a11d78821a07c9287331cd89b0be6deea03ba250039dda821d615ae4"
+      "raw_result_hex": "e9a54a9918256dfc7e94fbedb7c4be11c1ae7c83f05599b59c595c6dd8b2e848",
+      "canonical_result_hex": "6480ffffafe7ffffea8efeffbb8001003c970200dcbbffffd487fdff4e7003009900f8ff6fccffffb02bfbff6c15faffc3faf8ff0b45070044f40600a6930400"
     },
     {
       "slot": 32,
       "generation": 8,
       "row_tile": 4,
       "col_tile": 0,
-      "raw_result_hex": "580313d6907529fa50f0059a24384fdd5f0e09f4a27f4fda2320c644ed2235e3",
-      "canonical_result_hex": "0ee0f8f192c2bebe0f3272dae8f745f875b37e79e827db6d7f5edfa091254867"
+      "raw_result_hex": "abefad791de8056a5ea6a3c1eab173a134d8bf8c4e22b7d26c39ac08a8dd8574",
+      "canonical_result_hex": "4219000075b50000a22dfeff220b0300b9d6fcff9d88feff7a7a00005e1f060091fff8ff438dfbffc7860700f551feff9eda0600927a04005fd700002deffeff"
     },
     {
       "slot": 33,
       "generation": 8,
       "row_tile": 4,
       "col_tile": 1,
-      "raw_result_hex": "f87d6845fcc022418f51cf853dc81690888e3e258aa415d99fdf6f213817b4f4",
-      "canonical_result_hex": "14d9e8b807fe0cf135fba516845859c5ee5036a82d60ea4e1c6df2e872e67417"
+      "raw_result_hex": "0cf780036018b4f46b5422c67098c26806c5b4c58cc095eb08d54283c794d158",
+      "canonical_result_hex": "cfec0000b3f4feffcd07ffff49db030059abfcff9542fcffc7b30100b567000089a4f9ff112804007444feffe687fcffc6c0faff24fa02008628030007030500"
     },
     {
       "slot": 34,
       "generation": 8,
       "row_tile": 4,
       "col_tile": 2,
-      "raw_result_hex": "176f38be61c3cd7bbddf842220b731e4fa1b5025674c8818894aeb7640632227",
-      "canonical_result_hex": "ecdb387a1121d88d78b5f147677c63e687334ab30b22579547afedb55a4c2446"
+      "raw_result_hex": "7aac4986cd10d56984aa4ec19dd1db53f7c58bcf0da3e0e4cb1884338dc6bac2",
+      "canonical_result_hex": "d095feff8db0fcff536700006c1dffffd65403006a9b050004c6fdffa56cfcff39160100b83202005477fdffcc3f070059a2f8ffe6def9ff804af9ff9fd7faff"
     },
     {
       "slot": 35,
       "generation": 8,
       "row_tile": 4,
       "col_tile": 3,
-      "raw_result_hex": "e12685f5b6439a0c692eaa82b1a53f23b50787952591e27493341d0d988437bf",
-      "canonical_result_hex": "8df2eca3ff40005e62c5e7d904c0005fc69544ff5ef794ca7031dbb3d15ed82a"
+      "raw_result_hex": "b727a7e012612b8a3c05c2b4a556ba31f2c35f7ef60c71af3c63277073e3a628",
+      "canonical_result_hex": "e270feffe43103004f570300e4560000a5f100005a2f000075a1fbffc89302006f30f8ffff83faff2dd106008d6400008d64feffb2a4fdff01b0fffff6320500"
     },
     {
       "slot": 36,
       "generation": 8,
       "row_tile": 4,
       "col_tile": 4,
-      "raw_result_hex": "3652abb2f761c955fa92cfa7ba970245410e8a3ce69f6560f2719b14d59d260c",
-      "canonical_result_hex": "2ae26620e57f324c0123bc383f0867aeeed7fa47d8104fbfe98576598b181d6a"
+      "raw_result_hex": "f2a472144be8bf8eb6822ee00f606acecfef9a67c0bc32115098df6dae7fec99",
+      "canonical_result_hex": "e132000055440100df2dfffffae7ffff3102fdffafe7feff39c7f9ff676efbffbf9dfcffb9f0fbff2594faffcdcefafff8960600ac87faff82ddf9ffadad0300"
     },
     {
       "slot": 37,
       "generation": 8,
       "row_tile": 4,
       "col_tile": 5,
-      "raw_result_hex": "ee5ba6f9db0c0ae98dcea5242927ba65f84f5cb12ab51ad4b3420df11324b1f3",
-      "canonical_result_hex": "4bac976a23ce87d072521bbce1a283cc83c55921b7df26bb847e244a49cc348a"
+      "raw_result_hex": "737f9739f8dfc32a3a50d90c8ad5d7f98fa7010838fd93252408bdbddc654476",
+      "canonical_result_hex": "9f910000db01feff1294fdff88c1fdffde7dffffd228020015f60500834c0200034c0600a875f8ff1d53010078740600bc04fffff2e2faff8fdf060098190100"
     },
     {
       "slot": 38,
       "generation": 8,
       "row_tile": 4,
       "col_tile": 6,
-      "raw_result_hex": "afd87da4d90785cd919bb4352ce50b325ab0956693d63b9258352a5c109c0380",
-      "canonical_result_hex": "a9a1e140deb33a12120ea7f722e92159af4584094c8e28dc5231b49d99331458"
+      "raw_result_hex": "20ba76d5f1340e32790043d53bd6c64c74c7de8e0098441e78e41baf813ce6c2",
+      "canonical_result_hex": "0e5c0100bf51010096160100633e020069ea0200b1a0f8ff78d404003ed00200dbf5f9ff6554000064300200d7fcf9ff75f3060023dd06003a6d0500b598faff"
     },
     {
       "slot": 39,
       "generation": 8,
       "row_tile": 4,
       "col_tile": 7,
-      "raw_result_hex": "27e12e2574c48b9b612b2f777b4273341e588643aa112141e87bce1c3ef8ff3d",
-      "canonical_result_hex": "6bd8094a623081da1321899c4ca780f16bb116ba192ec729865bb982b383cb35"
+      "raw_result_hex": "ed08d505d84fd0607abe0efa4cf32b8507141ca1906ecde9dafbd66a014837ce",
+      "canonical_result_hex": "900afeff9473ffff03dffcff7f8ffeff170d01001f6e020014540000d165f8ff7e1efbffc60606008023fbff3795faffb361feff9360ffffbadefbfff80df8ff"
     },
     {
       "slot": 40,
       "generation": 8,
       "row_tile": 5,
       "col_tile": 0,
-      "raw_result_hex": "a3c1c1fa0d495b99b82cca62195475b52bacea6e45074cc5d4e03feee7af7310",
-      "canonical_result_hex": "feabf65f0b51f477e53e1548e6266a51dce8d26b0fcc7f506d3f5e342616c458"
+      "raw_result_hex": "232e03b9c26ce28e14f5e4e217f8c594f12066994cec6a5065a120cfcde8ebc8",
+      "canonical_result_hex": "3f42ffff7dfbfcffaf4bffff040c010065d40300d8c8fdffb46f03002305f8ffbc5ffeff5f6afbff6ef6f9ff652dfaff2d1a07003f9f0100e4650500abe00000"
     },
     {
       "slot": 41,
       "generation": 8,
       "row_tile": 5,
       "col_tile": 1,
-      "raw_result_hex": "bec8dd2aec419e7129bc9f5749678ed07420c844b270c06e73976a043d91be28",
-      "canonical_result_hex": "a34ef68c07491ef09260986e8d3c61f6dbe646a13cd960418637540c10091b33"
+      "raw_result_hex": "b323489cde697797c65a0c1290778f72f08f33b201d061a43d33de84e4917001",
+      "canonical_result_hex": "94c6000050cb00008804fcffd86cfcff1012feff716f030086a9ffff89d20300f6490600d1edfeff9d6ffcff6611fbff1b570000b054fdffa119070028cf0300"
     },
     {
       "slot": 42,
       "generation": 8,
       "row_tile": 5,
       "col_tile": 2,
-      "raw_result_hex": "dede558fd6c72832ec9d8ebbd08eefea60a170fab6b8f7f96aa65f95c4095f9b",
-      "canonical_result_hex": "40bbec373ef08f8d93fd4b853a63c9c5467b29003096557b6c87d5bfe197c998"
+      "raw_result_hex": "b8b316992d0d3663470034431cd78181bdf5de942b24cad1a75c2709d8619836",
+      "canonical_result_hex": "21c9fdff5d020100f224feff9ef90100fd9cf8ffb7c60700e49cffff229304004f89f9ff3a89feffc613fcffd92efbff8e67fcff615007007764feffa8dc0500"
     },
     {
       "slot": 43,
       "generation": 8,
       "row_tile": 5,
       "col_tile": 3,
-      "raw_result_hex": "369cf1298f1a1c94acd065a11b0a7923949a3d9e1639a9de97a2e70c8cfca9ca",
-      "canonical_result_hex": "2c0662b6e30e230635cb4df757be5351a12e04ff97c8d5a279921d59e5d1e4ee"
+      "raw_result_hex": "849c3368b122f38a203d3d1695868fb94abd0d28159f71194a05ab2fe3d3c42a",
+      "canonical_result_hex": "a689ffff03e6030085300100aea1fcff5460fdff2219ffffb9ec0700a5edfaff542afeff8fc80400facefeff5bfd010029cc02005a1701003569fbff9e45fcff"
     },
     {
       "slot": 44,
       "generation": 8,
       "row_tile": 5,
       "col_tile": 4,
-      "raw_result_hex": "2d78f18c4fce9194ccf8adcb1d5e0c6a8095fff4bc439c3d77a17b51b4924c70",
-      "canonical_result_hex": "2b1d3c0db3612b2180cf0f571a695ea51138cd56101bb0f9f4ffb8fa138e8251"
+      "raw_result_hex": "7aa90d9fd48bf89ca0f97e70cf318ac1cbb983d63a18e5b8b18377640d20ecd3",
+      "canonical_result_hex": "2eab0000a19802006952ffffa0990100d5e10300b66cfdffd92503004b42fcff6839faff5f25faff8138fdff8cef02002ea60400ce950700c218f8ff3820f9ff"
     },
     {
       "slot": 45,
       "generation": 8,
       "row_tile": 5,
       "col_tile": 5,
-      "raw_result_hex": "a257eb3b42370f339340ad8088997c5665a2709922494aef91c4369069ef8361",
-      "canonical_result_hex": "4c8b3ed3b1ae031d29b7ee56427d31d15a4eb87dc6d24a2364492a7764c14b89"
+      "raw_result_hex": "b4e7aa9feb42c4a5324195acc72f386b0afa3f2ab9eecc2e53760169b87e01d1",
+      "canonical_result_hex": "3803feffdb04feff783800003eb4fdff1455fdff348602000141fcff64bb0000d1ebfcff3cd5ffff09e10000c6dd0000788af9ff6d2df8ff5695050034ea0400"
     },
     {
       "slot": 46,
       "generation": 8,
       "row_tile": 5,
       "col_tile": 6,
-      "raw_result_hex": "447febed1b1693824670f3a2bf20c4a6dada70caf918860be82cab4e179a4481",
-      "canonical_result_hex": "7f1dce707e4b28068b0365fabcf305225c7079fe1d8189c229ae65d7e0b52a9b"
+      "raw_result_hex": "7bb6002b224de56d1d48aaddb78ab46a2bc47f47d2f35fb6c58faca7ed88ebc8",
+      "canonical_result_hex": "90d7ffff84c000003efa0100561002004229fcff0f930300ec020000dc590100fc45ffff2d000600886d040059ca02001ba50700cb2f0200e67500006f000300"
     },
     {
       "slot": 47,
       "generation": 8,
       "row_tile": 5,
       "col_tile": 7,
-      "raw_result_hex": "bc314763a23d9ce7b513a389b691073feb7bf477b7bb04482a341b6d2fa0d979",
-      "canonical_result_hex": "e823b177d5cdcb78a2dcb128a92ab68e284b2edb1b1cf86246442e13df459e52"
+      "raw_result_hex": "5f12b986bb9bcc85302d2eebdae4a326cff9ff7bfae24615b270ebbe945147aa",
+      "canonical_result_hex": "6565feff385afdff90ff03006fde03002294fdff330ffffff94afaff7261f9ff10caf9ffd8d50200c43801005e25000057da05009307feffb104faffe9ccf9ff"
     },
     {
       "slot": 48,
       "generation": 8,
       "row_tile": 6,
       "col_tile": 0,
-      "raw_result_hex": "dc4373aca3adad87d702d111fd38dc12fe7c0822f8d6108eee2745f6bc0fc473",
-      "canonical_result_hex": "6643695886ebf02a5a623f9994d8281626f577c3a6cf2c08fbcd479c92912cb7"
+      "raw_result_hex": "0dd97d1ad1a6ee0d30439e1d292d6691d99239f237ba9d29438e6f0cf7b5dd94",
+      "canonical_result_hex": "d848ffff0a2afcff779b020082cdffff0c770000b8f00100a59ffdff84acf9ff781af8ff26670100cce5fbff9769f8ff9f42fbffa973fcffa0b000004a1e0300"
     },
     {
       "slot": 49,
       "generation": 8,
       "row_tile": 6,
       "col_tile": 1,
-      "raw_result_hex": "3befe149049e7326804bfdef6e9c0af56df0d342e516faea5bfcd33491e65145",
-      "canonical_result_hex": "ac9893bf15dadd5ca2bff8fef9a646dcce8ac998fecccaaf16db31987e856f24"
+      "raw_result_hex": "a50782786ba176c22ed052c7326b8cc9235f2ffba2838010db527390b2ea57c4",
+      "canonical_result_hex": "e622ffff342b02007c33feff66a702002dcc0000c6180300eb860100df13fcff769b010060320600654ffbff57b0fdff54e600009402feff40ec0500b4ebffff"
     },
     {
       "slot": 50,
       "generation": 8,
       "row_tile": 6,
       "col_tile": 2,
-      "raw_result_hex": "3189f5fe5d89c0e5eb55ad315e2a2aa37c80bed9b94234b13f27395dc22a084a",
-      "canonical_result_hex": "e12e220389a99f9f40041073b09e285ff6be48241fbcd642a86b4efdeade4d92"
+      "raw_result_hex": "a9237b3a530e1ad02f15b8f241ba6744c9470163f1a0b946947837220cf11301",
+      "canonical_result_hex": "eb7d000049bb00009beefdffcd180100ab52fdff3641030011adfcff44250000dc76fbffbf2b0700466cfeffde39feff5f4d0000dd7ff9ffd996faff7324fbff"
     },
     {
       "slot": 51,
       "generation": 8,
       "row_tile": 6,
       "col_tile": 3,
-      "raw_result_hex": "d09249105cab4805d2a57d616af393046d0d1eca42564ac70df06e85809a93aa",
-      "canonical_result_hex": "55a2a51814d7691397c448767175644e56c41b57ecb143a07c5daa520bbc19ce"
+      "raw_result_hex": "f76b54a4e1df61bdb9975dc5bb4943dfbd0d8858a927686565409316238d5f22",
+      "canonical_result_hex": "7f1afeff9da5fdff36e5feff3f7e00000ce3050044170600762b000062780100035efcfff09f0200e99ffbff2472fdfffc5cfaff2a0f000057d6f9ff862efbff"
     },
     {
       "slot": 52,
       "generation": 8,
       "row_tile": 6,
       "col_tile": 4,
-      "raw_result_hex": "aee6ce4c6435158ab0d7886357ba91fadaab421e3ac23f5a05b4c60dbcacb0c7",
-      "canonical_result_hex": "8e15660a13761dc11953afa8f57004a5c397ca03c1dda86b5b58556d631846f9"
+      "raw_result_hex": "aafcb19bd56575d2f5201bc5d7c3058dfedb4da368d8458ff5bac50ecb94023f",
+      "canonical_result_hex": "d7b5feffa70b0000be6afeff8689fcff2d150300bc28000090e3feff1bfdfbffa5a7ffffe8f7ffff2f0b01002b84f8ff9cc004008757fcffb25f0300c4780600"
     },
     {
       "slot": 53,
       "generation": 8,
       "row_tile": 6,
       "col_tile": 5,
-      "raw_result_hex": "4bbc38305979a7a6178d683ac2e29acada6956a29e031de3d6c72759a03d81e6",
-      "canonical_result_hex": "e9ce015ccaf98ea80c6512c9fa6799b5de056d88d8f5f263047966979c586c08"
+      "raw_result_hex": "5eb6f044b6feb82c1d52be05371275c9200c3898c5a998c3bae7b0a726b0765d",
+      "canonical_result_hex": "2991ffffa2dffdffe8e7030010cbfeff39c80300218ffcff5d630200e4d1fbff52000100517efbfff4c40500820f00004cd9f8ff1b100000c0d501007b580500"
     },
     {
       "slot": 54,
       "generation": 8,
       "row_tile": 6,
       "col_tile": 6,
-      "raw_result_hex": "5c7608a088d192a5ac1e7e4346468bfaa417c814775f1d573a056f241d85915f",
-      "canonical_result_hex": "923a4505465d8bb688c2ebefea6a8ba77a1c7813d6e3bc969a71b3bfb54484c6"
+      "raw_result_hex": "da5cab2b7908bca54d9c1f64b516dd30b1166ea5f5d72595143cf465c9d97b81",
+      "canonical_result_hex": "b3120000812a020060a7ffffb0d4020079f7fcffae24faff3ebbfdff0fd8010050d1020011570600357306003c38f8ff6c520600d7710000dcce0100ca810600"
     },
     {
       "slot": 55,
       "generation": 8,
       "row_tile": 6,
       "col_tile": 7,
-      "raw_result_hex": "97a4afc65ef4bffed63dc4dad355b211b1b9de95d4e2763c014712f3dbab0d8d",
-      "canonical_result_hex": "ed10e77f2e7a6b1b63791224ab6e5eee1a120b2b87aca17746fd99b50c8c3bed"
+      "raw_result_hex": "4d84be923386ea0cfed8631d4586ea6ff4df0b6a68b84bdd28cae3c3f6b353c3",
+      "canonical_result_hex": "a8910000e4ac03005272030054ad0300b0d501001d72ffff52d6fcff6f23fbff86400500774ef8ff60bc07009e88f8ff48a402000bb9fcff3533feff7a5e0100"
     },
     {
       "slot": 56,
       "generation": 8,
       "row_tile": 7,
       "col_tile": 0,
-      "raw_result_hex": "f34f9cc9b41f8817e7f7be5c3c75f7c4d7fb95b174a13ce59949ceddf83c7fb6",
-      "canonical_result_hex": "6fe46597d0acc328dcee7159d6168d68359aecf4a827a49c632c44b3adbf85cf"
+      "raw_result_hex": "1223ff1a489f5e7186cda0d39f7008324aa83cfbaad91537205a91b8239a4ba9",
+      "canonical_result_hex": "2eb8feff223efeffca3400002de8030035e2ffffdc920300ead6f8ff552ef9ff1e1c0100b4cbfbffe729feffea6e030042020000d204fcff8e56faff23000100"
     },
     {
       "slot": 57,
       "generation": 8,
       "row_tile": 7,
       "col_tile": 1,
-      "raw_result_hex": "800fa0ebb22f781f8d54f5cdd0dc8b87754aa8a35814b92e985a0482a66b5e16",
-      "canonical_result_hex": "641be72febc695a2b7ccab4a0146d66fb9e18ae10fa78bb2cf479df7f8aef134"
+      "raw_result_hex": "8960cf0eae0320b1c861c2fb6acbf26bfae88bb917b0f783abb8f9df57b1b0b4",
+      "canonical_result_hex": "a01d010004690100c905fcffd433ffff778afeff24b2fdff90f30300627bfbff0cc40400154103000d29f8ff5a55f8ff2b310100557a0000aa1c0000c2860500"
     },
     {
       "slot": 58,
       "generation": 8,
       "row_tile": 7,
       "col_tile": 2,
-      "raw_result_hex": "042a1659fec12a6eaec8391309068da0319644728ab578eb914b0ce94369e34c",
-      "canonical_result_hex": "ee43808a940844688c52d84ddf940dbbf22feef66cd2ecf48f6ae7afc9e3b359"
+      "raw_result_hex": "5b15c183a4612a75baa2b90bb9c04cc3fe8ec9e6f8efcd0a01cd08837472ead7",
+      "canonical_result_hex": "0fc10100019d0100761bfcff4e2bf8ffee30ffffe34701009a65fdffb829fdff9d0af8ff43e5010078190500ffc1fdffe20a0000f36b010005a707007072f9ff"
     },
     {
       "slot": 59,
       "generation": 8,
       "row_tile": 7,
       "col_tile": 3,
-      "raw_result_hex": "e27f7cc7f9fb9dab56381fcc351d1115104a1c0b3aeaf435f6835eeb46c843ce",
-      "canonical_result_hex": "fadabea34339375c3d4744f723363e19a64250dd84804cc70de503e4a07be33b"
+      "raw_result_hex": "fafb1bdb925781c611fd6314f3e266e737a4cdbaed73fe5f4c866f76ce82f615",
+      "canonical_result_hex": "45d1feff245ffeffa35ffcff2f9602004cfafeff2a02fdff19a701002eef0700975fffff6b4cfbff06360500c0c2ffffc3ceffff94dcf9ff784afbffc0600200"
     },
     {
       "slot": 60,
       "generation": 8,
       "row_tile": 7,
       "col_tile": 4,
-      "raw_result_hex": "4af61664b46db058dc1e92853f30a3c73f337f41b177568253cb274991003ba6",
-      "canonical_result_hex": "81654c4ce1a31c409bc187853fba65f52a079bfbf41bd393afb93df247640e42"
+      "raw_result_hex": "0f5e29cc8cd4a3e011fd1fe70125fba98ab2ae0ed2efbb86a4edd2c1dd59a107",
+      "canonical_result_hex": "acae03002c0703008579ffffd716ffffd4dfffffc4cb0100464ffeffc79af8ffdcf30200aea206009a14010007d0f9ff9721feff89a807002810f8ff1cebffff"
     },
     {
       "slot": 61,
       "generation": 8,
       "row_tile": 7,
       "col_tile": 5,
-      "raw_result_hex": "585f83c3f37a8852230ec32fb3b952f0ed149e61cf7b1973cfa9e283c7260455",
-      "canonical_result_hex": "9a1eaa2b9ab21807890d97d0449442319781e025babb509fac0fdf86e81925da"
+      "raw_result_hex": "e0c47c6e0ba01b8c4c49d96729afc68e26cdcb496eb2fc707e43bed9b6d74fe4",
+      "canonical_result_hex": "faadfeff9c4bffff63f00100ec1302000331fdffa61effff3707030054c8fcffdf2efffffaf007007edffcffa54002004ac102002a7d02000c3bfdffff5b0600"
     },
     {
       "slot": 62,
       "generation": 8,
       "row_tile": 7,
       "col_tile": 6,
-      "raw_result_hex": "e9857501ac0dba09832806cfe8e464f4f98bf4d4b78c2b5474527c5901ffc1c0",
-      "canonical_result_hex": "63f5c6eadbdca9c6d31243dcd804183f649839e01ce787f60661e21ab17ca7dd"
+      "raw_result_hex": "8d70410b6849b95a7e6412447308834d29b4521c6a9b7078f74d9c6765a125cd",
+      "canonical_result_hex": "6732fffffd8a000059d60200719200004113ffff567700006bf30400fcf8feff10b6040005bcfbff8b51010052e90200826c03004ea4fdffc5fefaff668e0200"
     },
     {
       "slot": 63,
       "generation": 8,
       "row_tile": 7,
       "col_tile": 7,
-      "raw_result_hex": "3c250853b10a6424f657942b59223373fd5b4a16ad489afd3e82068cde4ec79e",
-      "canonical_result_hex": "970642325e0a9d5921a4d77379aa353184ee5428fe05009e598c1fe45f367ef7"
+      "raw_result_hex": "2e7c957fcdd87506eede6b50efb937c5e185c42e59154c69867289dd420854f5",
+      "canonical_result_hex": "3588010095cc030074090300628b010059fc0200d78bffff081ffcffa5f8f8ff186afaff3cff02004728050095c2fbffe3d603002b70fcff58b107000c9c0000"
     }
   ],
   "timing": {
     "measurement_class": "MOCK",
-    "HOST_PACK_US": 1.828,
-    "DESCRIPTOR_TX_US": 4.569,
-    "FPGA_WORK_US": 201.052,
-    "RESULT_RX_US": 2.104,
-    "HOST_VERIFY_US": 3483426.155,
-    "TOTAL_US": 3483706.048
+    "HOST_PACK_US": 1.668,
+    "DESCRIPTOR_TX_US": 9.267,
+    "FPGA_WORK_US": 231.032,
+    "RESULT_RX_US": 1.787,
+    "HOST_VERIFY_US": 14447872.42,
+    "TOTAL_US": 14448189.719
   },
   "cpu_oracle_comparison": {
-    "classification": "QUALIFIED_CPU_GOLDEN_CAPTURE_REPLAY",
+    "classification": "QUALIFIED_CPU_GOLDEN_CAPTURE_REPLAY_BATCH64",
     "fixture_operand_sha256": "33374e35cea368641aec1a7ee3c9529d01740fd5c05073156b5296230066d2f7",
     "trace_operand_sha256": "33374e35cea368641aec1a7ee3c9529d01740fd5c05073156b5296230066d2f7",
     "records": 4096,
@@ -579,6 +579,11 @@
       ],
       "transcript_exact": true,
       "digest_exact": true,
+      "exact": true
+    },
+    "batch64_oracle_checks": {
+      "batch64_operand_hashes_exact": true,
+      "batch64_captured_cpu_overlap_exact": true,
       "exact": true
     },
     "mock_batch_cpu_exact": true,

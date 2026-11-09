@@ -18,6 +18,10 @@ class Descriptor:
 def sha(b): return hashlib.sha256(b).hexdigest()
 def fixture_path(): return Path(__file__).resolve().parents[2]/'fixtures/phk2-host-runtime/authoritative-vector-001'
 def fixture_descriptor(): return Descriptor.decode((fixture_path()/'descriptor.bin').read_bytes())
+def fixture_batch64_provider(desc,start,count):
+    if desc!=fixture_descriptor() or start!=0 or count!=64: raise ValueError('mock fixture provider supports only retained batch64 descriptor/range')
+    root=fixture_path()/'batch64'; raw=(root/'expected_digests.bin').read_bytes(); canonical=(root/'expected_transcripts.bin').read_bytes()
+    return {'digests':[raw[i*32:(i+1)*32] for i in range(64)],'transcripts':[canonical[i*64:(i+1)*64] for i in range(64)]}
 def mock_cpu_oracle(desc:Descriptor,generation:int,start:int=0,count:int=64,range_id:int=1):
     """Independent host expected values for explicitly mock-only work items."""
     values=[]
@@ -31,11 +35,11 @@ def mock_cpu_oracle(desc:Descriptor,generation:int,start:int=0,count:int=64,rang
 class Result:
     generation:int; range_id:int; slot:int; row_tile:int; col_tile:int; raw_result:bytes; canonical_result:bytes
     def encode(self):
-        if len(self.raw_result)!=32 or len(self.canonical_result)!=32: raise ValueError('results must be 32 bytes')
+        if len(self.raw_result)!=32 or len(self.canonical_result) not in (32,64): raise ValueError('raw result must be 32 bytes and canonical result 32 or 64 bytes')
         return struct.pack('<QHHHH',self.generation,self.range_id,self.slot,self.row_tile,self.col_tile)+self.raw_result+self.canonical_result
 class MockDevice:
     """Deterministic LOAD_JOB/START_RANGE/STATUS/READ_RESULT/ABORT mock."""
-    def __init__(self): self.generation=None; self.job=None; self.range_id=None; self.results=[]; self.state='IDLE'; self.trace=[]; self.device_error=False
+    def __init__(self,result_provider=None): self.result_provider=result_provider; self.generation=None; self.job=None; self.range_id=None; self.results=[]; self.state='IDLE'; self.trace=[]; self.device_error=False
     def ev(self,op,**x): self.trace.append({'op':op,'state':self.state,**x})
     def load_job(self,raw):
         d=Descriptor.decode(raw)
@@ -46,10 +50,14 @@ class MockDevice:
         if count!=64 or start<0 or start+count>65536: raise ValueError('range must contain 64 valid tile indices')
         if self.device_error: self.state='DEVICE_ERROR'; self.ev('DEVICE_ERROR',generation=generation); raise RuntimeError('mock device error')
         self.range_id=range_id; self.state='RUNNING'; self.results=[]; self.ev('START_RANGE',generation=generation,start=start,count=count,range_id=range_id)
+        provided=self.result_provider(self.job,start,count) if self.result_provider else None
         for slot in range(count):
             row,col=divmod(start+slot,8)
-            raw=hashlib.sha256(self.job.encode()+struct.pack('<QHHI',generation,range_id,slot,start)).digest()
-            canonical=hashlib.sha256(b'PHK2-CANONICAL-MOCK-v1'+raw).digest()
+            if provided is not None:
+                raw,canonical=provided['digests'][slot],provided['transcripts'][slot]
+            else:
+                raw=hashlib.sha256(self.job.encode()+struct.pack('<QHHI',generation,range_id,slot,start)).digest()
+                canonical=hashlib.sha256(b'PHK2-CANONICAL-MOCK-v1'+raw).digest()
             self.results.append(Result(generation,range_id,slot,row,col,raw,canonical))
         self.state='DONE'; return list(self.results)
     def status(self): self.ev('STATUS',generation=self.generation); return self.state

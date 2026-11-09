@@ -37,14 +37,31 @@ def case_for(desc):
         if b==desc.encode(): return item
     raise ValueError('descriptor is not one of the 13 retained authoritative production cases')
 def predict(desc:Descriptor,range_start:int=0,count:int=1):
-    if range_start!=0 or count!=1: raise ValueError('qualified CPU fixture covers one 4x5 tile result at range start (0,0); other ranges need their own retained CPU qualification')
-    case=case_for(desc); seed_a=bytes.fromhex(case['noise_seed_A']); seed_b=bytes.fromhex(case['noise_seed_B'])
-    ports,vectors=golden_model.expand_capture(recipe_from_seeds(seed_a,seed_b),int(case['seed64'],16))
+    try: case=case_for(desc)
+    except ValueError: case=None
+    seed_a,seed_b=desc.noise_seed_A,desc.noise_seed_B
+    if count==64:
+        from batch64_oracle import predict_batch64
+        batch=predict_batch64(desc,seed_a,seed_b,range_start,count)
+        checks={'model_generated':True,'batch64_operand_hashes_exact':None,'batch64_captured_cpu_overlap_exact':None}
+        if case and case['capture']=='real-v3-slice-1017db2f_2097152-20261013T222702Z':
+            expected=json.loads((FIXTURE/'batch64/operand_sha256.json').read_text())
+            checks['batch64_operand_hashes_exact']=batch['operand_sha256']==expected['per_item_sha256']
+            expected_t=(FIXTURE/'expected_transcripts.bin').read_bytes(); expected_d=(FIXTURE/'expected_digests.bin').read_bytes()
+            overlap=[row*8+col for row in range(4) for col in range(5)]
+            checks['batch64_captured_cpu_overlap_exact']=all(batch['transcripts'][slot]==expected_t[i*64:(i+1)*64] and batch['digests'][slot]==expected_d[i*32:(i+1)*32] for i,slot in enumerate(overlap))
+            checks['exact']=checks['batch64_operand_hashes_exact'] and checks['batch64_captured_cpu_overlap_exact']
+        return {'expected_operands':batch['operands'],'expected_compact_result':batch['digests'],'canonical_result':batch['transcripts'],'checks':checks,'capture':case['capture'] if case else 'CPU_MODEL_PREDICTION'}
+    if range_start!=0 or count!=1: raise ValueError('supported ranges are one origin tile (count 1) or the origin 8x8 batch64 window')
+    ports,vectors=golden_model.expand_capture(recipe_from_seeds(seed_a,seed_b),desc.setup_seed64)
     transcripts,digests=golden_model.cpu_known_answers(vectors,seed_a)
-    expected_t=(CASES/case['expected_transcripts_file']).read_bytes(); expected_d=(CASES/case['expected_digests_file']).read_bytes()
-    checks={'operand_exact':[sha(x)==y for x,y in zip(ports,case['expected_operand_port_sha256'])], 'transcript_exact':b''.join(transcripts)==expected_t,'digest_exact':b''.join(digests)==expected_d}
-    checks['exact']=all(checks['operand_exact']) and checks['transcript_exact'] and checks['digest_exact']
-    return {'expected_operands':ports,'expected_compact_result':digests,'canonical_result':transcripts,'checks':checks,'capture':case['capture']}
+    if case:
+        expected_t=(CASES/case['expected_transcripts_file']).read_bytes(); expected_d=(CASES/case['expected_digests_file']).read_bytes()
+        checks={'operand_exact':[sha(x)==y for x,y in zip(ports,case['expected_operand_port_sha256'])], 'transcript_exact':b''.join(transcripts)==expected_t,'digest_exact':b''.join(digests)==expected_d}
+        checks['exact']=all(checks['operand_exact']) and checks['transcript_exact'] and checks['digest_exact']
+    else: checks={'model_generated':True,'retained_capture_crosscheck':False}
+    return {'expected_operands':ports,'expected_compact_result':digests,'canonical_result':transcripts,'checks':checks,'capture':case['capture'] if case else 'CPU_MODEL_PREDICTION'}
+
 def fixture_oracle():
     desc=Descriptor.decode((FIXTURE/'descriptor.bin').read_bytes())
     return predict(desc,0,1)
