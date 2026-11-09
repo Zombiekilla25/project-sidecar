@@ -7,9 +7,23 @@ module phk2_fk33_board_top(input wire clk_p,input wire clk_n);
  always @(posedge clk_p) sim_reset_pipe<={sim_reset_pipe[2:0],1'b1};
  assign core_clk=clk_p; assign core_rst=~sim_reset_pipe[3];
 `else
- wire clk200; IBUFDS #(.DIFF_TERM("TRUE"),.IBUF_LOW_PWR("FALSE")) u_clk(.I(clk_p),.IB(clk_n),.O(clk200));
- BUFGCE_DIV #(.BUFGCE_DIVIDE(2),.IS_CE_INVERTED(1'b0),.IS_CLR_INVERTED(1'b0),.IS_I_INVERTED(1'b0),.SIM_DEVICE("ULTRASCALE_PLUS")) u_core_clk(.I(clk200),.CE(1'b1),.CLR(1'b0),.O(core_clk));
- reg [3:0] reset_pipe=0; always @(posedge core_clk) reset_pipe<={reset_pipe[2:0],1'b1}; assign core_rst=~reset_pipe[3];
+ // New PHK2 clock choice from the authoritative 200 MHz differential input:
+ // 200 / DIVCLK(2) * FBMULT(14) / CLKOUT0_DIVIDE(8) = 175 MHz.
+ wire clk200,pll_fb,pll_fb_buf,pll_core_unbuf,pll_locked;
+ IBUFDS #(.DIFF_TERM("TRUE"),.IBUF_LOW_PWR("FALSE")) u_clk(.I(clk_p),.IB(clk_n),.O(clk200));
+ PLLE4_ADV #(.CLKFBOUT_MULT(14),.DIVCLK_DIVIDE(2),.CLKOUT0_DIVIDE(8),
+             .CLKIN1_PERIOD(5.000),.CLKOUT0_DUTY_CYCLE(0.5),
+             .CLKOUT0_PHASE(0.0),.STARTUP_WAIT("FALSE")) u_phk2_pll(
+   .CLKIN1(clk200),.CLKIN2(1'b0),.CLKINSEL(1'b1),.CLKFBIN(pll_fb_buf),
+   .CLKFBOUT(pll_fb),.CLKOUT0(pll_core_unbuf),.CLKOUT1(),
+   .DADDR(7'b0),.DCLK(1'b0),.DEN(1'b0),.DI(16'b0),.DWE(1'b0),
+   .DO(),.DRDY(),.LOCKED(pll_locked),.PWRDWN(1'b0),.RST(1'b0));
+ BUFG u_pll_feedback(.I(pll_fb),.O(pll_fb_buf));
+ BUFG u_core_clock(.I(pll_core_unbuf),.O(core_clk));
+ (* ASYNC_REG="TRUE",SHREG_EXTRACT="NO" *) reg [3:0] reset_pipe=0;
+ always @(posedge core_clk or negedge pll_locked)
+   if(!pll_locked) reset_pipe<=4'b0000; else reset_pipe<={reset_pipe[2:0],1'b1};
+ assign core_rst=~reset_pipe[3];
 `endif
  wire c1,d1,r1,rt1,s1,sh1,tck1,tdi1,tms1,u1; wire c2,d2,r2,rt2,s2,sh2,tck2,tdi2,tms2,u2; wire c3,d3,r3,rt3,s3,sh3,tck3,tdi3,tms3,u3;
  wire tdo1,tdo3; wire tdo2=1'b0;
@@ -26,9 +40,17 @@ module phk2_fk33_board_top(input wire clk_p,input wire clk_n);
  wire cmd_valid,cmd_ready,decoder_ready,decoder_error; wire [7:0] cmd_opcode,decoder_error_code; wire [15:0] cmd_sequence,cmd_length; wire [112*8-1:0] cmd_payload;
  assign rx_rd=!rx_empty&&decoder_ready;
  phk2_protocol_decoder decoder(.clk(core_clk),.rst(core_rst),.byte_valid(!rx_empty),.byte_ready(decoder_ready),.byte_data(rx_data),.cmd_valid(cmd_valid),.cmd_ready(cmd_ready),.cmd_opcode(cmd_opcode),.cmd_sequence(cmd_sequence),.cmd_length(cmd_length),.cmd_payload(cmd_payload),.sticky_error(decoder_error),.error_code(decoder_error_code));
- wire busy,result_ready,error,stale_job,overflow,aborted,result_valid,result_rd,hello_seen,descriptor_loaded; wire [7:0] result_byte,error_code; wire result_full,result_empty; wire [9:0] result_wc,result_rc; wire [7:0] result_data;
- phk2_core_stub core_stub(.clk(core_clk),.rst(core_rst),.cmd_valid(cmd_valid),.cmd_ready(cmd_ready),.cmd_opcode(cmd_opcode),.cmd_length(cmd_length),.cmd_payload(cmd_payload),.busy(busy),.result_ready(result_ready),.error(error),.hello_seen(hello_seen),.descriptor_loaded(descriptor_loaded),.stale_job(stale_job),.overflow(overflow),.aborted(aborted),.input_overflow(rx_full),.result_valid(result_valid),.result_ready_i(!result_full),.result_byte(result_byte),.error_code(error_code));
- phk2_async_fifo #(.WIDTH(8),.ADDR_BITS(9)) result_fifo(.wr_clk(core_clk),.wr_arst(core_rst),.wr_en(result_valid&&!result_full),.wr_data(result_byte),.wr_full(result_full),.wr_count(result_wc),.rd_clk(d1),.rd_arst(rst1[1]),.rd_en(result_rd),.rd_data(result_data),.rd_empty(result_empty),.rd_count(result_rc));
+ wire busy,result_ready,error,stale_job,overflow,aborted,result_rd,hello_seen,descriptor_loaded;
+ wire endpoint_tx_valid,endpoint_tx_ready,endpoint_overflow; wire [7:0] endpoint_tx_data;
+ wire [15:0] error_code; wire result_full,result_empty; wire [9:0] result_wc,result_rc; wire [7:0] result_data;
+ assign overflow=endpoint_overflow|rx_full|result_full;
+ phk2_real_core_endpoint core_endpoint(.clk(core_clk),.rst(core_rst),.cmd_valid(cmd_valid),.cmd_ready(cmd_ready),
+  .cmd_opcode(cmd_opcode),.cmd_sequence(cmd_sequence),.cmd_length(cmd_length),.cmd_payload(cmd_payload),
+  .tx_valid(endpoint_tx_valid),.tx_ready(endpoint_tx_ready),.tx_data(endpoint_tx_data),
+  .busy(busy),.result_ready(result_ready),.error(error),.stale_job(stale_job),.overflow(endpoint_overflow),
+  .aborted(aborted),.hello_seen(hello_seen),.descriptor_loaded(descriptor_loaded),.error_code(error_code));
+ assign endpoint_tx_ready=!result_full;
+ phk2_async_fifo #(.WIDTH(8),.ADDR_BITS(9)) result_fifo(.wr_clk(core_clk),.wr_arst(core_rst),.wr_en(endpoint_tx_valid&&!result_full),.wr_data(endpoint_tx_data),.wr_full(result_full),.wr_count(result_wc),.rd_clk(d1),.rd_arst(rst1[1]),.rd_en(result_rd),.rd_data(result_data),.rd_empty(result_empty),.rd_count(result_rc));
  reg [7:0] tx_shift=0; reg [2:0] tx_bits=0; assign tdo1=tx_shift[0]; assign result_rd=c1&&!result_empty;
  always @(posedge d1 or posedge rst1[1])if(rst1[1])begin tx_shift<=0;tx_bits<=0;end else if(c1)begin tx_bits<=0;tx_shift<=result_empty?8'h00:result_data;end else if(sh1)begin tx_shift<={1'b0,tx_shift[7:1]};if(tx_bits==7)begin tx_bits<=0;if(!result_empty)tx_shift<=result_data;end else tx_bits<=tx_bits+1'b1;end
  (* ASYNC_REG="TRUE",SHREG_EXTRACT="NO" *) reg [5:0] stat_s1=0,stat_s2=0; reg [31:0] stat_shift=0; reg [5:0] status_flags;

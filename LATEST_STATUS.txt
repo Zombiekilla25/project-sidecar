@@ -1,18 +1,15 @@
-PHK2 authoritative FK33 integration status
-UTC: 2026-11-09
-Phase: protocol/source audit and real-core boundary diagnostic
-Host codec and golden frames: PASS (host-only)
-CRC known-answer/contract tests: 4/4
-Host encoder/decoder golden agreement: PASS
-Standalone RTL response-frame encoder: 9/9 host golden responses, backpressure PASS; not yet connected to BSCAN top
-Host protocol failure matrix: 20/20 (software emulator)
-Host state stress: 250000 events, 0 unexpected failures/deadlocks
-Board RTL stub tests: 10/10 (stub only)
-Core contract mock stress: 600000 events, 0 unexpected failures/deadlocks/duplicates/drops
-Real core differential: FAIL; 4096 retained 4x8 operand records exact, result transcript/digest differ from production CPU oracle
-Wire protocol physical freeze: false
-Real PHK2 core bound to board top: false; board top still has test stub, and offline transaction wrapper failed CPU-oracle result comparison
-175 MHz clock plan: proposed only; clock legality not checked
-Board synthesis: NOT RUN because mandatory endpoint/core/clock gates fail
+PHK2/FK33 real-core endpoint integration
+UTC date: 2026-11-09
+Phase: real-core endpoint and asynchronous CDC simulation complete
+Wire size: PASS (112-byte descriptor; 10-byte header + 4-byte CRC = 126-byte LOAD frame; 125-byte auditor figure is semantic minimum)
+13 authoritative descriptor RTL replays: PASS; 425984 subtile records exact
+Board HELLO and single work item: PASS through decoder, endpoint, input/output async FIFOs, response encoder; CPU raw/canonical exact
+Board Batch64: PASS; 64 results, zero mismatches, CPU raw/canonical exact; 7538 response bytes
+Randomized >=250000-event real CDC stress: NOT RUN
+Real-core abort/reset/stale control matrix: NOT RUN
+Physical top source: real endpoint/core bound; test stub excluded by source manifest guard
+Clock: proposed PLL ratio is nominally 175 MHz; Vivado legality NOT CHECKED
+Authoritative XDC: missing in this worktree
+Board synthesis: NOT RUN; physical gates incomplete
 Route/bitstream/hardware: NOT RUN
-Next: reconcile full production compute/result shape and host result record against the CPU oracle, then implement the board endpoint and clock checks
+External activity: hardware=0 testbench_ssh=0 USB=0 JTAG=0 programming=0 bitstream=0 route=0 pool=0 CUDA=0 mining_changes=0

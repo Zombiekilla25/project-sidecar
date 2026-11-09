@@ -1,0 +1,145 @@
+{
+  "schema": "PHK2-REAL-BOARD-FIXTURE-REPLAY-v1",
+  "fixture_count": 13,
+  "passed": 13,
+  "mismatches": 0,
+  "coverage": {
+    "unique_generations": 12,
+    "unique_job_keys": 12,
+    "unique_setup_seeds": 1,
+    "unique_noise_seed_pairs": 12
+  },
+  "fixtures": [
+    {
+      "path": "fixtures/phk2-host-runtime/authoritative-descriptors/real-v3-slice-09f76caf_2097152-20261021T014622Z.bin",
+      "sha256": "d93717e152da6decdb7e8ae5bd0c7a75d496a6dfdf01b6ab0c2fa024c5433dd2",
+      "generation": 70,
+      "job_key_sha256": "9ec0e7b3bb0da3d085e51eafe9ab2d62796b69e4eab7bd7b0af07dc8be9e0408",
+      "setup_seed64": 673006669315178500,
+      "noise_seed_A_sha256": "31bdf91acb77ae6282c004a0dc5073eeffb75a731a4a32485fda532bff071385",
+      "noise_seed_B_sha256": "7759edcad2e124256b780d5db877e4799734fa786794386345d3b16889aa87b1",
+      "board_endpoint_single_item": "PASS"
+    },
+    {
+      "path": "fixtures/phk2-host-runtime/authoritative-descriptors/real-v3-slice-0c497f84_2097152-20261021T013213Z.bin",
+      "sha256": "f0217c29d9c4104d4c263a4b16466a0c03c5aad68589db7b8513c7e33d76b7bd",
+      "generation": 69,
+      "job_key_sha256": "25d697bdea037b9a93ace7b2f45ecdf1ef6582c79b0faa44ec28d42f6d144986",
+      "setup_seed64": 673006669315178500,
+      "noise_seed_A_sha256": "7f0dda7d309b99b4a08fcf60a2d0aa1ebdd8fe6dd6c3280e07c6bd51beb1a663",
+      "noise_seed_B_sha256": "797e71328b20a75472da040052774e5b121921c7202e2a165ffc823ed3433c83",
+      "board_endpoint_single_item": "PASS"
+    },
+    {
+      "path": "fixtures/phk2-host-runtime/authoritative-descriptors/real-v3-slice-1017db2f_2097152-20261013T222702Z.bin",
+      "sha256": "5f1d1113ce423475583c2100c088215d8984e61bd48fbbe25b9b365487db25c0",
+      "generation": 8,
+      "job_key_sha256": "35bddb641de3647180d4b0fa23aae3896fd5886282d5297d90658002f14aaf16",
+      "setup_seed64": 673006669315178500,
+      "noise_seed_A_sha256": "d6567203616d823383febbeb0200604d9eb1186febc615a3a4e6f69a1b5053da",
+      "noise_seed_B_sha256": "359ac42fdc9c38668315f4e183dde7e76aa3ba03f1a75f83b855e9e822c0fc78",
+      "board_endpoint_single_item": "PASS"
+    },
+    {
+      "path": "fixtures/phk2-host-runtime/authoritative-descriptors/real-v3-slice-2981ad6a_4194304-20261021T010328Z.bin",
+      "sha256": "baa712bd34d497fdec7f41392106bcbd1519d54b8c4a421e603f6920895bd34c",
+      "generation": 65,
+      "job_key_sha256": "5399032e35b80ed9b3cfbfe70935fc37bd71c91577bb2a2f48e9a5a8339bd7c5",
+      "setup_seed64": 673006669315178500,
+      "noise_seed_A_sha256": "5d36e141ee2f679c3d436c48fdebf625e326e0f08f2bec395640d2b77de3c820",
+      "noise_seed_B_sha256": "c3b7ec526ccce2d5ff80e801c118b1148495f765cda3ebc0176da105894c9468",
+      "board_endpoint_single_item": "PASS"
+    },
+    {
+      "path": "fixtures/phk2-host-runtime/authoritative-descriptors/real-v3-slice-3b5cdc39_2097152-20261021T012250Z.bin",
+      "sha256": "c551198625a0363155d54427c98abf94a18bfb42b5c6354935cad4117518c378",
+      "generation": 67,
+      "job_key_sha256": "423e6e8eb232b5a3cdfe6c44b61f84139773221c6d4726bcd8162e12825d5335",
+      "setup_seed64": 673006669315178500,
+      "noise_seed_A_sha256": "86f46371a8b5d7f5838464709d5fc5b1b3498b1db210b72b8342deaf38ddd84e",
+      "noise_seed_B_sha256": "921a8e0b7d279ceb6938d120b864f000f4391c29cc5db299f6e1d6756ad58a66",
+      "board_endpoint_single_item": "PASS"
+    },
+    {
+      "path": "fixtures/phk2-host-runtime/authoritative-descriptors/real-v3-slice-521ec7e0_2097152-20261021T014659Z.bin",
+      "sha256": "e8396410a7058b88afb938aeb85b797cbe401382e4da6c1633acfd494ee4fae0",
+      "generation": 71,
+      "job_key_sha256": "51f5c74c41b5ac74aa8aa4fb4746d5bc1e5ffae768a4e75aa7ba7841fc477024",
+      "setup_seed64": 673006669315178500,
+      "noise_seed_A_sha256": "548e5dcb92c122e78397de8e4f9efa016ba4fb4e38a7d158650b4870e574c9df",
+      "noise_seed_B_sha256": "91e5f2d23d8672f68b70c1268faed26fb81d855cdfbeef44606f76974cf9302a",
+      "board_endpoint_single_item": "PASS"
+    },
+    {
+      "path": "fixtures/phk2-host-runtime/authoritative-descriptors/real-v3-slice-649aa864_2097152-20261021T012147Z.bin",
+      "sha256": "7ab1c4af587313934e3a03c5c6d3576b525225dd882a7cd9ae3449e77f796f04",
+      "generation": 66,
+      "job_key_sha256": "ef2fb12e66873f449faf95f6483cb757c72b9419d2c4c36a0c190126b32bb62b",
+      "setup_seed64": 673006669315178500,
+      "noise_seed_A_sha256": "e99df53adeca7ddb1f627acc8b79d3eff36d00f8d6490fc635b3f97e1c59e643",
+      "noise_seed_B_sha256": "012f07bf9c57e381c95ecbdad7e0a33bbf8c168bc7310c562cf88c7343ba8fa9",
+      "board_endpoint_single_item": "PASS"
+    },
+    {
+      "path": "fixtures/phk2-host-runtime/authoritative-descriptors/real-v3-slice-653bee82_2097152-20261019T011443Z.bin",
+      "sha256": "1be7efb5c8e3a278535a1dcd077d06512ca84a8b1dd5723a0ccdc1d311641ce6",
+      "generation": 9,
+      "job_key_sha256": "14f7cac531da35935426e9e9c72c0936c6964af245bd0ebee250c65d1b36d7bf",
+      "setup_seed64": 673006669315178500,
+      "noise_seed_A_sha256": "a2b239eca4c71ec4bc8ffbfb83db1950def9caabd2f8cfcd314639023ed7938b",
+      "noise_seed_B_sha256": "d40ca3910cc27809340a1648cb97661572c3665d22562c62bb1894c78c8618d8",
+      "board_endpoint_single_item": "PASS"
+    },
+    {
+      "path": "fixtures/phk2-host-runtime/authoritative-descriptors/real-v3-slice-7a3cab9a_2097152-20261021T014706Z.bin",
+      "sha256": "465394dc213741d81b4f5a764a3315a75594c17883a2a50643ad8c6dabcf0ec4",
+      "generation": 72,
+      "job_key_sha256": "95fac2fe73fcc149e49aba3232a3228f8cb506aaeec7c130fb5a5a305b1a3710",
+      "setup_seed64": 673006669315178500,
+      "noise_seed_A_sha256": "63b23e7f5185dfb0b21dca8ef969dc30bc6230dc7bf526b1b6685daaf3c71868",
+      "noise_seed_B_sha256": "48a2b447c7ba803b6a0798d60780c194b0fd821c2e20d2e3c081f622a1d2e691",
+      "board_endpoint_single_item": "PASS"
+    },
+    {
+      "path": "fixtures/phk2-host-runtime/authoritative-descriptors/real-v3-slice-7a3cab9a_2097152-20261024T014440Z.bin",
+      "sha256": "465394dc213741d81b4f5a764a3315a75594c17883a2a50643ad8c6dabcf0ec4",
+      "generation": 72,
+      "job_key_sha256": "95fac2fe73fcc149e49aba3232a3228f8cb506aaeec7c130fb5a5a305b1a3710",
+      "setup_seed64": 673006669315178500,
+      "noise_seed_A_sha256": "63b23e7f5185dfb0b21dca8ef969dc30bc6230dc7bf526b1b6685daaf3c71868",
+      "noise_seed_B_sha256": "48a2b447c7ba803b6a0798d60780c194b0fd821c2e20d2e3c081f622a1d2e691",
+      "board_endpoint_single_item": "PASS"
+    },
+    {
+      "path": "fixtures/phk2-host-runtime/authoritative-descriptors/real-v3-slice-94292595_2097152-20261013T041523Z.bin",
+      "sha256": "f7a9b93e512a4ed1f4fb52c055497a41cb93e0e600b5aaf94308c10009b9973a",
+      "generation": 4,
+      "job_key_sha256": "a03eaa2067861d63279ce8aeffcd9f71506f654ccbafec35a0cf22c849e430ac",
+      "setup_seed64": 673006669315178500,
+      "noise_seed_A_sha256": "6781e423299a6c226a4c594397d4f8f87fcfc6dfc2b45e11850ba22a08de4e30",
+      "noise_seed_B_sha256": "4cc9013bb1c9e8853d5808a076a42cdc2e103f98a14cfcc309e0158491d53d17",
+      "board_endpoint_single_item": "PASS"
+    },
+    {
+      "path": "fixtures/phk2-host-runtime/authoritative-descriptors/real-v3-slice-aa07e6fa_2097152-20261020T001234Z.bin",
+      "sha256": "86f21a1794c2f645148246b9912f294e4c888577d344af0cc3fb2d48c8ab1af2",
+      "generation": 64,
+      "job_key_sha256": "480116cffaa2329c7089b83bf462dd0c7af9b18103ed66f04845508c159e0037",
+      "setup_seed64": 673006669315178500,
+      "noise_seed_A_sha256": "d69c150414f128b926e30bac625ced97c453ffc700e866de54d4a55996885671",
+      "noise_seed_B_sha256": "08f850d64bee896c53528e7decf85f1aa7b4cc029ebc6e4e5390659d58be2508",
+      "board_endpoint_single_item": "PASS"
+    },
+    {
+      "path": "fixtures/phk2-host-runtime/authoritative-descriptors/real-v3-slice-cba94dfa_2097152-20261021T013137Z.bin",
+      "sha256": "6b62070c7e8e077a8c2686657cf86cbadf5b7ee4d387807b7f3693312a0dd72b",
+      "generation": 68,
+      "job_key_sha256": "ecd026d35f196893561f324772542b635adb2780e559e17058c45b7187bcf85b",
+      "setup_seed64": 673006669315178500,
+      "noise_seed_A_sha256": "efa310d2383287279607593b7bc376fa7733a25249667a2010b5439cb07eb6bf",
+      "noise_seed_B_sha256": "105f665311257fd5fba48c1dc32f6756111ab88c7e1fcd14f048079a144e4e9a",
+      "board_endpoint_single_item": "PASS"
+    }
+  ],
+  "qualification_boundary": "Each fixture exercised HELLO/LOAD_DESCRIPTOR/START_RANGE count=1/STATUS/READ_RESULT through protocol decoder, async input/output FIFO models, endpoint, real core, and response encoder. CPU raw/canonical results matched. Simulation evidence only; not physical BSCANE2 or CDC timing qualification."
+}

@@ -1,0 +1,72 @@
+{
+  "schema": "PHK2-REAL-CORE-ENDPOINT-QUALIFICATION-v1",
+  "source_commit_base": "2e2dbcce5323d4b69bb737fa783f52e30f4d7956",
+  "core_source": "rtl/phk2_board/phk2_core/phk2_timing_core_contract.sv",
+  "core_source_sha256": "92fdf3271397c2e09f2d9b75995d04c34bb5066b51a08eef43eea1ad664f91d7",
+  "endpoint_source_sha256": "5945088a0f4e4394cf9d6a038d2e77b70f8a6fe8806c7d87280d8abc3aa7a2e2",
+  "cpu_oracle_fixture_descriptor_sha256": "5f1d1113ce423475583c2100c088215d8984e61bd48fbbe25b9b365487db25c0",
+  "diagnostic_core_result_evidence": {
+    "single_item_raw_result_sha256": "59532ea45cde03490c1677bc1842a7173979e5232132692690387099266b04dd",
+    "single_item_canonical_sha256": "9edbeb92ecbe4af504b6123b47fa859335de4b92bc4969640911152b91ed8868",
+    "cycles_per_item": 13729978,
+    "batch64_cycles": 878718655,
+    "batch64_raw_canonical_exact": "PASS"
+  },
+  "board_endpoint_simulation": {
+    "transport_clock_period_ns": 14,
+    "core_clock_period_ns": 10,
+    "input_async_fifo": "PASS_SINGLE_ITEM_AND_BATCH64",
+    "output_async_fifo": "PASS_SINGLE_ITEM_AND_BATCH64",
+    "hello": "PASS",
+    "load_descriptor": "PASS",
+    "start_range_count_1": "PASS",
+    "status_result_ready": "PASS",
+    "read_result": "PASS",
+    "cpu_raw_canonical_crosscheck": "PASS",
+    "batch64_status": "PASS",
+    "batch64_results": 64,
+    "batch64_mismatches": 0,
+    "batch64_response_bytes": 7538,
+    "latest_source_single_item_rerun": "PASS"
+  },
+  "physical_clock": {
+    "board_input_mhz": 200,
+    "new_phk2_target_mhz": 175,
+    "primitive_plan": "IBUFDS -> PLLE4_ADV DIVCLK=2 FBMULT=14 CLKOUT0_DIVIDE=8 -> BUFG",
+    "legality": "NOT_CHECKED"
+  },
+  "qualification": {
+    "real_core_in_board_top": "PASS_SOURCE_BINDING_AND_ASYNC_FIFO_ENDPOINT_SIM_COUNT_1_AND_64",
+    "test_stub_in_physical_top": false,
+    "wire_protocol_frozen": false,
+    "board_synthesis": "NOT_RUN",
+    "reason": "Authoritative FK33 XDC is absent from this worktree; PLL legality, real BSCANE2 event-level behavior, CDC/control stress and physical structural checks remain incomplete."
+  },
+  "external_activity": {
+    "hardware": 0,
+    "testbench_ssh": 0,
+    "usb": 0,
+    "jtag": 0,
+    "programming": 0,
+    "bitstream": 0,
+    "route": 0,
+    "pool": 0,
+    "cuda": 0
+  },
+  "board_level_gates": {
+    "hello": "PASS",
+    "single_work": "PASS",
+    "batch64": "PASS",
+    "batch64_result_count": 64,
+    "batch64_result_mismatches": 0,
+    "cpu_raw_canonical_crosscheck": "PASS",
+    "real_board_fixtures_tested": 13,
+    "control_abort_reset_stale_matrix": "NOT_RUN",
+    "randomized_real_core_cdc_stress": "NOT_RUN",
+    "clock_startup_reset_tests": "NOT_RUN",
+    "physical_bscane2_simulation": "NOT_RUN",
+    "real_board_fixture_mismatches": 0,
+    "fixture_replay_result": "results/phk2-real-board-fixture-replay.json"
+  },
+  "real_core_source_commit": "84ef0eb998077270c4eef6b95f107c18cac70438"
+}

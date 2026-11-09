@@ -1,0 +1,177 @@
+{
+  "schema": "PHK2-REAL-CORE-TRANSACTION-INTERFACE-v1",
+  "worktree_commit_base": "2e2dbcce5323d4b69bb737fa783f52e30f4d7956",
+  "module": "phk2_timing_core_contract",
+  "source": "rtl/phk2_board/phk2_core/phk2_timing_core_contract.sv",
+  "source_sha256": "92fdf3271397c2e09f2d9b75995d04c34bb5066b51a08eef43eea1ad664f91d7",
+  "clock_reset": {
+    "clk": "single core clock domain",
+    "rst": "active-high synchronous reset; transaction abort/reset also invalidates in-flight work"
+  },
+  "ports": [
+    {
+      "name": "descriptor_valid",
+      "dir": "input",
+      "bits": 1,
+      "meaning": "descriptor handshake valid"
+    },
+    {
+      "name": "descriptor_ready",
+      "dir": "output",
+      "bits": 1,
+      "meaning": "descriptor handshake ready"
+    },
+    {
+      "name": "descriptor_payload",
+      "dir": "input",
+      "bits": 896,
+      "meaning": "112-byte descriptor packed little-endian by byte; job key[0:255], generation[256:319], setup seed[320:383], noise A[384:639], noise B[640:895]"
+    },
+    {
+      "name": "range_valid",
+      "dir": "input",
+      "bits": 1
+    },
+    {
+      "name": "range_ready",
+      "dir": "output",
+      "bits": 1
+    },
+    {
+      "name": "range_generation",
+      "dir": "input",
+      "bits": 64
+    },
+    {
+      "name": "range_job_key",
+      "dir": "input",
+      "bits": 256
+    },
+    {
+      "name": "range_start",
+      "dir": "input",
+      "bits": 32,
+      "constraint": "current core accepts only zero"
+    },
+    {
+      "name": "range_count",
+      "dir": "input",
+      "bits": 16,
+      "constraint": "1..64"
+    },
+    {
+      "name": "range_id",
+      "dir": "input",
+      "bits": 16
+    },
+    {
+      "name": "abort_valid",
+      "dir": "input",
+      "bits": 1
+    },
+    {
+      "name": "abort_ready",
+      "dir": "output",
+      "bits": 1
+    },
+    {
+      "name": "abort_generation",
+      "dir": "input",
+      "bits": 64
+    },
+    {
+      "name": "abort_job_key",
+      "dir": "input",
+      "bits": 256
+    },
+    {
+      "name": "abort_range_id",
+      "dir": "input",
+      "bits": 16
+    },
+    {
+      "name": "abort_reason",
+      "dir": "input",
+      "bits": 16
+    },
+    {
+      "name": "busy",
+      "dir": "output",
+      "bits": 1
+    },
+    {
+      "name": "result_ready",
+      "dir": "output",
+      "bits": 1,
+      "meaning": "candidate/result pending"
+    },
+    {
+      "name": "error",
+      "dir": "output",
+      "bits": 1
+    },
+    {
+      "name": "stale_job",
+      "dir": "output",
+      "bits": 1
+    },
+    {
+      "name": "overflow",
+      "dir": "output",
+      "bits": 1
+    },
+    {
+      "name": "aborted",
+      "dir": "output",
+      "bits": 1
+    },
+    {
+      "name": "error_code",
+      "dir": "output",
+      "bits": 16
+    },
+    {
+      "name": "result_valid",
+      "dir": "output",
+      "bits": 1
+    },
+    {
+      "name": "result_ready_i",
+      "dir": "input",
+      "bits": 1
+    },
+    {
+      "name": "result_payload",
+      "dir": "output",
+      "bits": 896,
+      "meaning": "generation u64, range u16, slot u16, row u16, column u16, raw result 32B, canonical result 64B"
+    }
+  ],
+  "implementation_facts": {
+    "tile": "one proven PHK1 4x8 tile reused serially across 8 subtiles per 16x16 work item",
+    "subtile_composition": "XOR the eight 512-bit transcripts before digest/filter",
+    "result_filter_target": "all-ones constant in current wrapper; production job target is not yet provided by descriptor",
+    "range_start": "only zero accepted in current wrapper",
+    "workgen": "sequential Philox and keyed-BLAKE3 generator; no production cycle claim inferred from analysis RTL"
+  },
+  "source_hashes": {
+    "rtl/phk2_board/phk2_real_core_endpoint.sv": "5945088a0f4e4394cf9d6a038d2e77b70f8a6fe8806c7d87280d8abc3aa7a2e2",
+    "rtl/phk2_board/phk2_core_contract_adapter.sv": "80a1af8227e3027ebc2ed0337dd91d86518b96272c04e094a31995504e23da64",
+    "rtl/phk2_board/phk2_core/phk2_blake3_keyed_block_seq.sv": "3103fc0502dbea18d78b95fea4e004ef362dc29206cf0e1d9ec9c7e052b44222",
+    "rtl/phk2_board/phk2_core/phk2_philox4x32_10_seq.sv": "7c8a79afc75ccb2b28d2d7c04f9dc68872331a75e3e12cdff0df386e23306cb1",
+    "rtl/phk2_board/phk2_core/phk2_production_operand_seq.sv": "3dc8772e43308fdd9a0b7252d383e62374481d9482a2dae3c9ec1217004413f1",
+    "rtl/phk2_board/phk2_core/phk2_tile_adapter.sv": "853508e58737a21b781f045d74dcb901c4b099011be5fd70afa3fbc9930f55db",
+    "rtl/phk2_board/phk2_core/phk2_compact_result.sv": "83ff39cf707ce2c8af52a7034da3bf66fc593dfcc02f04a90541ff1672ba5ecc",
+    "rtl/phk2_board/phk2_core/phk2_result_filter.sv": "8956efc0bcdeb1d4486b77a8068327cf5f1412b145e5547ef098a2acddbf92b2",
+    "rtl/phk2_board/phk2_core/phk2_timing_core_contract.sv": "92fdf3271397c2e09f2d9b75995d04c34bb5066b51a08eef43eea1ad664f91d7",
+    "rtl/phk2_board/phk2_core/vendor_phk1/packed_mul2.sv": "ad9396097fbfc0df5b5a779730034a617c6022a64bdbebeb1a4dc798d5e80538",
+    "rtl/phk2_board/phk2_core/vendor_phk1/packed_tile.sv": "4eb48273b11c327c0ce2068ac2fb083493d1d10dbc4355f094bc1679621c8fab"
+  },
+  "evidence": {
+    "oracle_replay": "results/phk2-real-core-oracle-replay.json",
+    "authoritative_descriptors": "13/13 exact",
+    "diagnostic_batch64": "64/64 result records exact; 878718655 cycles"
+  },
+  "status": "transaction datapath candidate; board BSCAN/CDC/clock qualification pending",
+  "source_commit": "84ef0eb998077270c4eef6b95f107c18cac70438"
+}
