@@ -1,0 +1,28 @@
+{
+  "schema": "PHK2-REAL-ENDPOINT-CDC-STRESS-v1",
+  "transport_endpoint": "real PHK2 endpoint with real core instantiated; core idle during HELLO workload",
+  "requests": 12000,
+  "responses": 12000,
+  "clock_edge_events": 1822446,
+  "core_clock_period_ns": 10,
+  "transport_clock_half_period_ns": "deterministically varied 5..12",
+  "input_fifo_full_edges": 347759,
+  "result_fifo_full_edges": 790267,
+  "host_read_start_delay_ns": 50000,
+  "command_spacing": "continuous frame producer on variable-period transport clock",
+  "unexpected_failures": 0,
+  "deadlocks": 0,
+  "duplicate_responses": 0,
+  "dropped_responses": 0,
+  "stale_results_accepted": 0,
+  "payload_and_crc": "all HELLO response fields and CRC verified against golden response encoding",
+  "fifo_component_stress": {
+    "transfers": 100000,
+    "received": 100000,
+    "clock_edges": 2666684,
+    "full_cycles": 1757129,
+    "drops": 0,
+    "duplicates": 0
+  },
+  "limits": "This campaign stresses command/response CDC and FIFO backpressure; it does not run PearlHash compute concurrently. Batch64 result crossing is separately covered by the board endpoint simulation."
+}

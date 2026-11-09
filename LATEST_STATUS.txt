@@ -1,15 +1,9 @@
-PHK2/FK33 real-core endpoint integration
+PHK2/FK33 authoritative board integration
 UTC date: 2026-11-09
-Phase: real-core endpoint and asynchronous CDC simulation complete
-Wire size: PASS (112-byte descriptor; 10-byte header + 4-byte CRC = 126-byte LOAD frame; 125-byte auditor figure is semantic minimum)
-13 authoritative descriptor RTL replays: PASS; 425984 subtile records exact
-Board HELLO and single work item: PASS through decoder, endpoint, input/output async FIFOs, response encoder; CPU raw/canonical exact
-Board Batch64: PASS; 64 results, zero mismatches, CPU raw/canonical exact; 7538 response bytes
-Randomized >=250000-event real CDC stress: NOT RUN
-Real-core abort/reset/stale control matrix: NOT RUN
-Physical top source: real endpoint/core bound; test stub excluded by source manifest guard
-Clock: proposed PLL ratio is nominally 175 MHz; Vivado legality NOT CHECKED
-Authoritative XDC: missing in this worktree
-Board synthesis: NOT RUN; physical gates incomplete
-Route/bitstream/hardware: NOT RUN
-External activity: hardware=0 testbench_ssh=0 USB=0 JTAG=0 programming=0 bitstream=0 route=0 pool=0 CUDA=0 mining_changes=0
+Base commit: e837d4883ae428e82112b55d6a0a9250fd8e0813
+Authoritative PHK1 XDC recovered and installed as byte-identical reference (SHA256 16a5c6b05ac43f9fffeeb95b1b0b8490d3ce0884843f7a239a2d9d9d085770e7). The exact previously reviewed PHK2 pin/clock fragment is applied unchanged (SHA256 97c25163f6176271d93c727a54eb49116e4131cefc8d4c01c68aa44f29eee473). Pins BC26/BC27, LVDS, 200 MHz, no external reset: all crosschecks PASS.
+Current HELLO response matches golden 14-byte payload, including result_bytes=112.
+Real-core board endpoint: 6/6 control cases pass; current-source single work CPU exact. Historical 13 descriptor single-work replay and 64 result Batch64 replay passed; Batch64 RTL/data path unchanged by HELLO field fix.
+CDC/backpressure: current real endpoint 12000 HELLO transactions, 1822446 clock-edge events, variable transport half periods, input/result FIFO full, 0 lost/duplicate/deadlock/unexpected failure. FIFO stress: 100000 ordered transfers, 2666684 edges, 0 loss/duplicates.
+PLL lock/reset release: 4/4 PASS. Vivado 2026.1 clock-only legality on exact PHK2 clockgen source: PASS; 200 MHz in, 175 MHz derived, zero DRC violations. DIFF_TERM translation warning documented.
+Simulation-mode top elaboration: PASS. Full physical-top validation and vendor CDC report: NOT RUN. Full board synthesis 175 MHz: NOT RUN because those preceding gates are incomplete. No route, bitstream, hardware, USB/JTAG, testbench SSH, pool, CUDA, or mining activity.

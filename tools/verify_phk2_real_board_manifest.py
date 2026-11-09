@@ -22,10 +22,19 @@ def main() -> int:
     for rel in sources+list(m['test_only_stub']):
         actual=hashlib.sha256((ROOT/rel).read_bytes()).hexdigest()
         if actual!=m['source_sha256'][rel]: raise ValueError(f'source hash mismatch: {rel}')
-    if m['constraints']:
-        for rel in m['constraints']:
-            if not (ROOT/rel).is_file(): raise ValueError(f'missing physical constraint: {rel}')
-    print(json.dumps({'REAL_CORE_INCLUDED':'PASS','TEST_STUB_EXCLUDED':'PASS','SOURCE_HASHES':'PASS','physical_rtl_files':len(sources),'constraints':len(m['constraints']),'physical_synthesis_ready':bool(m['constraints'])},sort_keys=True))
+    constraints_ok=bool(m['constraints'])
+    for rel in m['constraints']:
+        path=ROOT/rel
+        if not path.is_file(): raise ValueError(f'missing physical constraint: {rel}')
+        actual=hashlib.sha256(path.read_bytes()).hexdigest()
+        if actual!=m.get('constraint_sha256',{}).get(rel): raise ValueError(f'constraint hash mismatch: {rel}')
+    ref=m.get('provenance_reference_xdc')
+    if ref:
+        path=ROOT/ref
+        if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest()!=m.get('provenance_reference_xdc_sha256'):
+            raise ValueError('authoritative reference XDC missing or hash mismatch')
+    ready=constraints_ok and m.get('clock_legality')=='PASS' and m.get('board_synthesis_gates_complete') is True
+    print(json.dumps({'REAL_CORE_INCLUDED':'PASS','TEST_STUB_EXCLUDED':'PASS','SOURCE_HASHES':'PASS','XDC_HASHES':'PASS' if constraints_ok else 'FAIL','physical_rtl_files':len(sources),'constraints':len(m['constraints']),'physical_synthesis_ready':ready},sort_keys=True))
     return 0
 
 if __name__=='__main__':

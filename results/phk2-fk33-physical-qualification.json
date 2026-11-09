@@ -1,0 +1,90 @@
+{
+  "schema": "PHK2-FK33-BOARD-CONSTRAINT-CLOCK-QUALIFICATION-v1",
+  "part": "xcvu33p-fsvh2104-2-e",
+  "authoritative_xdc": {
+    "source": "/home/rmann/project-sidecar/sidecar-evidence/phk1-patched-bitstream-handoff-20261103/constraints/PHK1_FK33_BOARD_CONSTRAINTS.xdc",
+    "sha256": "16a5c6b05ac43f9fffeeb95b1b0b8490d3ce0884843f7a239a2d9d9d085770e7",
+    "installed_reference": "constraints/reference/PHK1_FK33_BOARD_CONSTRAINTS.xdc",
+    "installed_reference_sha256": "16a5c6b05ac43f9fffeeb95b1b0b8490d3ce0884843f7a239a2d9d9d085770e7",
+    "reference_unchanged": true,
+    "applied_constraint": "constraints/phk2-fk33-board-clock-contract.xdc",
+    "applied_sha256": "97c25163f6176271d93c727a54eb49116e4131cefc8d4c01c68aa44f29eee473",
+    "proven_fragment_sha256": "97c25163f6176271d93c727a54eb49116e4131cefc8d4c01c68aa44f29eee473",
+    "applied_fragment_unchanged": true,
+    "crosschecks": {
+      "pins": "PASS BC26/BC27",
+      "input_clock": "PASS 200 MHz, 5.000 ns",
+      "iostandard": "PASS LVDS",
+      "reset": "PASS no external reset pin; PLL-lock derived"
+    }
+  },
+  "clock": {
+    "source_rtl": "rtl/phk2_board/phk2_fk33_clockgen.sv",
+    "source_sha256": "e2895ed1aa528c19dbe9f815d1cc0b253ce24934588a68f12c62d4456e8aa5b7",
+    "reset_release_rtl": "rtl/phk2_board/phk2_pll_reset_release.sv",
+    "reset_release_sha256": "aa3c3f5a1cb8ed7da71b05a0debccc2f171f81c6e926c4cc8377c3e806d26bcc",
+    "board_input_mhz": 200,
+    "primitive": "IBUFDS + PLLE4_ADV + BUFG",
+    "clk_in_period_ns": 5.0,
+    "divclk_divide": 2,
+    "clkfbout_mult": 14,
+    "clkout0_divide": 8,
+    "pfd_mhz": 100,
+    "vco_mhz": 1400,
+    "core_output_mhz": 175,
+    "core_period_ns": 5.714285714,
+    "vivado": "2026.1 Enterprise",
+    "clock_legality": "PASS",
+    "generated_clock_recognized": true,
+    "generated_period_ns": 5.714,
+    "clock_shell_drc_violations": 0,
+    "warnings": [
+      "Inherited DIFF_TERM=TRUE is translated by Vivado to TERM_100 for UltraScale."
+    ],
+    "scope": "Clock-only legality synthesis, not integrated PHK2 board synthesis.",
+    "legality_artifacts": {
+      "clock_report": "results/phk2-fk33-clock-legality/clocks.rpt",
+      "drc_report": "results/phk2-fk33-clock-legality/drc.rpt",
+      "timing_report": "results/phk2-fk33-clock-legality/timing.rpt",
+      "vivado_tcl": "tools/vivado_phk2_clock_legality.tcl"
+    }
+  },
+  "clock_startup_reset_tests": "4/4 PASS",
+  "real_core_board_control_tests": "6/6 PASS",
+  "real_endpoint_cdc_stress": {
+    "requests": 12000,
+    "responses": 12000,
+    "clock_edge_events": 1822446,
+    "input_fifo_full_edges": 347759,
+    "result_fifo_full_edges": 790267,
+    "duplicate_responses": 0,
+    "dropped_responses": 0,
+    "unexpected_failures": 0,
+    "deadlocks": 0,
+    "stale_results_accepted": 0,
+    "command_mix": "HELLO only; real compute core bound and idle",
+    "transport_clock": "variable half-period 5\u201312 ns; core clock 10 ns",
+    "host_output_read_delay_ns": 50000,
+    "events": 1822446,
+    "qualification_result": "PASS; see results/phk2-real-core-cdc-stress.json"
+  },
+  "fifo_stress": {
+    "transfers": 100000,
+    "received": 100000,
+    "clock_edges": 2666684,
+    "full_cycles": 1757129,
+    "duplicates": 0,
+    "drops": 0
+  },
+  "integrated_physical_status": {
+    "top_io_count": 2,
+    "full_top_structural_validation": "PARTIAL",
+    "vendor_cdc_review": "NOT_RUN",
+    "board_synthesis_175": "NOT_RUN",
+    "route": "NOT_RUN",
+    "write_bitstream": "NOT_RUN",
+    "cdc_backpressure_tests": "5/6 board-path stress conditions covered; rapid STATUS polling not covered",
+    "physical_top_elaboration": "Icarus PHK2_SIM elaboration pending final run"
+  },
+  "source_manifest_sha256": "1368878a0277ddfe0c4e4130ab8b6380164e73a60c984a777ba5395d19e55f41"
+}

@@ -16,7 +16,7 @@ module tb_real_core_endpoint;
   reg [7:0] desc_bytes[0:111];
   reg [7:0] expected_bytes[0:7167];
   reg [895:0] frame_payload;
-  reg [63:0] generation;
+  reg [63:0] generation, generation_next;
   reg [255:0] job_key;
   reg [31:0] crc;
 
@@ -78,7 +78,12 @@ module tb_real_core_endpoint;
     for(i=0;i<112;i=i+1)frame_payload[i*8+:8]=desc_bytes[i];
     generation=0;job_key=0;for(i=0;i<8;i=i+1)generation[i*8+:8]=desc_bytes[32+i];for(i=0;i<32;i=i+1)job_key[i*8+:8]=desc_bytes[i];
     repeat(5)@(posedge clk);#1 rst=0;repeat(6)@(posedge tck);
-    base=response_count;frame_payload=0;send_frame(8'h01,0,frame_payload,seq);await_frame(base,14,8'h01,seq);seq=seq+1;$display("HELLO_OK");
+    base=response_count;frame_payload=0;send_frame(8'h01,0,frame_payload,seq);await_frame(base,14,8'h01,seq);
+    if(response_bytes[base+10]!=1||response_bytes[base+11]!=0||response_bytes[base+12]!=3||response_bytes[base+13]!=0||
+       response_bytes[base+14]!=112||response_bytes[base+15]!=0||response_bytes[base+16]!=64||response_bytes[base+17]!=0||
+       response_bytes[base+18]!=112||response_bytes[base+19]!=0||response_bytes[base+20]!=8'h3f||response_bytes[base+21]!=0||
+       response_bytes[base+22]!=0||response_bytes[base+23]!=0)$fatal(1,"HELLO payload differs from host golden vector");
+    seq=seq+1;$display("HELLO_OK");
     if(!hello_seen)$fatal(1,"HELLO state missing");
     base=response_count;frame_payload=0;for(i=0;i<112;i=i+1)frame_payload[i*8+:8]=desc_bytes[i];send_frame(8'h10,112,frame_payload,seq);await_frame(base,40,8'h10,seq);seq=seq+1;$display("LOAD_OK");
     if(!descriptor_loaded||error)$fatal(1,"descriptor load failed");
@@ -102,6 +107,53 @@ module tb_real_core_endpoint;
       slot=slot+nrecords;
     end
     if(error||stale_job||overflow)$fatal(1,"endpoint error at completion code=%0d",error_code);
+
+    // Board-path controls: stale identity, descriptor replacement, abort before
+    // work, abort during work, reset during work, and reset with result pending.
+    frame_payload=0;frame_payload[0+:64]=generation+1;frame_payload[64+:16]=1;
+    base=response_count;send_frame(8'h12,10,frame_payload,seq);await_frame(base,2,8'h12,seq);seq=seq+1;
+    if(response_bytes[base+4]!=8'h03||{response_bytes[base+11],response_bytes[base+10]}!=16'd4||!stale_job)
+      $fatal(1,"stale-generation status control failed");
+    generation_next=generation+1;
+    frame_payload=0;for(i=0;i<112;i=i+1)frame_payload[i*8+:8]=desc_bytes[i];
+    frame_payload[256+:64]=generation_next;
+    base=response_count;send_frame(8'h10,112,frame_payload,seq);await_frame(base,40,8'h10,seq);seq=seq+1;
+    generation=generation_next;
+    frame_payload=0;frame_payload[0+:64]=generation;frame_payload[64+:256]=job_key;frame_payload[336+:16]=16'd1;
+    base=response_count;send_frame(8'h14,44,frame_payload,seq);await_frame(base,0,8'h14,seq);seq=seq+1;
+    if(!aborted||busy)$fatal(1,"abort-before-work control failed");
+
+    frame_payload=0;frame_payload[0+:64]=generation;frame_payload[64+:256]=job_key;
+    frame_payload[352+:16]=16'd64;frame_payload[368+:16]=16'd2;
+    base=response_count;send_frame(8'h11,48,frame_payload,seq);await_frame(base,12,8'h11,seq);seq=seq+1;
+    frame_payload=0;frame_payload[0+:64]=generation;frame_payload[64+:256]=job_key;frame_payload[320+:16]=16'd2;
+    base=response_count;send_frame(8'h14,44,frame_payload,seq);await_frame(base,0,8'h14,seq);seq=seq+1;
+    repeat(4)@(posedge clk);
+    if(!aborted||busy||result_ready)$fatal(1,"abort-during-work control failed");
+
+    frame_payload=0;frame_payload[0+:64]=generation;frame_payload[64+:256]=job_key;
+    frame_payload[352+:16]=16'd64;frame_payload[368+:16]=16'd3;
+    base=response_count;send_frame(8'h11,48,frame_payload,seq);await_frame(base,12,8'h11,seq);seq=seq+1;
+    base=response_count;send_frame(8'h1f,0,0,seq);await_frame(base,0,8'h1f,seq);seq=seq+1;
+    repeat(4)@(posedge clk);
+    if(descriptor_loaded||busy||result_ready||error)$fatal(1,"reset-during-work control failed");
+
+    // Load a fresh generation and let one result become pending; reset it
+    // without reading it to exercise result invalidation at the board endpoint.
+    generation_next=generation+2;frame_payload=0;
+    for(i=0;i<112;i=i+1)frame_payload[i*8+:8]=desc_bytes[i];
+    frame_payload[256+:64]=generation_next;
+    base=response_count;send_frame(8'h10,112,frame_payload,seq);await_frame(base,40,8'h10,seq);seq=seq+1;
+    generation=generation_next;
+    frame_payload=0;frame_payload[0+:64]=generation;frame_payload[64+:256]=job_key;
+    frame_payload[352+:16]=16'd1;frame_payload[368+:16]=16'd4;
+    base=response_count;send_frame(8'h11,48,frame_payload,seq);await_frame(base,12,8'h11,seq);seq=seq+1;
+    cycles=0;while(!result_ready&&cycles<300000000)begin @(posedge clk);cycles=cycles+1;end
+    if(!result_ready)$fatal(1,"pending-result reset setup timed out");
+    base=response_count;send_frame(8'h1f,0,0,seq);await_frame(base,0,8'h1f,seq);seq=seq+1;
+    repeat(4)@(posedge clk);
+    if(descriptor_loaded||busy||result_ready||error)$fatal(1,"reset-with-pending-result control failed");
+    $display("REAL_CORE_CONTROL_TESTS=6/6");
     $display("REAL_CORE_ENDPOINT_PROTOCOL=PASS COUNT=%0d RESPONSE_BYTES=%0d",count,response_count);
     $finish;
   end

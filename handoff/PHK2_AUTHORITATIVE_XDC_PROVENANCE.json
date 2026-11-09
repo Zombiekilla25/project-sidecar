@@ -1,0 +1,25 @@
+{
+  "schema": "PHK2-AUTHORITATIVE-FK33-XDC-PROVENANCE-v1",
+  "target_part": "xcvu33p-fsvh2104-2-e",
+  "authoritative_xdc_source": "/home/rmann/project-sidecar/sidecar-evidence/phk1-patched-bitstream-handoff-20261103/constraints/PHK1_FK33_BOARD_CONSTRAINTS.xdc",
+  "authoritative_xdc_sha256": "16a5c6b05ac43f9fffeeb95b1b0b8490d3ce0884843f7a239a2d9d9d085770e7",
+  "installed_exact_reference": "constraints/reference/PHK1_FK33_BOARD_CONSTRAINTS.xdc",
+  "installed_reference_sha256": "16a5c6b05ac43f9fffeeb95b1b0b8490d3ce0884843f7a239a2d9d9d085770e7",
+  "reference_matches_source": true,
+  "applied_phk2_constraint": "constraints/phk2-fk33-board-clock-contract.xdc",
+  "applied_phk2_constraint_source": "/home/rmann/project-sidecar-phk2-v1-rtl/constraints/phk2-fk33-board-clock-contract.xdc",
+  "applied_phk2_constraint_sha256": "97c25163f6176271d93c727a54eb49116e4131cefc8d4c01c68aa44f29eee473",
+  "applied_matches_proven_fragment": true,
+  "provenance": {
+    "primary": "PHK1_USER1_TCK_READCLK_RESPONSE_VALID_REFILL_20261103 qualified routed checkpoint and XDC; XDC SHA matches PHK1 board-contract record",
+    "independent_crosscheck": "FK33 Stage 4A routed implementation; board XDC SHA d2b4f503fcb1d1f8c383611bd846ea5223fcb38d87199cbd8ba4b7bd2a652a46; same BC26/BC27 LVDS 200 MHz",
+    "prior_phk2_board_contract": "project-sidecar-phk2-v1-rtl results/phk2-fk33-board-contract.json; fragment SHA 97c25163f6176271d93c727a54eb49116e4131cefc8d4c01c68aa44f29eee473"
+  },
+  "crosscheck": {
+    "package_pin": "PASS BC26/BC27",
+    "clock_pin": "PASS differential pair clk_p/clk_n",
+    "reset": "PASS no external reset pin; lock-derived internal reset",
+    "iostandard": "PASS LVDS"
+  },
+  "note": "The full PHK1 XDC is preserved byte-for-byte for provenance. Its LOC and false-path selectors name PHK1-only cells and are not applied to PHK2. The exact previously reviewed PHK2 board-clock fragment is applied unchanged. No reset pin is constrained because the authoritative contract has no package reset port."
+}

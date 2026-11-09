@@ -33,14 +33,18 @@
     "board_input_mhz": 200,
     "new_phk2_target_mhz": 175,
     "primitive_plan": "IBUFDS -> PLLE4_ADV DIVCLK=2 FBMULT=14 CLKOUT0_DIVIDE=8 -> BUFG",
-    "legality": "NOT_CHECKED"
+    "legality": "PASS_CLOCK_ONLY_VIVADO_2026_1",
+    "pll_parameter": "CLKIN_PERIOD=5 ns, DIVCLK_DIVIDE=2, CLKFBOUT_MULT=14, CLKOUT0_DIVIDE=8",
+    "vivado_legality": "PASS",
+    "generated_clock_period_ns": 5.714,
+    "generated_period_ns": 5.714
   },
   "qualification": {
     "real_core_in_board_top": "PASS_SOURCE_BINDING_AND_ASYNC_FIFO_ENDPOINT_SIM_COUNT_1_AND_64",
     "test_stub_in_physical_top": false,
     "wire_protocol_frozen": false,
     "board_synthesis": "NOT_RUN",
-    "reason": "Authoritative FK33 XDC is absent from this worktree; PLL legality, real BSCANE2 event-level behavior, CDC/control stress and physical structural checks remain incomplete."
+    "reason": "Full board-core synthesis remains gated: integrated physical top structural validation and vendor CDC review are incomplete; no authoritative PHK2 timing/CDC implementation result is claimed."
   },
   "external_activity": {
     "hardware": 0,
@@ -56,7 +60,7 @@
   "board_level_gates": {
     "hello": "PASS",
     "single_work": "PASS",
-    "batch64": "PASS",
+    "batch64": "PASS 64/64 CPU exact (before HELLO-only payload correction; work/result RTL unchanged by correction)",
     "batch64_result_count": 64,
     "batch64_result_mismatches": 0,
     "cpu_raw_canonical_crosscheck": "PASS",
@@ -66,7 +70,15 @@
     "clock_startup_reset_tests": "NOT_RUN",
     "physical_bscane2_simulation": "NOT_RUN",
     "real_board_fixture_mismatches": 0,
-    "fixture_replay_result": "results/phk2-real-board-fixture-replay.json"
+    "fixture_replay_result": "results/phk2-real-board-fixture-replay.json",
+    "real_board_fixtures_tested_prior_endpoint_revision": 13,
+    "current_source_fixture_smoke": 1,
+    "current_source_fixture_smoke_mismatches": 0,
+    "control_tests": "6/6 PASS"
   },
-  "real_core_source_commit": "84ef0eb998077270c4eef6b95f107c18cac70438"
+  "real_core_source_commit": "84ef0eb998077270c4eef6b95f107c18cac70438",
+  "current_commit_base": "e837d4883ae428e82112b55d6a0a9250fd8e0813",
+  "hello_golden_payload_current_source": "PASS; added missing result_bytes=112 field and validated exact 14-byte payload",
+  "latest_current_source_control_tests": "6/6 PASS: stale status/generation, descriptor replacement, abort before work, abort during work, reset during work, reset with pending result",
+  "latest_current_source_single_work": "PASS; endpoint data path CPU exact"
 }

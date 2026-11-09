@@ -44,13 +44,17 @@ is not yet established.
 core contract adapter and computational core, and emits framed responses.
 The endpoint single-work and 64-work regressions passed with separate
 transport/core clocks and input/output asynchronous FIFOs. The 64 results were
-compared byte-for-byte with the CPU oracle. Physical BSCAN event-level behavior,
-randomized 250,000-transition CDC stress, XPM CDC review, and board clock
-legality remain unqualified. The board top no longer instantiates the test stub.
-A constraint file is absent from this worktree, so physical synthesis is
-intentionally gated by the manifest checker.
+compared byte-for-byte with the CPU oracle. Physical BSCANE2 event-level simulation and vendor CDC review remain
+unqualified. A variable-period asynchronous-clock endpoint stress passed
+12,000 HELLO transactions (1,822,446 core/transport edges) with both FIFOs
+reaching full and no dropped/duplicate responses. Vivado 2026.1 verified the
+exact PHK2 clock-generator RTL at 175 MHz in a clock-only design. The board top no longer instantiates the test stub.
+The authoritative board-clock constraint fragment is now installed and
+hash-checked. Full board-core synthesis remains gated on physical-top structural
+validation and vendor CDC review.
 
-The 13 retained production descriptors passed full work-item RTL replay. One
-64-item production descriptor batch passed through the board endpoint. Broader
-board-level fixture coverage across all 13 descriptors and the real-core abort,
-reset, and stale-generation matrix remain unrun.
+The 13 retained production descriptor endpoint replays and 64-item batch passed
+before the HELLO capability-byte correction. On the corrected source, a single
+production work item and six control scenarios were rerun successfully; the
+computation/result datapath was unchanged by the HELLO-only correction. Replaying
+all 13 board fixtures against that final HELLO source revision remains outstanding.

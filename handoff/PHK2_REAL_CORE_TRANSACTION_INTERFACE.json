@@ -165,7 +165,9 @@
     "rtl/phk2_board/phk2_core/phk2_result_filter.sv": "8956efc0bcdeb1d4486b77a8068327cf5f1412b145e5547ef098a2acddbf92b2",
     "rtl/phk2_board/phk2_core/phk2_timing_core_contract.sv": "92fdf3271397c2e09f2d9b75995d04c34bb5066b51a08eef43eea1ad664f91d7",
     "rtl/phk2_board/phk2_core/vendor_phk1/packed_mul2.sv": "ad9396097fbfc0df5b5a779730034a617c6022a64bdbebeb1a4dc798d5e80538",
-    "rtl/phk2_board/phk2_core/vendor_phk1/packed_tile.sv": "4eb48273b11c327c0ce2068ac2fb083493d1d10dbc4355f094bc1679621c8fab"
+    "rtl/phk2_board/phk2_core/vendor_phk1/packed_tile.sv": "4eb48273b11c327c0ce2068ac2fb083493d1d10dbc4355f094bc1679621c8fab",
+    "rtl/phk2_board/phk2_fk33_clockgen.sv": "e2895ed1aa528c19dbe9f815d1cc0b253ce24934588a68f12c62d4456e8aa5b7",
+    "rtl/phk2_board/phk2_pll_reset_release.sv": "aa3c3f5a1cb8ed7da71b05a0debccc2f171f81c6e926c4cc8377c3e806d26bcc"
   },
   "evidence": {
     "oracle_replay": "results/phk2-real-core-oracle-replay.json",
