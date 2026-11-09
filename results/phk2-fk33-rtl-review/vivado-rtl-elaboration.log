@@ -1,0 +1,276 @@
+INFO: [Common 17-3922] A valid Vivado Design Suite ENTERPRISE license has been detected. Your current license is active and will expire on 16-dec-2026.
+#-----------------------------------------------------------
+# Vivado v2026.1 (64-bit)
+# SW Build 6511674 on Tue Jun 16 11:01:26 MDT 2026
+# IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026
+# SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026
+# Start of session at: Mon Nov  9 18:00:51 2026
+# Process ID         : 3277853
+# Current directory  : /home/rmann/project-sidecar-phk2-fk33-board-integration-20261108
+# Command line       : vivado -mode batch -source tools/vivado_phk2_board_rtl_review.tcl
+# Log file           : /home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/vivado.log
+# Journal file       : /home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/vivado.jou
+# Running On         : RGB
+# Platform           : Ubuntu
+# Operating System   : Ubuntu 24.04.5 LTS
+# Processor Detail   : Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz
+# CPU Frequency      : 4700.016 MHz
+# CPU Physical cores : 8
+# CPU Logical cores  : 16
+# Host memory        : 67331 MB
+# Swap memory        : 60129 MB
+# Total Virtual      : 127460 MB
+# Available Virtual  : 109630 MB
+#-----------------------------------------------------------
+source tools/vivado_phk2_board_rtl_review.tcl
+# set out_dir "results/phk2-fk33-rtl-review"
+# file mkdir $out_dir
+# create_project -in_memory -part xcvu33p-fsvh2104-2-e
+# read_verilog -sv {
+#   rtl/phk2_board/phk2_protocol_decoder.sv
+#   rtl/phk2_board/phk2_protocol_response_encoder.sv
+#   rtl/phk2_board/phk2_async_fifo.sv
+#   rtl/phk2_board/phk2_real_core_endpoint.sv
+#   rtl/phk2_board/phk2_core_contract_adapter.sv
+#   rtl/phk2_board/phk2_fk33_clockgen.sv
+#   rtl/phk2_board/phk2_pll_reset_release.sv
+#   rtl/phk2_board/phk2_fk33_board_top.sv
+#   rtl/phk2_board/phk2_core/phk2_blake3_keyed_block_seq.sv
+#   rtl/phk2_board/phk2_core/phk2_philox4x32_10_seq.sv
+#   rtl/phk2_board/phk2_core/phk2_production_operand_seq.sv
+#   rtl/phk2_board/phk2_core/phk2_tile_adapter.sv
+#   rtl/phk2_board/phk2_core/phk2_compact_result.sv
+#   rtl/phk2_board/phk2_core/phk2_result_filter.sv
+#   rtl/phk2_board/phk2_core/phk2_timing_core_contract.sv
+#   rtl/phk2_board/phk2_core/vendor_phk1/packed_mul2.sv
+#   rtl/phk2_board/phk2_core/vendor_phk1/packed_tile.sv
+# }
+# read_xdc constraints/phk2-fk33-board-clock-contract.xdc
+# synth_design -rtl -top phk2_fk33_board_top -part xcvu33p-fsvh2104-2-e -flatten_hierarchy none
+Command: synth_design -rtl -top phk2_fk33_board_top -part xcvu33p-fsvh2104-2-e -flatten_hierarchy none
+INFO: [Vivado_Tcl 97-130] Option flatten_hierarchy used for synth_design is: none
+Starting synth_design
+INFO: [Device 21-403] Loading part xcvu33p-fsvh2104-2-e
+INFO: [Designutils 20-5008] Incremental synthesis strategy default
+INFO: [Synth 8-7079] Multithreading enabled for synth_design using a maximum of 7 processes.
+INFO: [Synth 8-7078] Launching helper process for spawning children vivado processes
+INFO: [Synth 8-7075] Helper process launched with PID 3278122
+---------------------------------------------------------------------------------
+Starting RTL Elaboration : Time (s): cpu = 00:00:04 ; elapsed = 00:00:04 . Memory (MB): peak = 3192.941 ; gain = 336.766 ; free physical = 14936 ; free virtual = 102448
+---------------------------------------------------------------------------------
+WARNING: [Synth 8-6901] identifier 'workgen_overflow' is used before its declaration [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_core/phk2_timing_core_contract.sv:49]
+WARNING: [Synth 8-6901] identifier 'digest' is used before its declaration [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_core/phk2_timing_core_contract.sv:53]
+INFO: [Synth 8-6157] synthesizing module 'phk2_fk33_board_top' [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_fk33_board_top.sv:3]
+INFO: [Synth 8-6157] synthesizing module 'phk2_fk33_clockgen' [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_fk33_clockgen.sv:5]
+INFO: [Synth 8-6157] synthesizing module 'IBUFDS' [/home/rmann/Xilinx/2026.1/Vivado/scripts/rt/data/unisim_comp.v:82833]
+	Parameter DIFF_TERM bound to: TRUE - type: string
+	Parameter IBUF_LOW_PWR bound to: FALSE - type: string
+INFO: [Synth 8-6155] done synthesizing module 'IBUFDS' (0#1) [/home/rmann/Xilinx/2026.1/Vivado/scripts/rt/data/unisim_comp.v:82833]
+INFO: [Synth 8-6157] synthesizing module 'PLLE4_ADV' [/home/rmann/Xilinx/2026.1/Vivado/scripts/rt/data/unisim_comp.v:134126]
+	Parameter CLKFBOUT_MULT bound to: 14 - type: integer
+	Parameter CLKIN_PERIOD bound to: 5.000000e+00 - type: double
+	Parameter CLKOUT0_DIVIDE bound to: 8 - type: integer
+	Parameter CLKOUT0_DUTY_CYCLE bound to: 5.000000e-01 - type: double
+	Parameter CLKOUT0_PHASE bound to: 0.000000e+00 - type: double
+	Parameter DIVCLK_DIVIDE bound to: 2 - type: integer
+	Parameter STARTUP_WAIT bound to: FALSE - type: string
+INFO: [Synth 8-6155] done synthesizing module 'PLLE4_ADV' (0#1) [/home/rmann/Xilinx/2026.1/Vivado/scripts/rt/data/unisim_comp.v:134126]
+INFO: [Synth 8-6157] synthesizing module 'BUFG' [/home/rmann/Xilinx/2026.1/Vivado/scripts/rt/data/unisim_comp.v:2678]
+INFO: [Synth 8-6155] done synthesizing module 'BUFG' (0#1) [/home/rmann/Xilinx/2026.1/Vivado/scripts/rt/data/unisim_comp.v:2678]
+INFO: [Synth 8-6157] synthesizing module 'phk2_pll_reset_release' [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_pll_reset_release.sv:4]
+INFO: [Synth 8-6155] done synthesizing module 'phk2_pll_reset_release' (0#1) [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_pll_reset_release.sv:4]
+INFO: [Synth 8-6155] done synthesizing module 'phk2_fk33_clockgen' (0#1) [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_fk33_clockgen.sv:5]
+INFO: [Synth 8-6157] synthesizing module 'BSCANE2' [/home/rmann/Xilinx/2026.1/Vivado/scripts/rt/data/unisim_comp.v:2479]
+	Parameter JTAG_CHAIN bound to: 1 - type: integer
+INFO: [Synth 8-6155] done synthesizing module 'BSCANE2' (0#1) [/home/rmann/Xilinx/2026.1/Vivado/scripts/rt/data/unisim_comp.v:2479]
+INFO: [Synth 8-6157] synthesizing module 'BSCANE2__parameterized0' [/home/rmann/Xilinx/2026.1/Vivado/scripts/rt/data/unisim_comp.v:2479]
+	Parameter JTAG_CHAIN bound to: 2 - type: integer
+INFO: [Synth 8-6155] done synthesizing module 'BSCANE2__parameterized0' (0#1) [/home/rmann/Xilinx/2026.1/Vivado/scripts/rt/data/unisim_comp.v:2479]
+INFO: [Synth 8-6157] synthesizing module 'BSCANE2__parameterized1' [/home/rmann/Xilinx/2026.1/Vivado/scripts/rt/data/unisim_comp.v:2479]
+	Parameter JTAG_CHAIN bound to: 3 - type: integer
+INFO: [Synth 8-6155] done synthesizing module 'BSCANE2__parameterized1' (0#1) [/home/rmann/Xilinx/2026.1/Vivado/scripts/rt/data/unisim_comp.v:2479]
+INFO: [Synth 8-6157] synthesizing module 'phk2_async_fifo' [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_async_fifo.sv:3]
+	Parameter WIDTH bound to: 8 - type: integer
+	Parameter ADDR_BITS bound to: 9 - type: integer
+INFO: [Synth 8-6157] synthesizing module 'xpm_fifo_async' [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_fifo/hdl/xpm_fifo.sv:2173]
+	Parameter FIFO_MEMORY_TYPE bound to: auto - type: string
+	Parameter ECC_MODE bound to: no_ecc - type: string
+	Parameter RELATED_CLOCKS bound to: 0 - type: integer
+	Parameter SIM_ASSERT_CHK bound to: 1 - type: integer
+	Parameter FIFO_WRITE_DEPTH bound to: 512 - type: integer
+	Parameter WRITE_DATA_WIDTH bound to: 8 - type: integer
+	Parameter WR_DATA_COUNT_WIDTH bound to: 10 - type: integer
+	Parameter PROG_FULL_THRESH bound to: 507 - type: integer
+	Parameter FULL_RESET_VALUE bound to: 0 - type: integer
+	Parameter USE_ADV_FEATURES bound to: 0707 - type: string
+	Parameter READ_MODE bound to: fwft - type: string
+	Parameter FIFO_READ_LATENCY bound to: 0 - type: integer
+	Parameter READ_DATA_WIDTH bound to: 8 - type: integer
+	Parameter RD_DATA_COUNT_WIDTH bound to: 10 - type: integer
+	Parameter PROG_EMPTY_THRESH bound to: 5 - type: integer
+	Parameter DOUT_RESET_VALUE bound to: 0 - type: string
+	Parameter CDC_SYNC_STAGES bound to: 2 - type: integer
+	Parameter WAKEUP_TIME bound to: 0 - type: integer
+INFO: [Synth 8-6157] synthesizing module 'xpm_fifo_base' [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_fifo/hdl/xpm_fifo.sv:53]
+INFO: [Synth 8-6157] synthesizing module 'xpm_memory_base' [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_memory/hdl/xpm_memory.sv:54]
+INFO: [Synth 8-6059] Synth Info: [XPM_MEMORY 20-1] MEMORY_PRIMITIVE (0) instructs Vivado Synthesis to choose the memory primitive type. Depending on their values, other XPM_MEMORY parameters may preclude the choice of certain memory primitive types. Review XPM_MEMORY documentation and parameter values to understand any limitations, or set MEMORY_PRIMITIVE to a different value.   [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_memory/hdl/xpm_memory.sv:534]
+INFO: [Synth 8-6155] done synthesizing module 'xpm_memory_base' (0#1) [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_memory/hdl/xpm_memory.sv:54]
+INFO: [Synth 8-6157] synthesizing module 'xpm_cdc_gray' [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_cdc/hdl/xpm_cdc.sv:283]
+INFO: [Synth 8-6155] done synthesizing module 'xpm_cdc_gray' (0#1) [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_cdc/hdl/xpm_cdc.sv:283]
+INFO: [Synth 8-6157] synthesizing module 'xpm_fifo_reg_vec' [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_fifo/hdl/xpm_fifo.sv:1905]
+INFO: [Synth 8-6155] done synthesizing module 'xpm_fifo_reg_vec' (0#1) [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_fifo/hdl/xpm_fifo.sv:1905]
+INFO: [Synth 8-6157] synthesizing module 'xpm_cdc_gray__parameterized0' [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_cdc/hdl/xpm_cdc.sv:283]
+INFO: [Synth 8-6155] done synthesizing module 'xpm_cdc_gray__parameterized0' (0#1) [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_cdc/hdl/xpm_cdc.sv:283]
+INFO: [Synth 8-6157] synthesizing module 'xpm_fifo_reg_vec__parameterized0' [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_fifo/hdl/xpm_fifo.sv:1905]
+INFO: [Synth 8-6155] done synthesizing module 'xpm_fifo_reg_vec__parameterized0' (0#1) [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_fifo/hdl/xpm_fifo.sv:1905]
+INFO: [Synth 8-6157] synthesizing module 'xpm_cdc_gray__parameterized1' [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_cdc/hdl/xpm_cdc.sv:283]
+INFO: [Synth 8-6155] done synthesizing module 'xpm_cdc_gray__parameterized1' (0#1) [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_cdc/hdl/xpm_cdc.sv:283]
+INFO: [Synth 8-226] default block is never used [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_fifo/hdl/xpm_fifo.sv:1220]
+INFO: [Synth 8-226] default block is never used [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_fifo/hdl/xpm_fifo.sv:1287]
+INFO: [Synth 8-226] default block is never used [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_fifo/hdl/xpm_fifo.sv:1309]
+INFO: [Synth 8-6157] synthesizing module 'xpm_fifo_reg_bit' [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_fifo/hdl/xpm_fifo.sv:1927]
+INFO: [Synth 8-6155] done synthesizing module 'xpm_fifo_reg_bit' (0#1) [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_fifo/hdl/xpm_fifo.sv:1927]
+INFO: [Synth 8-6157] synthesizing module 'xpm_counter_updn' [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_fifo/hdl/xpm_fifo.sv:1879]
+INFO: [Synth 8-6155] done synthesizing module 'xpm_counter_updn' (0#1) [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_fifo/hdl/xpm_fifo.sv:1879]
+INFO: [Synth 8-6157] synthesizing module 'xpm_fifo_rst' [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_fifo/hdl/xpm_fifo.sv:1639]
+INFO: [Synth 8-6157] synthesizing module 'xpm_cdc_sync_rst' [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_cdc/hdl/xpm_cdc.sv:1059]
+INFO: [Synth 8-6155] done synthesizing module 'xpm_cdc_sync_rst' (0#1) [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_cdc/hdl/xpm_cdc.sv:1059]
+INFO: [Synth 8-6155] done synthesizing module 'xpm_fifo_rst' (0#1) [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_fifo/hdl/xpm_fifo.sv:1639]
+INFO: [Synth 8-6157] synthesizing module 'xpm_counter_updn__parameterized0' [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_fifo/hdl/xpm_fifo.sv:1879]
+INFO: [Synth 8-6155] done synthesizing module 'xpm_counter_updn__parameterized0' (0#1) [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_fifo/hdl/xpm_fifo.sv:1879]
+INFO: [Synth 8-6157] synthesizing module 'xpm_counter_updn__parameterized1' [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_fifo/hdl/xpm_fifo.sv:1879]
+INFO: [Synth 8-6155] done synthesizing module 'xpm_counter_updn__parameterized1' (0#1) [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_fifo/hdl/xpm_fifo.sv:1879]
+INFO: [Synth 8-6157] synthesizing module 'xpm_counter_updn__parameterized2' [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_fifo/hdl/xpm_fifo.sv:1879]
+INFO: [Synth 8-6155] done synthesizing module 'xpm_counter_updn__parameterized2' (0#1) [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_fifo/hdl/xpm_fifo.sv:1879]
+INFO: [Synth 8-6155] done synthesizing module 'xpm_fifo_base' (0#1) [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_fifo/hdl/xpm_fifo.sv:53]
+INFO: [Synth 8-6155] done synthesizing module 'xpm_fifo_async' (0#1) [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_fifo/hdl/xpm_fifo.sv:2173]
+INFO: [Synth 8-6155] done synthesizing module 'phk2_async_fifo' (0#1) [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_async_fifo.sv:3]
+INFO: [Synth 8-6157] synthesizing module 'phk2_protocol_decoder' [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_protocol_decoder.sv:3]
+INFO: [Synth 8-6155] done synthesizing module 'phk2_protocol_decoder' (0#1) [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_protocol_decoder.sv:3]
+INFO: [Synth 8-6157] synthesizing module 'phk2_real_core_endpoint' [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_real_core_endpoint.sv:4]
+INFO: [Synth 8-6157] synthesizing module 'phk2_core_contract_adapter' [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_core_contract_adapter.sv:4]
+INFO: [Synth 8-6155] done synthesizing module 'phk2_core_contract_adapter' (0#1) [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_core_contract_adapter.sv:4]
+INFO: [Synth 8-6157] synthesizing module 'phk2_timing_core_contract' [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_core/phk2_timing_core_contract.sv:6]
+INFO: [Synth 8-6157] synthesizing module 'phk2_production_operand_seq' [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_core/phk2_production_operand_seq.sv:6]
+INFO: [Synth 8-6157] synthesizing module 'phk2_blake3_keyed_block_seq' [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_core/phk2_blake3_keyed_block_seq.sv:6]
+INFO: [Synth 8-6155] done synthesizing module 'phk2_blake3_keyed_block_seq' (0#1) [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_core/phk2_blake3_keyed_block_seq.sv:6]
+INFO: [Synth 8-6157] synthesizing module 'phk2_philox4x32_10_seq' [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_core/phk2_philox4x32_10_seq.sv:4]
+INFO: [Synth 8-6155] done synthesizing module 'phk2_philox4x32_10_seq' (0#1) [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_core/phk2_philox4x32_10_seq.sv:4]
+INFO: [Synth 8-226] default block is never used [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_core/phk2_production_operand_seq.sv:162]
+INFO: [Synth 8-6155] done synthesizing module 'phk2_production_operand_seq' (0#1) [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_core/phk2_production_operand_seq.sv:6]
+INFO: [Synth 8-6157] synthesizing module 'phk2_tile_adapter' [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_core/phk2_tile_adapter.sv:5]
+	Parameter K bound to: 4096 - type: integer
+	Parameter R bound to: 256 - type: integer
+INFO: [Synth 8-6157] synthesizing module 'packed_tile' [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_core/vendor_phk1/packed_tile.sv:2]
+	Parameter K bound to: 4096 - type: integer
+	Parameter R bound to: 256 - type: integer
+INFO: [Synth 8-6157] synthesizing module 'packed_mul2' [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_core/vendor_phk1/packed_mul2.sv:3]
+INFO: [Synth 8-6155] done synthesizing module 'packed_mul2' (0#1) [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_core/vendor_phk1/packed_mul2.sv:3]
+INFO: [Synth 8-155] case statement is not full and has no default [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_core/vendor_phk1/packed_tile.sv:47]
+INFO: [Synth 8-6155] done synthesizing module 'packed_tile' (0#1) [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_core/vendor_phk1/packed_tile.sv:2]
+INFO: [Synth 8-226] default block is never used [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_core/phk2_tile_adapter.sv:44]
+INFO: [Synth 8-6155] done synthesizing module 'phk2_tile_adapter' (0#1) [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_core/phk2_tile_adapter.sv:5]
+INFO: [Synth 8-6157] synthesizing module 'phk2_result_filter' [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_core/phk2_result_filter.sv:5]
+INFO: [Synth 8-6157] synthesizing module 'phk2_compact_result' [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_core/phk2_compact_result.sv:5]
+INFO: [Synth 8-6155] done synthesizing module 'phk2_compact_result' (0#1) [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_core/phk2_compact_result.sv:5]
+INFO: [Synth 8-226] default block is never used [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_core/phk2_result_filter.sv:74]
+INFO: [Synth 8-6155] done synthesizing module 'phk2_result_filter' (0#1) [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_core/phk2_result_filter.sv:5]
+INFO: [Synth 8-6155] done synthesizing module 'phk2_timing_core_contract' (0#1) [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_core/phk2_timing_core_contract.sv:6]
+INFO: [Synth 8-6157] synthesizing module 'phk2_protocol_response_encoder' [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_protocol_response_encoder.sv:4]
+	Parameter MAX_PAYLOAD bound to: 448 - type: integer
+INFO: [Synth 8-6155] done synthesizing module 'phk2_protocol_response_encoder' (0#1) [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_protocol_response_encoder.sv:4]
+INFO: [Synth 8-6155] done synthesizing module 'phk2_real_core_endpoint' (0#1) [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_real_core_endpoint.sv:4]
+INFO: [Synth 8-6155] done synthesizing module 'phk2_fk33_board_top' (0#1) [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_fk33_board_top.sv:3]
+WARNING: [Synth 8-6014] Unused sequential element gen_rd_b.gen_doutb_pipe.enb_pipe_reg[0] was removed.  [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_memory/hdl/xpm_memory.sv:3102]
+WARNING: [Synth 8-6014] Unused sequential element dest_out_bin_ff_reg was removed.  [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_cdc/hdl/xpm_cdc.sv:417]
+WARNING: [Synth 8-6014] Unused sequential element dest_out_bin_ff_reg was removed.  [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_cdc/hdl/xpm_cdc.sv:417]
+WARNING: [Synth 8-6014] Unused sequential element dest_out_bin_ff_reg was removed.  [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_cdc/hdl/xpm_cdc.sv:417]
+WARNING: [Synth 8-6014] Unused sequential element gen_fwft.empty_fwft_fb_reg was removed.  [/home/rmann/Xilinx/2026.1/data/ip/xpm/xpm_fifo/hdl/xpm_fifo.sv:1404]
+WARNING: [Synth 8-3936] Found unconnected internal register 'p_selected_word_reg' and it is trimmed from '32' to '8' bits. [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_core/phk2_production_operand_seq.sv:82]
+WARNING: [Synth 8-6014] Unused sequential element length_q_reg was removed.  [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/rtl/phk2_board/phk2_real_core_endpoint.sv:135]
+WARNING: [Synth 8-7129] Port sleep in module xpm_memory_base is either unconnected or has no load
+WARNING: [Synth 8-7129] Port rsta in module xpm_memory_base is either unconnected or has no load
+WARNING: [Synth 8-7129] Port regcea in module xpm_memory_base is either unconnected or has no load
+WARNING: [Synth 8-7129] Port injectsbiterra in module xpm_memory_base is either unconnected or has no load
+WARNING: [Synth 8-7129] Port injectdbiterra in module xpm_memory_base is either unconnected or has no load
+WARNING: [Synth 8-7129] Port dinb[7] in module xpm_memory_base is either unconnected or has no load
+WARNING: [Synth 8-7129] Port dinb[6] in module xpm_memory_base is either unconnected or has no load
+WARNING: [Synth 8-7129] Port dinb[5] in module xpm_memory_base is either unconnected or has no load
+WARNING: [Synth 8-7129] Port dinb[4] in module xpm_memory_base is either unconnected or has no load
+WARNING: [Synth 8-7129] Port dinb[3] in module xpm_memory_base is either unconnected or has no load
+WARNING: [Synth 8-7129] Port dinb[2] in module xpm_memory_base is either unconnected or has no load
+WARNING: [Synth 8-7129] Port dinb[1] in module xpm_memory_base is either unconnected or has no load
+WARNING: [Synth 8-7129] Port dinb[0] in module xpm_memory_base is either unconnected or has no load
+WARNING: [Synth 8-7129] Port injectsbiterrb in module xpm_memory_base is either unconnected or has no load
+WARNING: [Synth 8-7129] Port injectdbiterrb in module xpm_memory_base is either unconnected or has no load
+WARNING: [Synth 8-7129] Port abort_reason[15] in module phk2_timing_core_contract is either unconnected or has no load
+WARNING: [Synth 8-7129] Port abort_reason[14] in module phk2_timing_core_contract is either unconnected or has no load
+WARNING: [Synth 8-7129] Port abort_reason[13] in module phk2_timing_core_contract is either unconnected or has no load
+WARNING: [Synth 8-7129] Port abort_reason[12] in module phk2_timing_core_contract is either unconnected or has no load
+WARNING: [Synth 8-7129] Port abort_reason[11] in module phk2_timing_core_contract is either unconnected or has no load
+WARNING: [Synth 8-7129] Port abort_reason[10] in module phk2_timing_core_contract is either unconnected or has no load
+WARNING: [Synth 8-7129] Port abort_reason[9] in module phk2_timing_core_contract is either unconnected or has no load
+WARNING: [Synth 8-7129] Port abort_reason[8] in module phk2_timing_core_contract is either unconnected or has no load
+WARNING: [Synth 8-7129] Port abort_reason[7] in module phk2_timing_core_contract is either unconnected or has no load
+WARNING: [Synth 8-7129] Port abort_reason[6] in module phk2_timing_core_contract is either unconnected or has no load
+WARNING: [Synth 8-7129] Port abort_reason[5] in module phk2_timing_core_contract is either unconnected or has no load
+WARNING: [Synth 8-7129] Port abort_reason[4] in module phk2_timing_core_contract is either unconnected or has no load
+WARNING: [Synth 8-7129] Port abort_reason[3] in module phk2_timing_core_contract is either unconnected or has no load
+WARNING: [Synth 8-7129] Port abort_reason[2] in module phk2_timing_core_contract is either unconnected or has no load
+WARNING: [Synth 8-7129] Port abort_reason[1] in module phk2_timing_core_contract is either unconnected or has no load
+WARNING: [Synth 8-7129] Port abort_reason[0] in module phk2_timing_core_contract is either unconnected or has no load
+---------------------------------------------------------------------------------
+Finished RTL Elaboration : Time (s): cpu = 00:00:07 ; elapsed = 00:00:07 . Memory (MB): peak = 3420.348 ; gain = 564.172 ; free physical = 14664 ; free virtual = 102179
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Handling Custom Attributes
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Handling Custom Attributes : Time (s): cpu = 00:00:07 ; elapsed = 00:00:07 . Memory (MB): peak = 3423.316 ; gain = 567.141 ; free physical = 14663 ; free virtual = 102178
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 1 : Time (s): cpu = 00:00:07 ; elapsed = 00:00:07 . Memory (MB): peak = 3423.316 ; gain = 567.141 ; free physical = 14663 ; free virtual = 102178
+---------------------------------------------------------------------------------
+Netlist sorting complete. Time (s): cpu = 00:00:00.39 ; elapsed = 00:00:00.4 . Memory (MB): peak = 3434.285 ; gain = 0.000 ; free physical = 14830 ; free virtual = 102346
+INFO: [Netlist 29-17] Analyzing 4 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-570] Preparing netlist for logic optimization
+WARNING: [Constraints 18-5254] DIFF_TERM is not supported in UltraScale devices.  Automatically translating DIFF_TERM of TRUE to DIFF_TERM_ADV=TERM_100.  Refer to UG571: UltraScale Architecture SelectIO User Guide for more detail.
+WARNING: [Constraints 18-5254] DIFF_TERM is not supported in UltraScale devices.  Automatically translating DIFF_TERM of TRUE to DIFF_TERM_ADV=TERM_100.  Refer to UG571: UltraScale Architecture SelectIO User Guide for more detail.
+
+Processing XDC Constraints
+Initializing timing engine
+Parsing XDC File [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/constraints/phk2-fk33-board-clock-contract.xdc]
+create_clock: Time (s): cpu = 00:00:05 ; elapsed = 00:00:05 . Memory (MB): peak = 3658.805 ; gain = 50.594 ; free physical = 14686 ; free virtual = 102204
+Finished Parsing XDC File [/home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/constraints/phk2-fk33-board-clock-contract.xdc]
+Completed Processing XDC Constraints
+
+INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
+Netlist sorting complete. Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 3658.805 ; gain = 0.000 ; free physical = 14687 ; free virtual = 102205
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 3 instances were transformed.
+  BUFG => BUFGCE: 2 instances
+  IBUFDS => IBUFDS (DIFFINBUF, IBUFCTRL): 1 instance
+
+RTL Elaboration Complete:  : Time (s): cpu = 00:00:21 ; elapsed = 00:00:18 . Memory (MB): peak = 3658.840 ; gain = 802.664 ; free physical = 14687 ; free virtual = 102205
+95 Infos, 42 Warnings, 0 Critical Warnings and 0 Errors encountered.
+synth_design completed successfully
+synth_design: Time (s): cpu = 00:00:27 ; elapsed = 00:00:24 . Memory (MB): peak = 3658.840 ; gain = 1934.672 ; free physical = 14687 ; free virtual = 102205
+INFO: [Common 17-2834] synth_design peak Physical Memory [PSS] (MB): overall = 2945.979; main = 2945.979; forked = 0.000
+INFO: [Common 17-2834] synth_design peak Virtual Memory [VSS] (MB): overall = 3658.809; main = 3658.809; forked = 0.000
+# report_drc -file [file join $out_dir drc.rpt]
+Command: report_drc -file results/phk2-fk33-rtl-review/drc.rpt
+INFO: [IP_Flow 19-234] Refreshing IP repositories
+INFO: [IP_Flow 19-1704] No user IP repositories specified
+INFO: [IP_Flow 19-2313] Loaded Vivado IP repository '/home/rmann/Xilinx/2026.1/data/ip'.
+INFO: [DRC 23-27] Running DRC with 8 threads
+INFO: [Vivado_Tcl 2-168] The results of DRC are in file /home/rmann/project-sidecar-phk2-fk33-board-integration-20261108/results/phk2-fk33-rtl-review/drc.rpt.
+report_drc completed successfully
+# report_clocks -file [file join $out_dir clocks.rpt]
+INFO: [Timing 38-2] Deriving generated clocks
+# report_io -file [file join $out_dir io.rpt]
+report_io: Time (s): cpu = 00:00:00.31 ; elapsed = 00:00:00.44 . Memory (MB): peak = 3709.016 ; gain = 38.336 ; free physical = 14590 ; free virtual = 102110
+# puts "RTL elaboration reports complete. report_cdc/check_timing are deferred: Vivado 2026.1 requires a mapped synthesized design."
+RTL elaboration reports complete. report_cdc/check_timing are deferred: Vivado 2026.1 requires a mapped synthesized design.
+# exit
+INFO: [Common 17-206] Exiting Vivado at Mon Nov  9 18:01:22 2026...

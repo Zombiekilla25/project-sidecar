@@ -6,7 +6,8 @@ module phk2_async_fifo #(parameter integer WIDTH=8, parameter integer ADDR_BITS=
  localparam integer DEPTH=(1<<ADDR_BITS);
 `ifdef SYNTHESIS
  wire [WIDTH-1:0] dout; wire [ADDR_BITS:0] wc,rc; wire unused_wr_busy,unused_rd_busy;
- xpm_fifo_async #(.CDC_SYNC_STAGES(2),.DOUT_RESET_VALUE("0"),.ECC_MODE("no_ecc"),.FIFO_MEMORY_TYPE("auto"),.FIFO_READ_LATENCY(0),.FIFO_WRITE_DEPTH(DEPTH),.FULL_RESET_VALUE(0),.PROG_EMPTY_THRESH(4),.PROG_FULL_THRESH(DEPTH-4),.RD_DATA_COUNT_WIDTH(ADDR_BITS+1),.READ_DATA_WIDTH(WIDTH),.READ_MODE("fwft"),.RELATED_CLOCKS(0),.SIM_ASSERT_CHK(1),.USE_ADV_FEATURES("0707"),.WAKEUP_TIME(0),.WRITE_DATA_WIDTH(WIDTH),.WR_DATA_COUNT_WIDTH(ADDR_BITS+1)) fifo_i(
+ // XPM requires PROG_FULL_THRESH <= DEPTH-5 (507 for the 512-byte FIFOs).
+ xpm_fifo_async #(.CDC_SYNC_STAGES(2),.DOUT_RESET_VALUE("0"),.ECC_MODE("no_ecc"),.FIFO_MEMORY_TYPE("auto"),.FIFO_READ_LATENCY(0),.FIFO_WRITE_DEPTH(DEPTH),.FULL_RESET_VALUE(0),.PROG_EMPTY_THRESH(5),.PROG_FULL_THRESH(DEPTH-5),.RD_DATA_COUNT_WIDTH(ADDR_BITS+1),.READ_DATA_WIDTH(WIDTH),.READ_MODE("fwft"),.RELATED_CLOCKS(0),.SIM_ASSERT_CHK(1),.USE_ADV_FEATURES("0707"),.WAKEUP_TIME(0),.WRITE_DATA_WIDTH(WIDTH),.WR_DATA_COUNT_WIDTH(ADDR_BITS+1)) fifo_i(
  .almost_empty(),.almost_full(),.data_valid(),.dbiterr(),.dout(dout),.empty(rd_empty),.full(wr_full),.overflow(),.prog_empty(),.prog_full(),.rd_data_count(rc),.rd_rst_busy(unused_rd_busy),.sbiterr(),.underflow(),.wr_ack(),.wr_data_count(wc),.wr_rst_busy(unused_wr_busy),.din(wr_data),.injectdbiterr(1'b0),.injectsbiterr(1'b0),.rd_clk(rd_clk),.rd_en(rd_en),.rst(wr_arst|rd_arst),.sleep(1'b0),.wr_clk(wr_clk),.wr_en(wr_en));
  assign rd_data=dout; assign wr_count=wc; assign rd_count=rc;
 `else

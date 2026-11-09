@@ -85,6 +85,10 @@ module tb_real_core_endpoint;
        response_bytes[base+22]!=0||response_bytes[base+23]!=0)$fatal(1,"HELLO payload differs from host golden vector");
     seq=seq+1;$display("HELLO_OK");
     if(!hello_seen)$fatal(1,"HELLO state missing");
+    // Reset from an idle, initialized endpoint before loading work.
+    base=response_count;send_frame(8'h1f,0,0,seq);await_frame(base,0,8'h1f,seq);seq=seq+1;
+    repeat(4)@(posedge clk);
+    if(descriptor_loaded||busy||result_ready||error)$fatal(1,"reset-idle control failed");
     base=response_count;frame_payload=0;for(i=0;i<112;i=i+1)frame_payload[i*8+:8]=desc_bytes[i];send_frame(8'h10,112,frame_payload,seq);await_frame(base,40,8'h10,seq);seq=seq+1;$display("LOAD_OK");
     if(!descriptor_loaded||error)$fatal(1,"descriptor load failed");
     frame_payload=0;frame_payload[0+:64]=generation;frame_payload[64+:256]=job_key;frame_payload[352+:16]=count;frame_payload[368+:16]=16'd1;
@@ -126,6 +130,7 @@ module tb_real_core_endpoint;
     frame_payload=0;frame_payload[0+:64]=generation;frame_payload[64+:256]=job_key;
     frame_payload[352+:16]=16'd64;frame_payload[368+:16]=16'd2;
     base=response_count;send_frame(8'h11,48,frame_payload,seq);await_frame(base,12,8'h11,seq);seq=seq+1;
+    if(!busy)$fatal(1,"busy status was not asserted after START_RANGE");
     frame_payload=0;frame_payload[0+:64]=generation;frame_payload[64+:256]=job_key;frame_payload[320+:16]=16'd2;
     base=response_count;send_frame(8'h14,44,frame_payload,seq);await_frame(base,0,8'h14,seq);seq=seq+1;
     repeat(4)@(posedge clk);
@@ -153,7 +158,7 @@ module tb_real_core_endpoint;
     base=response_count;send_frame(8'h1f,0,0,seq);await_frame(base,0,8'h1f,seq);seq=seq+1;
     repeat(4)@(posedge clk);
     if(descriptor_loaded||busy||result_ready||error)$fatal(1,"reset-with-pending-result control failed");
-    $display("REAL_CORE_CONTROL_TESTS=6/6");
+    $display("REAL_CORE_CONTROL_TESTS=11/11");
     $display("REAL_CORE_ENDPOINT_PROTOCOL=PASS COUNT=%0d RESPONSE_BYTES=%0d",count,response_count);
     $finish;
   end

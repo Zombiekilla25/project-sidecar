@@ -79,6 +79,7 @@
   "real_core_source_commit": "84ef0eb998077270c4eef6b95f107c18cac70438",
   "current_commit_base": "e837d4883ae428e82112b55d6a0a9250fd8e0813",
   "hello_golden_payload_current_source": "PASS; added missing result_bytes=112 field and validated exact 14-byte payload",
-  "latest_current_source_control_tests": "6/6 PASS: stale status/generation, descriptor replacement, abort before work, abort during work, reset during work, reset with pending result",
-  "latest_current_source_single_work": "PASS; endpoint data path CPU exact"
+  "latest_current_source_control_tests": "11/11 PASS: descriptor load, start, busy, result, stale generation, job replacement, abort before start, abort during work, reset idle, reset busy, reset with pending result",
+  "latest_current_source_single_work": "PASS; full descriptor/core/result endpoint exact with CPU oracle; HELLO payload golden checked",
+  "xpm_fifo_threshold_correction": "Vivado 2026.1 elaboration rejected prior thresholds; updated PROG_FULL=507 and PROG_EMPTY=5 for depth512."
 }

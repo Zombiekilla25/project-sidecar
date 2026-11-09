@@ -34,14 +34,14 @@
     "core_output_mhz": 175,
     "core_period_ns": 5.714285714,
     "vivado": "2026.1 Enterprise",
-    "clock_legality": "PASS",
+    "clock_legality": "PASS clock-only Vivado 2026.1",
     "generated_clock_recognized": true,
     "generated_period_ns": 5.714,
     "clock_shell_drc_violations": 0,
     "warnings": [
       "Inherited DIFF_TERM=TRUE is translated by Vivado to TERM_100 for UltraScale."
     ],
-    "scope": "Clock-only legality synthesis, not integrated PHK2 board synthesis.",
+    "scope": "separate clock shell and authoritative-top RTL elaboration; not mapped board synthesis",
     "legality_artifacts": {
       "clock_report": "results/phk2-fk33-clock-legality/clocks.rpt",
       "drc_report": "results/phk2-fk33-clock-legality/drc.rpt",
@@ -50,23 +50,22 @@
     }
   },
   "clock_startup_reset_tests": "4/4 PASS",
-  "real_core_board_control_tests": "6/6 PASS",
+  "real_core_board_control_tests": "11/11 PASS",
   "real_endpoint_cdc_stress": {
     "requests": 12000,
     "responses": 12000,
-    "clock_edge_events": 1822446,
-    "input_fifo_full_edges": 347759,
-    "result_fifo_full_edges": 790267,
+    "command_mix": "STATUS polling only; actual core instantiated and idle during stress",
+    "transport_clock": "deterministically varied half-period 5..12 ns; core 10 ns",
+    "host_output_read_delay_ns": 50000,
+    "input_fifo_full_edges": 348179,
+    "result_fifo_full_edges": 1077790,
+    "aggregate_clock_edge_events": 2470381,
     "duplicate_responses": 0,
     "dropped_responses": 0,
     "unexpected_failures": 0,
     "deadlocks": 0,
     "stale_results_accepted": 0,
-    "command_mix": "HELLO only; real compute core bound and idle",
-    "transport_clock": "variable half-period 5\u201312 ns; core clock 10 ns",
-    "host_output_read_delay_ns": 50000,
-    "events": 1822446,
-    "qualification_result": "PASS; see results/phk2-real-core-cdc-stress.json"
+    "qualification_result": "PASS for STATUS/control CDC pressure; compute-active CDC stress not covered"
   },
   "fifo_stress": {
     "transfers": 100000,
@@ -77,14 +76,70 @@
     "drops": 0
   },
   "integrated_physical_status": {
-    "top_io_count": 2,
-    "full_top_structural_validation": "PARTIAL",
+    "physical_top_elaboration": "PASS Vivado RTL elaboration",
+    "physical_structural_validation": "PARTIAL",
     "vendor_cdc_review": "NOT_RUN",
     "board_synthesis_175": "NOT_RUN",
     "route": "NOT_RUN",
-    "write_bitstream": "NOT_RUN",
-    "cdc_backpressure_tests": "5/6 board-path stress conditions covered; rapid STATUS polling not covered",
-    "physical_top_elaboration": "Icarus PHK2_SIM elaboration pending final run"
+    "write_bitstream": "NOT_RUN"
   },
-  "source_manifest_sha256": "1368878a0277ddfe0c4e4130ab8b6380164e73a60c984a777ba5395d19e55f41"
+  "source_manifest_sha256": "1368878a0277ddfe0c4e4130ab8b6380164e73a60c984a777ba5395d19e55f41",
+  "fifo_component_stress": {
+    "transfers": 100000,
+    "received": 100000,
+    "clock_edges": 2666684,
+    "full_cycles": 1757129,
+    "empty_read_attempts": 0,
+    "duplicates": 0,
+    "drops": 0,
+    "result": "PASS"
+  },
+  "physical_top_review": {
+    "target_part": "xcvu33p-fsvh2104-2-e",
+    "top": "phk2_fk33_board_top",
+    "real_core_included": true,
+    "test_stub_included": false,
+    "rtl_elaboration": "PASS",
+    "rtl_elaboration_drc_checks": 0,
+    "user_io_count": 2,
+    "pins": {
+      "clk_p": "BC26",
+      "clk_n": "BC27"
+    },
+    "iostandard": "LVDS",
+    "primary_period_ns": 5.0,
+    "generated_core_period_ns": 5.714,
+    "full_structural_validation": "PARTIAL",
+    "vendor_cdc_review": "NOT_RUN",
+    "reason": "Vivado report_cdc/check_timing unsupported before mapped synthesis; mapped board synthesis remains gated until CDC review is resolved"
+  },
+  "xpm_fifo_fix": {
+    "original_errors": [
+      "PROG_FULL_THRESH=508 out of range; max 507 for depth512",
+      "PROG_EMPTY_THRESH=4 out of range; min 5 for depth512"
+    ],
+    "current_thresholds": {
+      "prog_full": 507,
+      "prog_empty": 5
+    },
+    "vivado_rtl_elaboration": "PASS"
+  },
+  "qualification": {
+    "board_synthesis": "NOT_RUN",
+    "board_synthesis_sane": "UNKNOWN",
+    "route_ready": false,
+    "reason": "Vendor report_cdc and check_timing require mapped synthesis in Vivado 2026.1. The user-gated board synthesis was not started before CDC review."
+  },
+  "external_activity": {
+    "hardware": 0,
+    "testbench_ssh": 0,
+    "usb": 0,
+    "jtag": 0,
+    "programming": 0,
+    "bitstream": 0,
+    "route": 0,
+    "pool": 0,
+    "cuda": 0,
+    "mining_changes": 0
+  }
 }

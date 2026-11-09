@@ -33,7 +33,7 @@
   "source_sha256": {
     "rtl/phk2_board/phk2_protocol_decoder.sv": "79edc740e073499e3d894b214dfe8882bacabbf4315591504efda532235f41cf",
     "rtl/phk2_board/phk2_protocol_response_encoder.sv": "f5ba28ffa241d2a41dc9b306f7a2bd23443066200895f709b05645c4bc1e2a6f",
-    "rtl/phk2_board/phk2_async_fifo.sv": "2b4e035a5ba26a3b829a55f2c34e0820dd2a99f251d7d8c5734b071e3c6abd31",
+    "rtl/phk2_board/phk2_async_fifo.sv": "14878a56e3fee862963c16908b6e96ff3f319c5ab7fe8f7c2705b83723335095",
     "rtl/phk2_board/phk2_real_core_endpoint.sv": "5945088a0f4e4394cf9d6a038d2e77b70f8a6fe8806c7d87280d8abc3aa7a2e2",
     "rtl/phk2_board/phk2_core_contract_adapter.sv": "80a1af8227e3027ebc2ed0337dd91d86518b96272c04e094a31995504e23da64",
     "rtl/phk2_board/phk2_fk33_board_top.sv": "e0d3dcdf88cf6487fa304ffa85b244a82f13097f569c80d0f84c2f8601a46faf",
@@ -58,5 +58,10 @@
   "provenance_reference_xdc": "constraints/reference/PHK1_FK33_BOARD_CONSTRAINTS.xdc",
   "provenance_reference_xdc_sha256": "16a5c6b05ac43f9fffeeb95b1b0b8490d3ce0884843f7a239a2d9d9d085770e7",
   "clock_legality": "PASS",
-  "board_synthesis_gates_complete": false
+  "board_synthesis_gates_complete": false,
+  "structural_validation": "PARTIAL: Vivado RTL elaboration/DRC/IO/clocks pass; mapped check_timing and report_cdc unavailable pre-synthesis",
+  "vendor_cdc_review": "NOT_RUN: Vivado report_cdc requires mapped synthesis",
+  "physical_synthesis_ready": false,
+  "review_script": "tools/vivado_phk2_board_rtl_review.tcl",
+  "review_script_sha256": "b31f8bd1c605a80d8411694528b916fbc48be957ced9876a26193f7968309c46"
 }

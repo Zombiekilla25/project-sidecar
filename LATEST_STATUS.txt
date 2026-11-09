@@ -1,9 +1,7 @@
 PHK2/FK33 authoritative board integration
-UTC date: 2026-11-09
-Base commit: e837d4883ae428e82112b55d6a0a9250fd8e0813
-Authoritative PHK1 XDC recovered and installed as byte-identical reference (SHA256 16a5c6b05ac43f9fffeeb95b1b0b8490d3ce0884843f7a239a2d9d9d085770e7). The exact previously reviewed PHK2 pin/clock fragment is applied unchanged (SHA256 97c25163f6176271d93c727a54eb49116e4131cefc8d4c01c68aa44f29eee473). Pins BC26/BC27, LVDS, 200 MHz, no external reset: all crosschecks PASS.
-Current HELLO response matches golden 14-byte payload, including result_bytes=112.
-Real-core board endpoint: 6/6 control cases pass; current-source single work CPU exact. Historical 13 descriptor single-work replay and 64 result Batch64 replay passed; Batch64 RTL/data path unchanged by HELLO field fix.
-CDC/backpressure: current real endpoint 12000 HELLO transactions, 1822446 clock-edge events, variable transport half periods, input/result FIFO full, 0 lost/duplicate/deadlock/unexpected failure. FIFO stress: 100000 ordered transfers, 2666684 edges, 0 loss/duplicates.
-PLL lock/reset release: 4/4 PASS. Vivado 2026.1 clock-only legality on exact PHK2 clockgen source: PASS; 200 MHz in, 175 MHz derived, zero DRC violations. DIFF_TERM translation warning documented.
-Simulation-mode top elaboration: PASS. Full physical-top validation and vendor CDC report: NOT RUN. Full board synthesis 175 MHz: NOT RUN because those preceding gates are incomplete. No route, bitstream, hardware, USB/JTAG, testbench SSH, pool, CUDA, or mining activity.
+Base commit: 5e328b6cf7782e099677c7388d2bcb7406f0c0f9
+Real-core control cases: 11/11 PASS. FIFO component backpressure: 100000 ordered transfers, no loss/duplicates. Real endpoint CDC pressure: 12000 STATUS frames, 2470381 aggregate clock edges, both FIFOs full, zero failures/loss/duplicates/deadlock.
+Authoritative XDC: BC26/BC27 LVDS, 200 MHz. PHK2 PLL: IBUFDS -> PLLE4_ADV -> BUFG, VCO 1400 MHz, core 175 MHz. Clock startup/reset: 4/4 PASS.
+Vivado 2026.1 real-top RTL elaboration: PASS; XDC IO audit reports two pins and generated core clock. DRC check count 0. Found and corrected illegal XPM FIFO thresholds (507 full, 5 empty).
+Vendor report_cdc and check_timing require mapped synthesis in Vivado 2026.1. They are unavailable at RTL-elaboration stage. To preserve the requested gate order, authoritative board synth_175 remains NOT_RUN; CDC review is NOT_RUN, structural validation PARTIAL, route ready false.
+No hardware, testbench SSH, USB/JTAG, programming, bitstream, place/route, pool, CUDA, or mining activity.

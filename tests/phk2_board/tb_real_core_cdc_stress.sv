@@ -18,8 +18,8 @@ module tb_real_core_cdc_stress;
   integer sent=0,received=0,response_byte=0;
   reg producer_done=0,consumer_start=0;
   reg [7:0] observed;
-  reg [7:0] expected[0:27];
-  reg [7:0] frame_seen[0:23];
+  reg [7:0] expected[0:37];
+  reg [7:0] frame_seen[0:33];
   reg [31:0] crc;
 
   phk2_async_fifo #(.WIDTH(8),.ADDR_BITS(9)) input_cdc(.wr_clk(tck),.wr_arst(rst),.wr_en(rx_wr_en&&!rx_full),.wr_data(rx_wr_data),.wr_full(rx_full),.wr_count(rx_wc),.rd_clk(core_clk),.rd_arst(rst),.rd_en(rx_valid&&rx_ready),.rd_data(rx_data),.rd_empty(rx_empty),.rd_count(rx_rc));
@@ -33,34 +33,35 @@ module tb_real_core_cdc_stress;
 
   function [31:0] crc_byte(input [31:0] ci,input [7:0] data);integer b;reg [31:0] c;begin c=ci^data;for(b=0;b<8;b=b+1)c=c[0]?(c>>1)^32'hedb88320:(c>>1);crc_byte=c;end endfunction
   task send_byte(input [7:0] b);begin @(negedge tck);while(rx_full)@(negedge tck);rx_wr_data=b;rx_wr_en=1;@(posedge tck);@(negedge tck);rx_wr_en=0;end endtask
-  task send_hello(input [15:0] sn);integer n;reg [7:0] b;reg [31:0] c;begin
+  task send_status(input [15:0] sn);integer n;reg [7:0] b;reg [31:0] c;begin
     c=32'hffffffff;
     b=8'hc2;send_byte(b);c=crc_byte(c,b);b=8'h5a;send_byte(b);c=crc_byte(c,b);
-    b=1;send_byte(b);c=crc_byte(c,b);b=1;send_byte(b);c=crc_byte(c,b);
+    b=1;send_byte(b);c=crc_byte(c,b);b=8'h12;send_byte(b);c=crc_byte(c,b);
     b=0;send_byte(b);c=crc_byte(c,b);send_byte(0);c=crc_byte(c,0);
     b=sn[7:0];send_byte(b);c=crc_byte(c,b);b=sn[15:8];send_byte(b);c=crc_byte(c,b);
-    send_byte(0);c=crc_byte(c,0);send_byte(0);c=crc_byte(c,0);
+    b=10;send_byte(b);c=crc_byte(c,b);send_byte(0);c=crc_byte(c,0);
+    for(n=0;n<10;n=n+1)begin send_byte(0);c=crc_byte(c,0);end
     c=~c;for(n=0;n<4;n=n+1)send_byte(c[n*8+:8]);
   end endtask
   task consume_and_check(input integer sn);integer n;reg [31:0] c;begin
-    for(n=0;n<28;n=n+1)begin
+    for(n=0;n<38;n=n+1)begin
       @(negedge tck);while(tx_empty)@(negedge tck);observed=tx_fifo_data;
       if(n==0&&observed!=8'hc2)$fatal(1,"bad response magic");
       if(n==1&&observed!=8'h5a)$fatal(1,"bad response magic2");
       if(n==2&&observed!=1)$fatal(1,"bad version");
-      if(n==3&&observed!=8'h81)$fatal(1,"bad HELLO response opcode");
+      if(n==3&&observed!=8'h92)$fatal(1,"bad STATUS response opcode");
       if(n==4&&observed!=1)$fatal(1,"bad response flags");
       if(n==6&&observed!=sn[7:0])$fatal(1,"response ordering low sequence got=%0d expected=%0d",observed,sn);
       if(n==7&&observed!=sn[15:8])$fatal(1,"response ordering high sequence");
-      if(n==8&&observed!=14)$fatal(1,"bad HELLO response length");
+      if(n==8&&observed!=24)$fatal(1,"bad STATUS response length");
       if(n==9&&observed!=0)$fatal(1,"bad HELLO response length high");
-      if(n>=10&&n<24&&observed!==expected[n])$fatal(1,"HELLO response payload mismatch off=%0d got=%02x expected=%02x",n-10,observed,expected[n]);
-      if(n<24)frame_seen[n]=observed;
-      if(n>=24)begin
+      if(n>=10&&n<34&&observed!==expected[n])$fatal(1,"STATUS response payload mismatch off=%0d got=%02x expected=%02x",n-10,observed,expected[n]);
+      if(n<34)frame_seen[n]=observed;
+      if(n>=34)begin
         c=32'hffffffff;
-        for(integer k=0;k<24;k=k+1)c=crc_byte(c,frame_seen[k]);
+        for(integer k=0;k<34;k=k+1)c=crc_byte(c,frame_seen[k]);
         c=~c;
-        if(observed!==c[(n-24)*8+:8])$fatal(1,"response CRC mismatch byte=%0d",n-24);
+        if(observed!==c[(n-34)*8+:8])$fatal(1,"response CRC mismatch byte=%0d",n-34);
       end
       tx_rd_en=1;@(posedge tck);@(negedge tck);tx_rd_en=0;
     end
@@ -68,13 +69,13 @@ module tb_real_core_cdc_stress;
   end endtask
 
   initial begin
-    expected[10]=1;expected[11]=0;expected[12]=3;expected[13]=0;expected[14]=112;expected[15]=0;expected[16]=64;expected[17]=0;
-    expected[18]=112;expected[19]=0;expected[20]=63;expected[21]=0;expected[22]=0;expected[23]=0;
+    for(integer e=0;e<38;e=e+1)expected[e]=0;
+    expected[20]=1;expected[32]=0;expected[33]=2;
     repeat(8)@(posedge core_clk);repeat(8)@(posedge tck);#1 rst=0;
     repeat(5)@(posedge core_clk);repeat(5)@(posedge tck);consumer_start=1;
     fork
       begin
-        for(sent=0;sent<N;sent=sent+1)send_hello(sent[15:0]);
+        for(sent=0;sent<N;sent=sent+1)send_status(sent[15:0]);
         producer_done=1;
       end
       begin
@@ -87,7 +88,7 @@ module tb_real_core_cdc_stress;
     if(sticky_error||error||stale_job||overflow||busy)$fatal(1,"unexpected endpoint state error=%b parse=%b",error,sticky_error);
     if(full_input_edges==0||full_output_edges==0)$fatal(1,"backpressure not exercised in/out=%0d/%0d",full_input_edges,full_output_edges);
     if(core_edges+tck_edges<500000)$fatal(1,"CDC transition count too low");
-    $display("REAL_CORE_CDC_STRESS=PASS REQUESTS=%0d RESPONSES=%0d INPUT_FULL_EDGES=%0d RESULT_FULL_EDGES=%0d DUPLICATE_RESULTS=0 DROPPED_RESULTS=0 UNEXPECTED_FAILURES=0 DEADLOCKS=0 EVENTS=%0d",sent,received,full_input_edges,full_output_edges,core_edges+tck_edges);
+    $display("REAL_CORE_CDC_STRESS=PASS COMMAND=STATUS REQUESTS=%0d RESPONSES=%0d INPUT_FULL_EDGES=%0d RESULT_FULL_EDGES=%0d DUPLICATE_RESULTS=0 DROPPED_RESULTS=0 UNEXPECTED_FAILURES=0 DEADLOCKS=0 EVENTS=%0d",sent,received,full_input_edges,full_output_edges,core_edges+tck_edges);
     $finish;
   end
   initial begin #200000000;$fatal(1,"CDC stress watchdog sent=%0d received=%0d",sent,received);end

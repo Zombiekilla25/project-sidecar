@@ -1,0 +1,60 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+--------------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version      : Vivado v.2026.1 (lin64) Build 6511674 Tue Jun 16 11:01:26 MDT 2026
+| Date              : Mon Nov  9 18:01:21 2026
+| Host              : RGB running 64-bit Ubuntu 24.04.5 LTS
+| Command           : report_clocks -file results/phk2-fk33-rtl-review/clocks.rpt
+| Design            : phk2_fk33_board_top
+| Device            : xcvu33p-fsvh2104
+| Speed File        : -2
+| Design State      : Synthesized
+| Temperature Grade : E
+--------------------------------------------------------------------------------------------------------------------------------------------------
+
+Clock Report
+
+
+Attributes
+  P: Propagated
+  G: Generated
+  A: Auto-derived
+  R: Renamed
+  V: Virtual
+  I: Inverted
+  S: Pin phase-shifted with Latency mode
+
+Clock           Period(ns)  Waveform(ns)   Attributes  Sources
+clk200_input    5.000       {0.000 2.500}  P           {clk_p}
+pll_core_unbuf  5.714       {0.000 2.857}  P,G,A       {clockgen/u_phk2_pll/CLKOUT0}
+pll_fb          10.000      {0.000 5.000}  P,G,A       {clockgen/u_phk2_pll/CLKFBOUT}
+
+
+====================================================
+Generated Clocks
+====================================================
+
+Generated Clock     : pll_core_unbuf
+Master Source       : clockgen/u_phk2_pll/CLKIN
+Master Clock        : clk200_input
+Edges               : {1 2 3}
+Edge Shifts(ns)     : {0.000 0.357 0.714}
+Generated Sources   : {clockgen/u_phk2_pll/CLKOUT0}
+
+Generated Clock     : pll_fb
+Master Source       : clockgen/u_phk2_pll/CLKIN
+Master Clock        : clk200_input
+Edges               : {1 2 3}
+Edge Shifts(ns)     : {0.000 2.500 5.000}
+Generated Sources   : {clockgen/u_phk2_pll/CLKFBOUT}
+
+
+
+====================================================
+User Uncertainty
+====================================================
+
+
+
+====================================================
+User Jitter
+====================================================
