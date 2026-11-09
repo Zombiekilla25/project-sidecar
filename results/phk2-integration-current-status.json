@@ -16,7 +16,7 @@
   "protocol_frozen": false,
   "real_core_board_bound": false,
   "test_stub_excluded_from_board_top": false,
-  "board_synthesis_175": "NOT_RUN",
+  "board_synthesis_175": "NOT_RUN_BOARD_STUB_AND_CLOCK_GATES_MISSING",
   "route": "NOT_RUN",
   "physical_qualification": false,
   "activity": {
@@ -38,11 +38,18 @@
   "authoritative_descriptors_real_core_rtl": "13/13",
   "full_work_items_composed": "13/13 exact",
   "subtile_operand_records_compared": 425984,
-  "real_core_batch64_rtl": "RUNNING",
+  "real_core_batch64_rtl": "PASS",
   "real_core_batch64_rtl_count": 64,
   "protocol_wire_golden_tests": "PASS",
   "protocol_range_domain_test": "7/7",
   "host_mock_batch64": "PASS",
   "host_mock_fuzz_events": 100000,
-  "board_stub_status": "still bound; unqualified"
+  "board_stub_status": "still bound; unqualified",
+  "real_core_batch64_jobs_tested": 1,
+  "real_core_batch64_work_items": 64,
+  "real_core_batch64_job_mismatches": 0,
+  "real_core_batch64_result_mismatches": 0,
+  "real_core_batch64_cycles": 878718655,
+  "random_full_rtl_cases": 0,
+  "wire_protocol_frozen": false
 }

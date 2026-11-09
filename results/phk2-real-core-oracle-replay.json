@@ -7,7 +7,17 @@
   "mismatches": 0,
   "subtile_records_compared_per_descriptor": 32768,
   "rtl_cycles_per_item": 13729978,
-  "batch64_rtl": "NOT_RUN (estimated 64x single-item RTL simulation cost; independent auditor batch64 set is CPU/reference data, not RTL execution)",
+  "batch64_rtl": {
+    "jobs_tested": 1,
+    "work_items": 64,
+    "job_mismatches": 0,
+    "result_mismatches": 0,
+    "operand_records_compared_for_item0": 32768,
+    "total_rtl_cycles": 878718655,
+    "result": "PASS",
+    "descriptor_generation": 8,
+    "note": "One production descriptor was executed for the complete 64-item range; all raw/canonical result records matched the CPU oracle. The first item also had all eight subtile operand streams checked byte-for-byte."
+  },
   "items": [
     {
       "capture": "real-v3-slice-09f76caf_2097152-20261021T014622Z",
@@ -118,5 +128,8 @@
   "composition": "XOR of eight 512-bit subtile transcripts in row-group-major, then column-group order; final digest/filter performed after complete composition",
   "source_oracle_unchanged": true,
   "physical_board_binding": "NOT_QUALIFIED; board top still uses test stub",
-  "physical_qualification": false
+  "physical_qualification": false,
+  "randomized_full_rtl_cases": 0,
+  "randomized_cpu_identity_property_cases": 100000,
+  "randomized_cpu_identity_property_source": "independent auditor audit artifact; identity properties, not full RTL arithmetic comparisons"
 }

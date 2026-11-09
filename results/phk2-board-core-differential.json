@@ -170,5 +170,17 @@
     "wire_protocol_frozen": false,
     "board_synthesis": "NOT_RUN",
     "reason": "BSCAN command/response endpoint, transaction adapter, CDC/clock integration remain unimplemented/ungated"
+  },
+  "production_batch64_rtl": {
+    "descriptor_generation": 8,
+    "jobs_tested": 1,
+    "work_items": 64,
+    "result_mismatches": 0,
+    "raw_result_exact": true,
+    "canonical_result_exact": true,
+    "cpu_crosscheck": true,
+    "item0_subtile_records_compared": 32768,
+    "total_cycles": 878718655,
+    "status": "PASS"
   }
 }

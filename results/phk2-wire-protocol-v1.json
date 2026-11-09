@@ -139,8 +139,10 @@
     "rtl_response_encoder_golden": "9/9_PLUS_4_RECORD_MAX_AND_ERROR_STANDALONE_BACKPRESSURE_PASS",
     "real_phk2_datapath_binding": "PASS_DIAGNOSTIC_ONE_ITEM_13_OF_13",
     "real_phk2_datapath_operand_records_exact": "425984/425984",
-    "real_phk2_datapath_batch64": "RUNNING_NOT_YET_RECORDED",
-    "wire_range_domain_bounds": "7/7"
+    "real_phk2_datapath_batch64": "PASS_1_JOB_64_RESULTS",
+    "wire_range_domain_bounds": "7/7",
+    "real_phk2_datapath_batch64_result_mismatches": 0,
+    "real_phk2_datapath_batch64_cycles": 878718655
   },
   "timing_core_binding_status": "DATAPATH_RESULT_SHAPE_PASS; TRANSACTION_AND_BOARD_ADAPTER_MISSING",
   "timing_core_differential": {
