@@ -1,0 +1,54 @@
+# Python and native build products
+__pycache__/
+*.py[cod]
+*.so
+*.o
+*.a
+*.dylib
+*.exe
+build/
+dist/
+*.egg-info/
+
+# FPGA and vendor tool outputs
+*.bit
+*.bin
+*.dcp
+*.ltx
+*.jou
+*.wdb
+*.vcd
+*.rpt
+*.log
+.Xil/
+vivado*.str
+
+# Captured hardware/runtime evidence and local test output
+evidence/
+private-evidence/
+traces/
+captures/
+artifacts/
+results/
+*.trace
+*.pcap
+*.pcapng
+*.core
+core
+
+# Local settings, credentials, and operator-specific files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.license
+*.lic
+license.dat
+vendor-licenses/
+private-licenses/
+credentials.*
+secrets.*
+clockInfo.txt
