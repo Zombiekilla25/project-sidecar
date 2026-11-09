@@ -1,0 +1,258 @@
+{
+  "schema": "PHK2-FK33-BSCAN-v1",
+  "version": 1,
+  "frame": {
+    "magic_hex": "c25a",
+    "version_u8": 1,
+    "opcode_u8": "response sets bit 7",
+    "flags_u8": {
+      "response": 0,
+      "error": 1,
+      "reserved_zero": true
+    },
+    "sequence_u16_le": true,
+    "payload_length_u16_le": true,
+    "payload": "opcode-defined",
+    "crc": "CRC-32/ISO-HDLC, reflected polynomial 0xedb88320, init/xorout 0xffffffff, little-endian trailer over header+payload",
+    "header_bytes": 10,
+    "crc_bytes": 4
+  },
+  "opcodes": {
+    "HELLO": "0x01",
+    "LOAD_DESCRIPTOR": "0x10",
+    "START_RANGE": "0x11",
+    "STATUS": "0x12",
+    "READ_RESULT": "0x13",
+    "ABORT": "0x14",
+    "RESET": "0x1f"
+  },
+  "hello_response_bytes": 14,
+  "descriptor": {
+    "payload_bytes": 112,
+    "layout": [
+      [
+        0,
+        32,
+        "job_key"
+      ],
+      [
+        32,
+        8,
+        "generation_fence_u64_le"
+      ],
+      [
+        40,
+        8,
+        "setup_seed64_u64_le"
+      ],
+      [
+        48,
+        32,
+        "noise_seed_A"
+      ],
+      [
+        80,
+        32,
+        "noise_seed_B"
+      ]
+    ],
+    "operand_bytes_sent": 0
+  },
+  "load_ack_bytes": 40,
+  "start_range": {
+    "payload_bytes": 48,
+    "layout": [
+      [
+        0,
+        8,
+        "generation_u64_le"
+      ],
+      [
+        8,
+        32,
+        "job_key"
+      ],
+      [
+        40,
+        4,
+        "start_index_u32_le"
+      ],
+      [
+        44,
+        2,
+        "count_u16_le"
+      ],
+      [
+        46,
+        2,
+        "range_id_u16_le"
+      ]
+    ],
+    "count_range": [
+      1,
+      64
+    ],
+    "ack_bytes": 12
+  },
+  "status": {
+    "request_bytes": 10,
+    "response_bytes": 24,
+    "independent_flags": {
+      "busy": 0,
+      "result_ready": 1,
+      "error": 2,
+      "stale_job": 3,
+      "overflow": 4,
+      "aborted": 5
+    },
+    "payload_layout": [
+      [
+        0,
+        8,
+        "generation_u64_le"
+      ],
+      [
+        8,
+        2,
+        "range_id_u16_le"
+      ],
+      [
+        10,
+        1,
+        "state_u8"
+      ],
+      [
+        11,
+        1,
+        "independent_flags_u8"
+      ],
+      [
+        12,
+        2,
+        "input_occupancy_u16_le"
+      ],
+      [
+        14,
+        2,
+        "result_occupancy_u16_le"
+      ],
+      [
+        16,
+        2,
+        "next_slot_u16_le"
+      ],
+      [
+        18,
+        2,
+        "error_code_u16_le"
+      ],
+      [
+        20,
+        2,
+        "result_count_u16_le"
+      ],
+      [
+        22,
+        2,
+        "input_free_u16_le"
+      ]
+    ]
+  },
+  "read_result": {
+    "request_bytes": 46,
+    "records_per_read_max": 4,
+    "bounded_drain_bytes": 512,
+    "response_payload": "zero or more complete 112-byte result records; max four records per response"
+  },
+  "result": {
+    "record_bytes": 112,
+    "layout": [
+      [
+        0,
+        8,
+        "generation_u64_le"
+      ],
+      [
+        8,
+        2,
+        "range_id_u16_le"
+      ],
+      [
+        10,
+        2,
+        "slot_u16_le"
+      ],
+      [
+        12,
+        2,
+        "row_tile_u16_le"
+      ],
+      [
+        14,
+        2,
+        "col_tile_u16_le"
+      ],
+      [
+        16,
+        32,
+        "raw_result"
+      ],
+      [
+        48,
+        64,
+        "canonical_result"
+      ]
+    ],
+    "max_framed_read_bytes": 462
+  },
+  "abort": {
+    "payload_bytes": 44,
+    "layout": [
+      [
+        0,
+        8,
+        "generation"
+      ],
+      [
+        8,
+        32,
+        "job_key"
+      ],
+      [
+        40,
+        2,
+        "range_id"
+      ],
+      [
+        42,
+        2,
+        "reason"
+      ]
+    ]
+  },
+  "reset": {
+    "request_payload_bytes": 0
+  },
+  "chains": {
+    "USER2": "command/input; LSB-first bytes",
+    "USER3": "status/control; independent status flags",
+    "USER1": "result/output; LSB-first bytes"
+  },
+  "physical_transport": "disabled in host adapter; software emulator only",
+  "range_identity": "generation and full 32-byte job key must match the loaded descriptor; stale identity sets stale_job independently",
+  "error_codes": {
+    "BAD_OPCODE": 1,
+    "BAD_LENGTH": 2,
+    "BAD_GENERATION": 3,
+    "STALE_JOB": 4,
+    "BUSY": 5,
+    "FIFO_FULL": 6,
+    "FIFO_EMPTY": 7,
+    "DUPLICATE_START": 8,
+    "NOT_READY": 9,
+    "RANGE_INVALID": 10,
+    "IDENTITY_MISMATCH": 11,
+    "INTERNAL": 12,
+    "MISSING_RESULT": 13
+  }
+}

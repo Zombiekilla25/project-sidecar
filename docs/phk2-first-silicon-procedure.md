@@ -1,14 +1,15 @@
 # PHK2 first-silicon procedure
 
-This procedure is a host handoff. Do not enable a physical transport until the image has an independently recorded physical qualification and explicit device identity.
+This procedure is prepared for a future physically qualified PHK2 image. Live execution is intentionally disabled in this worktree. Do not use this document as authorization to program hardware.
 
-1. Archive the image, bitstream SHA-256, source commit, toolchain, board identity, clock and tile count. Bind those values to `target_image_identity` in Evidence-v1.
-2. Select the PHK2 transport adapter behind the existing interface. Preserve the PHK1 backend as the default and rollback target. Confirm adapter identity and a read-only attach/identity check before commands.
-3. Load a retained authoritative 112-byte descriptor and require its exact generation acknowledgement. Start one 64-coordinate range; retain every STATUS response and generation.
-4. Read the complete compact result set. Reject duplicates, missing slots, mismatched range IDs and stale generations. Abort on a protocol error; do not retry a command with ambiguous transport progress.
-5. Run `phk2-host oracle --input descriptor.bin --start 0 --count 64` for each qualified range, compare raw compact bytes and canonical transcript bytes, and retain all mismatch details.
-6. Capture separate monotonic timings for host packing, descriptor transfer, FPGA work, result transfer, host verification and total elapsed time. Keep every component measured; never derive FPGA timing from a mock.
-7. Write an Evidence-v1 manifest and a Benchmark-v1 record. Capture power only when supplied by a calibrated measurement source. Ingest matching PHK1 first-silicon records and PHK2 records with the comparison reporter.
-8. On any identity, generation, result, timeout, device or CPU mismatch, stop PHK2 and roll back to PHK1. Preserve the failed evidence bundle.
+1. Confirm the routed image identity and physical qualification record, host adapter identity, and board/USB target identity. Record all identities in PHK2 Evidence-v1.
+2. Connect through the selected transport adapter and issue **HELLO once**. Require protocol version and descriptor length 112 to match this contract.
+3. Issue **LOAD_DESCRIPTOR once** with the exact frozen production descriptor. Confirm accepted generation/job identity in status.
+4. For the first silicon transaction, issue **START_RANGE count=1** with the descriptor generation/job identity and a unique range id.
+5. Poll **STATUS** based on ready/busy/error and FIFO occupancy. Use a bounded deadline and transport timeout. Do not use blind fixed sleeps.
+6. Once result_ready is independently asserted, issue **READ_RESULT** for one record. Enforce the 112-byte record format and exact sequence/range/slot identity.
+7. Run the CPU golden oracle for the same descriptor/range. Require raw and canonical result equality and preserve status/result traces and timing fields in Evidence-v1.
+8. Exercise ABORT and recovery on a nonproduction fixture, then RESET and confirm flags/occupancies clear.
+9. Only after successful single-item silicon qualification, run batch64 with bounded result drains, per-record CPU comparison, and structured performance timing.
 
-No PHK2 silicon measurement is present in this worktree. The first run must remain gated on independent image and board qualification.
+The local offline simulator command is `iverilog -g2012 -DPHK2_SIM -s tb_phk2_board -o /tmp/phk2_board_tb rtl/phk2_board/phk2_async_fifo.sv rtl/phk2_board/phk2_protocol_decoder.sv rtl/phk2_board/phk2_core_stub.sv rtl/phk2_board/phk2_fk33_board_top.sv tests/phk2_board/bscan_stub.sv tests/phk2_board/tb_phk2_board.sv && vvp /tmp/phk2_board_tb`. Host mock qualification is `PYTHONPATH=tools/phk2_host .venv/bin/python tools/phk2_host/board_qualify.py`. The physical adapter remains disabled.

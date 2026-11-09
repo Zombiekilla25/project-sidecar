@@ -1,0 +1,46 @@
+{
+  "schema": "PHK2-FK33-INTEGRATION-SOURCE-SHA256-v1",
+  "source_revision": "6ec5e5ac959c169df3e706377e7287f9c55b3392",
+  "sources": [
+    {
+      "path": "protocol/phk2-board-v1.json",
+      "sha256": "9d25dc6697d63d49d59315e9ac42d1dded888de0dd2d30b6ad05e6d4627a5cff"
+    },
+    {
+      "path": "rtl/phk2_board/phk2_async_fifo.sv",
+      "sha256": "2b4e035a5ba26a3b829a55f2c34e0820dd2a99f251d7d8c5734b071e3c6abd31"
+    },
+    {
+      "path": "rtl/phk2_board/phk2_protocol_decoder.sv",
+      "sha256": "79edc740e073499e3d894b214dfe8882bacabbf4315591504efda532235f41cf"
+    },
+    {
+      "path": "rtl/phk2_board/phk2_core_stub.sv",
+      "sha256": "3bf482cccf8a0cd10fe2106f1f56f0c00cf1a080344646e9ec129f6b545cc1e2"
+    },
+    {
+      "path": "rtl/phk2_board/phk2_fk33_board_top.sv",
+      "sha256": "1e52c41c74c64c2ea785b754e07564d0bffc79655d3be00ca33c9aea15804633"
+    },
+    {
+      "path": "tools/phk2_host/board_protocol.py",
+      "sha256": "f9e7bbd5f956ed04a7a247f40b35961ce731d50f99ac7c05e8f3365482b14a9f"
+    },
+    {
+      "path": "tools/phk2_host/board_transport.py",
+      "sha256": "ee2bbd4bebabfc9be49c51d38bc8239c41ad1adbcad1e52fcbc967050cc8f7ba"
+    },
+    {
+      "path": "tools/phk2_host/board_qualify.py",
+      "sha256": "740940d22a0bb5a0249682e99a6010bba904e9a9177242349fae0ccb398b5b56"
+    },
+    {
+      "path": "tests/phk2_board/tb_phk2_board.sv",
+      "sha256": "4a6ac4168a23a341af32ac7bf5f840313ff1e886b786267794083f8fbd3c9ae3"
+    },
+    {
+      "path": "tests/phk2_board/bscan_stub.sv",
+      "sha256": "1b99cebc3cce87db26196327ade25c091266584a431c4b0b2dd60d768a2a0ad7"
+    }
+  ]
+}

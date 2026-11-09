@@ -1,0 +1,53 @@
+{
+  "sources": [
+    {
+      "name": "rtl_bscan_top",
+      "path": "/home/rmann/project-sidecar-phk1-diagnostic-rtl/diagnostic_candidate/rtl/pearlhash_fk_phk1_bscan_top.sv",
+      "sha256": "080cf3cee97bc9709d199e871a989f52e7071be86b0fb9bd651d98d58221c607"
+    },
+    {
+      "name": "rtl_board_top",
+      "path": "/home/rmann/project-sidecar-phk1-diagnostic-rtl/diagnostic_candidate/rtl/phk1_fk33_board_top.sv",
+      "sha256": "423381bbeb8d00bcaecc879da844a3b28ad00f253e23576876f5ee68fcb2068c"
+    },
+    {
+      "name": "rtl_async_fifo",
+      "path": "/home/rmann/project-sidecar-phk1-diagnostic-rtl/diagnostic_candidate/rtl/phk1_async_fifo.sv",
+      "sha256": "141feccfe5c010e345b1b466798049f3dc77a3fdf695acb85b1a5a47523cfd60"
+    },
+    {
+      "name": "runtime_mpsse_cpp",
+      "path": "/home/rmann/project-sidecar-phk1-diagnostic-runtime/candidate-runtime/tools/phk1_raw_bscan/mpsse_backend.cpp",
+      "sha256": "4327bb99833a8dc1c621bc3c32586a073d7eeb060d2cd43c645b363a5fd88469"
+    },
+    {
+      "name": "runtime_mpsse_hpp",
+      "path": "/home/rmann/project-sidecar-phk1-diagnostic-runtime/candidate-runtime/tools/phk1_raw_bscan/mpsse_backend.hpp",
+      "sha256": "7bab3c50dd1364b080a22edc81ed3638cda2bea31bc3878a78d00dcffe8d3c46"
+    },
+    {
+      "name": "runtime_transport_py",
+      "path": "/home/rmann/project-sidecar-phk1-diagnostic-runtime/candidate-runtime/tools/phk1_raw_bscan/transport.py",
+      "sha256": "d877d339d5a7dc4ed9e331e7a8ef950ac30f6f02bdd9a5e2bb5409761fbfd446"
+    },
+    {
+      "name": "runtime_frame_protocol_py",
+      "path": "/home/rmann/project-sidecar-phk1-diagnostic-runtime/candidate-runtime/tools/phk1_raw_bscan/frame_protocol.py",
+      "sha256": "69c172f62fc72f00373bc9a3afbdfa90a7b6a35fd43b77f298ef6f70fa81a4ca"
+    },
+    {
+      "name": "runtime_target_runner",
+      "path": "/home/rmann/project-sidecar-phk1-diagnostic-runtime/candidate-runtime/tools/phk1_raw_bscan/phk1_live_runner.py",
+      "sha256": "2fd603d7dbfdaa715bb850236b314ce2701888f70b8c148207069983c8e46a0f"
+    }
+  ],
+  "repositories": {
+    "/home/rmann/project-sidecar-phk1-diagnostic-rtl": "c685316e298506bec1fff494ff3deb82e1420eaa",
+    "/home/rmann/project-sidecar-phk1-diagnostic-runtime": "0fbcfeb8d3bb6df5507451f23523e2ae204ad0f2"
+  },
+  "qualification": {
+    "offline_bscan_reference": "PASS",
+    "physical_protocol_qualified": false,
+    "note": "Capture of locally qualified transport design lessons; runtime metadata explicitly does not claim physical protocol qualification."
+  }
+}
