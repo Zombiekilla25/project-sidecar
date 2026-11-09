@@ -1,0 +1,30 @@
+{
+  "schema":"PHK2-STUB-INTERFACE-INVENTORY-v1",
+  "source":"rtl/phk2_board/phk2_core_stub.sv",
+  "module":"phk2_core_stub",
+  "clock_domain":"clk; board top connects core_clk; cmd interface is already decoded in core domain",
+  "reset":"rst active-high synchronous; clears all status, identity, busy, and result state",
+  "ports":[
+    {"name":"clk","direction":"input","width":1,"domain":"core"},
+    {"name":"rst","direction":"input","width":1,"domain":"core","semantics":"sync active-high"},
+    {"name":"cmd_valid","direction":"input","width":1,"valid_ready":"cmd_valid/cmd_ready"},
+    {"name":"cmd_ready","direction":"output","width":1,"semantics":"low while result byte stream is active"},
+    {"name":"cmd_opcode","direction":"input","width":8},
+    {"name":"cmd_length","direction":"input","width":16},
+    {"name":"cmd_payload","direction":"input","width":896,"semantics":"112-byte command storage; opcode-defined"},
+    {"name":"busy","direction":"output","width":1},
+    {"name":"result_ready","direction":"output","width":1,"semantics":"sticky until new start/reset"},
+    {"name":"error","direction":"output","width":1,"semantics":"sticky, except valid descriptor/start/reset clear paths"},
+    {"name":"stale_job","direction":"output","width":1,"semantics":"sticky until accepted descriptor/reset"},
+    {"name":"overflow","direction":"output","width":1,"semantics":"sticky core-input overflow or external input_overflow"},
+    {"name":"aborted","direction":"output","width":1,"semantics":"sticky until descriptor/start/reset"},
+    {"name":"input_overflow","direction":"input","width":1,"domain":"core","semantics":"sampled synchronous level"},
+    {"name":"result_valid","direction":"output","width":1,"valid_ready":"result_valid/result_ready_i"},
+    {"name":"result_ready_i","direction":"input","width":1},
+    {"name":"result_byte","direction":"output","width":8,"semantics":"112-byte result stream, one byte per handshake"},
+    {"name":"error_code","direction":"output","width":8},
+    {"name":"hello_seen","direction":"output","width":1,"semantics":"sticky until reset"},
+    {"name":"descriptor_loaded","direction":"output","width":1,"semantics":"cleared on reset; set on valid LOAD_DESCRIPTOR"}
+  ],
+  "notes":["Does not implement PHK2 PearlHash datapath.","Command acceptance/result byte stream are coupled to board v1 decoder and are not a stable real-core boundary."]
+}

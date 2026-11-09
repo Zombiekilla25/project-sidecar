@@ -1,0 +1,152 @@
+{
+  "schema": "PHK2-CURRENT-CORE-INTERFACE-INVENTORY-v1",
+  "source_repository": "/home/rmann/project-sidecar-phk2-v1-rtl",
+  "commit": "c4ec217a9073ba05f6826601e94680e067c495b7",
+  "module": "phk2_core_synth_top",
+  "source": "rtl/phk2_core_synth_top.sv",
+  "sha256": "a22f1e46fb6e88a2b5fb83cadd3f16b9899504db580977807344257341b96a89",
+  "clock_domain": "single clk/rst core domain; no BSCAN ports",
+  "ports": [
+    {
+      "name": "clk",
+      "direction": "input",
+      "width": 1
+    },
+    {
+      "name": "rst",
+      "direction": "input",
+      "width": 1
+    },
+    {
+      "name": "abort_req",
+      "direction": "input",
+      "width": 1
+    },
+    {
+      "name": "item_start",
+      "direction": "input",
+      "width": 1
+    },
+    {
+      "name": "setup_seed64",
+      "direction": "input",
+      "width": 64
+    },
+    {
+      "name": "noise_seed_a",
+      "direction": "input",
+      "width": 256
+    },
+    {
+      "name": "noise_seed_b",
+      "direction": "input",
+      "width": 256
+    },
+    {
+      "name": "pow_key",
+      "direction": "input",
+      "width": 256
+    },
+    {
+      "name": "pow_target",
+      "direction": "input",
+      "width": 256
+    },
+    {
+      "name": "generation",
+      "direction": "input",
+      "width": 64
+    },
+    {
+      "name": "work_index",
+      "direction": "input",
+      "width": 16
+    },
+    {
+      "name": "row_tile",
+      "direction": "input",
+      "width": 16
+    },
+    {
+      "name": "col_tile",
+      "direction": "input",
+      "width": 16
+    },
+    {
+      "name": "row_base",
+      "direction": "input",
+      "width": 17
+    },
+    {
+      "name": "col_base",
+      "direction": "input",
+      "width": 17
+    },
+    {
+      "name": "k_index",
+      "direction": "input",
+      "width": 12
+    },
+    {
+      "name": "operand_valid",
+      "direction": "input",
+      "width": 1
+    },
+    {
+      "name": "operand_ready",
+      "direction": "output",
+      "width": 1
+    },
+    {
+      "name": "result_valid",
+      "direction": "output",
+      "width": 1
+    },
+    {
+      "name": "transcript_words",
+      "direction": "output",
+      "width": 512
+    },
+    {
+      "name": "candidate_valid",
+      "direction": "output",
+      "width": 1
+    },
+    {
+      "name": "candidate_ready",
+      "direction": "input",
+      "width": 1
+    },
+    {
+      "name": "candidate_record",
+      "direction": "output",
+      "width": 128
+    },
+    {
+      "name": "busy",
+      "direction": "output",
+      "width": 1
+    },
+    {
+      "name": "overflow",
+      "direction": "output",
+      "width": 1
+    },
+    {
+      "name": "stale_candidate_count",
+      "direction": "output",
+      "width": 32
+    }
+  ],
+  "missing_contract_features": [
+    "112-byte descriptor valid/ready",
+    "range start/count/range identity handshake",
+    "transaction reset command",
+    "generation plus full job-key stale rejection interface",
+    "896-bit canonical/raw result record",
+    "result backpressure tied to range delivery",
+    "16-bit standard error code",
+    "separate abort accepted handshake"
+  ],
+  "binding_status": "FAIL: latest committed source is a data-path measurement wrapper, not the board transaction core. A control wrapper/adapter is needed; do not bind it directly to the board stub."
+}

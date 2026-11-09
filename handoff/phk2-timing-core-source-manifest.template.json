@@ -1,0 +1,20 @@
+{
+  "schema": "PHK2-TIMING-CORE-IMPORT-MANIFEST-v1",
+  "contract": "PHK2-BOARD-CORE-CONTRACT-v1",
+  "commit": "SUPPLY_40_OR_64_HEX_COMMIT",
+  "core_module": "SUPPLY_TIMING_QUALIFIED_CORE_MODULE",
+  "sources": [
+    {"path":"rtl/core.sv","sha256":"SUPPLY_SHA256"},
+    {"path":"rtl/phk2_core_contract_adapter.sv","sha256":"SUPPLY_SHA256"}
+  ],
+  "timing_qualification": {
+    "status":"PASS",
+    "commit":"SUPPLY_SAME_COMMIT",
+    "target_part":"xcvu33p-fsvh2104-2-e",
+    "wns_ns":"SUPPLY_NONNEGATIVE_VALUE",
+    "report_sha256":"SUPPLY_SHA256"
+  },
+  "binding_testbench":"tests/tb_timing_core_binding.sv",
+  "required_modules":["SUPPLY_TIMING_QUALIFIED_CORE_MODULE","phk2_core_contract_adapter"],
+  "test_only_stub_sources":[]
+}

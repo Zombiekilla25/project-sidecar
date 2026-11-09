@@ -1,0 +1,47 @@
+{
+  "schema": "PHK2-BOARD-CORE-CONTRACT-v1",
+  "clocking": {
+    "core_clock": "clk (board core clock domain)",
+    "transport_clock": "BSCAN DRCK/TCK; isolated by async FIFOs outside adapter",
+    "reset": "rst is synchronous active-high in core domain; reset_req is a core-domain transaction reset and is ORed into core_rst"
+  },
+  "descriptor": {
+    "valid_ready": "descriptor_valid/descriptor_ready; payload stable until handshake",
+    "payload_bits": 896,
+    "fields_lsb_first": [
+      {"name":"job_key","bits":256,"offset":0},
+      {"name":"generation_fence","bits":64,"offset":256},
+      {"name":"setup_seed64","bits":64,"offset":320},
+      {"name":"noise_seed_A","bits":256,"offset":384},
+      {"name":"noise_seed_B","bits":256,"offset":640}
+    ]
+  },
+  "range": {
+    "valid_ready": "range_valid/range_ready; fields stable until handshake",
+    "fields": {"generation_bits":64,"job_key_bits":256,"start_bits":32,"count_bits":16,"range_id_bits":16},
+    "count_min":1,"count_max":64,
+    "stale_identity": "generation and all 256 job-key bits must match the accepted descriptor; stale requests are consumed locally, not forwarded"
+  },
+  "abort": {
+    "valid_ready":"abort_valid/abort_ready",
+    "fields":{"generation_bits":64,"job_key_bits":256,"range_id_bits":16,"reason_bits":16},
+    "stale_identity":"must match active descriptor and range; stale abort is not forwarded"
+  },
+  "result": {
+    "valid_ready":"result_valid/result_ready_i; payload stable until handshake",
+    "payload_bits":896,
+    "fields_lsb_first":[
+      {"name":"generation","bits":64,"offset":0},
+      {"name":"range_id","bits":16,"offset":64},
+      {"name":"slot","bits":16,"offset":80},
+      {"name":"row_tile","bits":16,"offset":96},
+      {"name":"col_tile","bits":16,"offset":112},
+      {"name":"raw_result","bits":256,"offset":128},
+      {"name":"canonical_result","bits":512,"offset":384}
+    ],
+    "identity":"generation and range_id must match active work; stale results are drained and discarded"
+  },
+  "status": {"busy":1,"result_ready":1,"error":1,"stale_job":1,"aborted":1,"error_code":16},
+  "latency": "No fixed-cycle latency is specified; all request and result transfers use valid/ready handshakes.",
+  "internal_operand_arrays_exposed": false
+}

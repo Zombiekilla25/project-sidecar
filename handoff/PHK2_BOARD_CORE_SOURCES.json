@@ -1,0 +1,165 @@
+{
+  "board_transport_rtl": [
+    "rtl/phk2_board/phk2_protocol_decoder.sv",
+    "rtl/phk2_board/phk2_async_fifo.sv",
+    "rtl/phk2_board/phk2_fk33_board_top.sv"
+  ],
+  "constraints": [
+    "/home/rmann/project-sidecar-phk2-v1-rtl/constraints/phk2-v1-200mhz.xdc"
+  ],
+  "core_contract_adapter_rtl": [
+    "rtl/phk2_board/phk2_core_contract_adapter.sv"
+  ],
+  "physical_build_rule": "must use a timing-qualified core commit and binding adapter; reject test_only_stub entries in the physical source set",
+  "real_core_rtl_candidate": {
+    "commit": "c4ec217a9073ba05f6826601e94680e067c495b7",
+    "entry_module": "phk2_core_synth_top",
+    "files": [
+      "rtl/phk2_core_synth_top.sv",
+      "rtl/phk2_production_operand.sv",
+      "rtl/phk2_blake3_keyed_block.sv",
+      "rtl/phk2_philox4x32_10.sv",
+      "rtl/phk2_tile_adapter.sv",
+      "rtl/phk2_result_filter.sv",
+      "rtl/phk2_compact_result.sv",
+      "rtl/phk2_descriptor_decoder.sv",
+      "rtl/vendor_phk1/packed_tile.sv",
+      "rtl/vendor_phk1/packed_mul2.sv"
+    ],
+    "repository": "/home/rmann/project-sidecar-phk2-v1-rtl",
+    "role": "reference-only; not transaction-contract compatible"
+  },
+  "schema": "PHK2-BOARD-CORE-SOURCE-MANIFEST-v1",
+  "source_records": [
+    {
+      "commit": "c4ec217a9073ba05f6826601e94680e067c495b7",
+      "path": "rtl/phk2_core_synth_top.sv",
+      "repository": "/home/rmann/project-sidecar-phk2-v1-rtl",
+      "role": "real_core_rtl_reference_only",
+      "sha256": "a22f1e46fb6e88a2b5fb83cadd3f16b9899504db580977807344257341b96a89"
+    },
+    {
+      "commit": "c4ec217a9073ba05f6826601e94680e067c495b7",
+      "path": "rtl/phk2_production_operand.sv",
+      "repository": "/home/rmann/project-sidecar-phk2-v1-rtl",
+      "role": "real_core_rtl_reference_only",
+      "sha256": "635a53b5749259958abf3494f7fe878491645eea391f07d1ce1a6f68321d88a8"
+    },
+    {
+      "commit": "c4ec217a9073ba05f6826601e94680e067c495b7",
+      "path": "rtl/phk2_blake3_keyed_block.sv",
+      "repository": "/home/rmann/project-sidecar-phk2-v1-rtl",
+      "role": "real_core_rtl_reference_only",
+      "sha256": "690cb66a449a071c34bf72c49fd5a7331e70bdc51ebdf60fe7b70107764d4f7e"
+    },
+    {
+      "commit": "c4ec217a9073ba05f6826601e94680e067c495b7",
+      "path": "rtl/phk2_philox4x32_10.sv",
+      "repository": "/home/rmann/project-sidecar-phk2-v1-rtl",
+      "role": "real_core_rtl_reference_only",
+      "sha256": "0df605a51189b4c7d8a9b50b6764d6b25e88f638a3d159fe52b14305b6e6ffe1"
+    },
+    {
+      "commit": "c4ec217a9073ba05f6826601e94680e067c495b7",
+      "path": "rtl/phk2_tile_adapter.sv",
+      "repository": "/home/rmann/project-sidecar-phk2-v1-rtl",
+      "role": "real_core_rtl_reference_only",
+      "sha256": "853508e58737a21b781f045d74dcb901c4b099011be5fd70afa3fbc9930f55db"
+    },
+    {
+      "commit": "c4ec217a9073ba05f6826601e94680e067c495b7",
+      "path": "rtl/phk2_result_filter.sv",
+      "repository": "/home/rmann/project-sidecar-phk2-v1-rtl",
+      "role": "real_core_rtl_reference_only",
+      "sha256": "a4b249ddffa6c6a453461f2bd488e45329f74b3aa0adcc51cd69e420ca88c95f"
+    },
+    {
+      "commit": "c4ec217a9073ba05f6826601e94680e067c495b7",
+      "path": "rtl/phk2_compact_result.sv",
+      "repository": "/home/rmann/project-sidecar-phk2-v1-rtl",
+      "role": "real_core_rtl_reference_only",
+      "sha256": "3de6843d4fe85a5c68f34c220d0b7cd5ba7aaead932e6cb1afcacaf9369f32a1"
+    },
+    {
+      "commit": "c4ec217a9073ba05f6826601e94680e067c495b7",
+      "path": "rtl/phk2_descriptor_decoder.sv",
+      "repository": "/home/rmann/project-sidecar-phk2-v1-rtl",
+      "role": "real_core_rtl_reference_only",
+      "sha256": "0fc2fe6e7dcedb84916b5f5cee6b88753c441c8f3659601ac725d73ec746e804"
+    },
+    {
+      "commit": "c4ec217a9073ba05f6826601e94680e067c495b7",
+      "path": "rtl/vendor_phk1/packed_tile.sv",
+      "repository": "/home/rmann/project-sidecar-phk2-v1-rtl",
+      "role": "real_core_rtl_reference_only",
+      "sha256": "4eb48273b11c327c0ce2068ac2fb083493d1d10dbc4355f094bc1679621c8fab"
+    },
+    {
+      "commit": "c4ec217a9073ba05f6826601e94680e067c495b7",
+      "path": "rtl/vendor_phk1/packed_mul2.sv",
+      "repository": "/home/rmann/project-sidecar-phk2-v1-rtl",
+      "role": "real_core_rtl_reference_only",
+      "sha256": "ad9396097fbfc0df5b5a779730034a617c6022a64bdbebeb1a4dc798d5e80538"
+    },
+    {
+      "commit": "c4ec217a9073ba05f6826601e94680e067c495b7",
+      "path": "constraints/phk2-v1-200mhz.xdc",
+      "repository": "/home/rmann/project-sidecar-phk2-v1-rtl",
+      "role": "constraints_reference",
+      "sha256": "b931a39f364001496b788713c8d647df9a55d7252974cb8fec82a62fba950eee"
+    },
+    {
+      "path": "rtl/phk2_board/phk2_protocol_decoder.sv",
+      "role": "board_transport_rtl",
+      "sha256": "79edc740e073499e3d894b214dfe8882bacabbf4315591504efda532235f41cf"
+    },
+    {
+      "path": "rtl/phk2_board/phk2_async_fifo.sv",
+      "role": "cdc_rtl",
+      "sha256": "2b4e035a5ba26a3b829a55f2c34e0820dd2a99f251d7d8c5734b071e3c6abd31"
+    },
+    {
+      "path": "rtl/phk2_board/phk2_fk33_board_top.sv",
+      "role": "board_transport_rtl",
+      "sha256": "1e52c41c74c64c2ea785b754e07564d0bffc79655d3be00ca33c9aea15804633"
+    },
+    {
+      "path": "rtl/phk2_board/phk2_core_contract_adapter.sv",
+      "role": "core_contract_adapter_rtl",
+      "sha256": "80a1af8227e3027ebc2ed0337dd91d86518b96272c04e094a31995504e23da64"
+    },
+    {
+      "path": "rtl/phk2_board/phk2_core_stub.sv",
+      "role": "test_only_stub",
+      "sha256": "3bf482cccf8a0cd10fe2106f1f56f0c00cf1a080344646e9ec129f6b545cc1e2"
+    },
+    {
+      "path": "tests/phk2_board/bscan_stub.sv",
+      "role": "test_only",
+      "sha256": "1b99cebc3cce87db26196327ade25c091266584a431c4b0b2dd60d768a2a0ad7"
+    },
+    {
+      "path": "tests/phk2_board/tb_phk2_board.sv",
+      "role": "test_only",
+      "sha256": "4a6ac4168a23a341af32ac7bf5f840313ff1e886b786267794083f8fbd3c9ae3"
+    },
+    {
+      "path": "tests/phk2_board/tb_core_contract_adapter.sv",
+      "role": "test_only",
+      "sha256": "c2b474476d3c401f855381fbc16a6adaa250e33d9700288fe1024394e9375c43"
+    },
+    {
+      "path": "tests/phk2_board/tb_current_committed_core_smoke.sv",
+      "role": "test_only",
+      "sha256": "8431944a93e1b9239b7cca30b11cd05b255e136aa84d716338c103aa3a610286"
+    }
+  ],
+  "test_only_sources": [
+    "tests/phk2_board/bscan_stub.sv",
+    "tests/phk2_board/tb_phk2_board.sv",
+    "tests/phk2_board/tb_core_contract_adapter.sv"
+  ],
+  "test_only_stub": [
+    "rtl/phk2_board/phk2_core_stub.sv"
+  ]
+}
