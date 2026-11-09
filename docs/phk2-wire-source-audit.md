@@ -57,16 +57,22 @@ framing agree, but a full host/device protocol endpoint has not yet been proven.
 
 ## Real-core binding result
 
-The timing-qualified core at `84ef0eb...` is a measurement wrapper with
-`item_start`, operand stream, tile, digest-filter, and candidate ports. It does
-not implement 112-byte descriptor acceptance, range scheduling, transaction
-reset, full generation/job-key stale checks, or the board contract's 112-byte
-raw/canonical result stream. The committed board top still instantiates
-`phk2_core_stub`. The stub is test-only and cannot enter a physical source set.
+The previous differential compared one 4x8 tile against a full 16x16 CPU
+work item. Its first difference was missing operand coverage at byte offset 12,
+not a compute mismatch. The diagnostic wrapper now serially executes all eight
+4x8 subtiles (four row groups by two column groups), XOR-composes their
+transcripts, then applies digest/filter processing. Verilator checked all
+32,768 generated 12-byte subtile records for each of the 13 retained
+production descriptors and compared each composed raw/canonical result with
+the CPU oracle: 13/13 exact, zero mismatches. The production oracle and PHK1
+tile arithmetic were not changed. Details are in
+[`phk2-real-core-oracle-replay.json`](../results/phk2-real-core-oracle-replay.json).
 
-Therefore this audit resolves the old wire draft in favor of the production
-host runtime, but it does not mark `PHK2_WIRE_PROTOCOL_FROZEN=true`: response
-encoding exists as a standalone module but is not connected to the BSCAN
-response path, and the real timing-core binding fails CPU-oracle result
-comparison. The source-bound results are in
-[`phk2-wire-protocol-v1.json`](../results/phk2-wire-protocol-v1.json).
+This resolves the known arithmetic transcript mismatch in the diagnostic
+wrapper. It does not yet provide a transaction-compatible real-core board
+adapter: `rtl/phk2_board/phk2_fk33_board_top.sv` still instantiates
+`phk2_core_stub`, and the standalone response encoder is not connected to the
+BSCAN response path. Therefore `PHK2_WIRE_PROTOCOL_FROZEN=false` for device
+integration and board synthesis remains gated. The current wire-size semantic
+reconciliation is recorded in
+[`phk2-independent-audit-import.md`](phk2-independent-audit-import.md).

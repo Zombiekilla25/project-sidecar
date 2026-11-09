@@ -108,28 +108,23 @@
     "175mhz_clock_plan": "PROPOSED_ONLY",
     "bscan_shell": "PRESENT_TEST_STUB",
     "clock_legality": "NOT_RUN",
-    "real_core_bound": false
+    "real_core_bound": false,
+    "board_synthesis": "NOT_RUN_GATE_BLOCKED"
   },
   "rtl_agreement": {
     "command_semantics": "TEST_STUB_ONLY",
     "framed_response_encoder": "IMPLEMENTED_STANDALONE_GOLDEN_PASS_NOT_CONNECTED",
-    "real_core_binding": "MISSING",
+    "real_core_binding": "DIAGNOSTIC_DATAPATH_CPU_ORACLE_PASS_13_OF_13; TRANSACTION_BOARD_BINDING_MISSING",
     "request_frame_parser": "PASS_SOURCE_AND_SIM"
   },
   "schema": "PHK2-WIRE-PROTOCOL-V1-REVIEW",
   "source_hashes": {
-    "legacy_model/tools/phk2_seed_work_golden.py@8bee18faf40889d2010c11f8c5236e1c8062fff3": "41bc42f3400d7a1bd18809d1882f1fa3f008eda1c06d3ab42c460e64e0a84553",
-    "protocol/phk2-board-v1.json": "9d25dc6697d63d49d59315e9ac42d1dded888de0dd2d30b6ad05e6d4627a5cff",
-    "real_core/rtl/phk2_core_synth_top.sv@84ef0eb998077270c4eef6b95f107c18cac70438": "c99d7f7dc34c0278cca36bb4862e42f5c4fe456d52752f8ddefc2cf85cf2dcf0",
-    "real_core/rtl/phk2_production_operand_seq.sv@84ef0eb998077270c4eef6b95f107c18cac70438": "3dc8772e43308fdd9a0b7252d383e62374481d9482a2dae3c9ec1217004413f1",
-    "real_core/rtl/phk2_result_filter.sv@84ef0eb998077270c4eef6b95f107c18cac70438": "8956efc0bcdeb1d4486b77a8068327cf5f1412b145e5547ef098a2acddbf92b2",
-    "real_core/rtl/phk2_v1_analysis_top.sv@84ef0eb998077270c4eef6b95f107c18cac70438": "6eebc0c22346e33d9d521fb4a924468122056f2f999256339316976a8c7fc02d",
     "rtl/phk2_board/phk2_core_contract_adapter.sv": "80a1af8227e3027ebc2ed0337dd91d86518b96272c04e094a31995504e23da64",
     "rtl/phk2_board/phk2_core_stub.sv": "3bf482cccf8a0cd10fe2106f1f56f0c00cf1a080344646e9ec129f6b545cc1e2",
     "rtl/phk2_board/phk2_fk33_board_top.sv": "1e52c41c74c64c2ea785b754e07564d0bffc79655d3be00ca33c9aea15804633",
     "rtl/phk2_board/phk2_protocol_decoder.sv": "79edc740e073499e3d894b214dfe8882bacabbf4315591504efda532235f41cf",
     "rtl/phk2_board/phk2_protocol_response_encoder.sv": "f5ba28ffa241d2a41dc9b306f7a2bd23443066200895f709b05645c4bc1e2a6f",
-    "tools/phk2_host/board_protocol.py": "f9e7bbd5f956ed04a7a247f40b35961ce731d50f99ac7c05e8f3365482b14a9f",
+    "tools/phk2_host/board_protocol.py": "9d089923f273437b0d19fa09e3710aae5084dc3d7fa29af4b8f5e0b7babcbcd2",
     "tools/phk2_host/board_transport.py": "ee2bbd4bebabfc9be49c51d38bc8239c41ad1adbcad1e52fcbc967050cc8f7ba",
     "tools/phk2_host/oracle.py": "d7dc0d8468d72725b3eee99b989f08572c7d5ec251b4c84433164eb62f562c4b",
     "tools/phk2_host/runtime.py": "8e4597ae14cf531615c7e206327630b3858468a66741f5480115e8bec715ba62"
@@ -142,25 +137,52 @@
     "host_protocol_failure_matrix": "20/20",
     "host_protocol_stress_events": 250000,
     "rtl_response_encoder_golden": "9/9_PLUS_4_RECORD_MAX_AND_ERROR_STANDALONE_BACKPRESSURE_PASS",
-    "real_phk2_datapath_binding": "FAIL_RESULT_MISMATCH_COUNT1",
-    "real_phk2_datapath_operand_records_exact": "4096/4096",
-    "real_phk2_datapath_batch64": "NOT_RUN_AFTER_COUNT1_FAILURE"
+    "real_phk2_datapath_binding": "PASS_DIAGNOSTIC_ONE_ITEM_13_OF_13",
+    "real_phk2_datapath_operand_records_exact": "425984/425984",
+    "real_phk2_datapath_batch64": "RUNNING_NOT_YET_RECORDED",
+    "wire_range_domain_bounds": "7/7"
   },
-  "timing_core_binding_status": "FAIL_TRANSACTION_AND_RESULT_CONTRACT",
+  "timing_core_binding_status": "DATAPATH_RESULT_SHAPE_PASS; TRANSACTION_AND_BOARD_ADAPTER_MISSING",
   "timing_core_differential": {
     "fixture_descriptor_sha256": "5f1d1113ce423475583c2100c088215d8984e61bd48fbbe25b9b365487db25c0",
-    "metadata_exact": true,
-    "expected_transcript_hex": "b16ffeff72de00009326fcff702a0200c7bf020007c20200e3b7f9ff46d303005753ffffb328f9ff619400005fee050058540100e524feff6b27fbff6d0df9ff",
-    "rtl_transcript_hex": "5ef10100769bfeff21d1feffe6f9ffff75aa0000fc5cfcfff7ef010045f90200f975fdff5ea305006315f9ff0f8bfbffa8aa0500d9f901006acc0200d14a0000",
-    "expected_digest_hex": "8005743203e9466067f0e97969c1eeb2ef3dc912ed22bd3e4353f8edee6bd8d9",
-    "rtl_digest_hex": "6e8324345437a1994399fa698d690ccac450ef6afd37dac61ef43df47c798cb6",
-    "rtl_digest_matches_its_transcript": true,
-    "classification": "COMPUTE_RESULT_SHAPE_MISMATCH"
+    "initial_mismatch_root_cause": "one 4x8 tile had incomplete coverage of a full 16x16 production item; first absent operand offset 12",
+    "resolution": "serial 8 subtiles (4 row groups x 2 column groups), XOR compose transcript before digest/filter; CPU oracle and tile arithmetic unchanged",
+    "authoritative_descriptors_exact": "13/13",
+    "subtile_operand_records_compared_per_descriptor": 32768,
+    "total_subtile_operand_records_compared": 425984,
+    "mismatches": 0,
+    "composed_transcript_exact": true,
+    "composed_raw_digest_exact": true,
+    "rtl_core_cycles_per_item": 13729978
   },
   "validation": {
     "crc_tests": "4/4",
     "golden_vectors": "PASS_HOST_ONLY",
     "wire_protocol_frozen": false
   },
-  "wire_load_descriptor_payload_bytes": 112
+  "wire_load_descriptor_payload_bytes": 112,
+  "independent_semantic_audit": {
+    "artifact_sha256": "30204f917df2c084ea31e04fa958064a8ce5f92d5731a1848f0abaa44e4101a3",
+    "semantic_contract_path": "results/phk2-independent-semantic-contract.json",
+    "independent_validator": "PASS",
+    "discrepancy_root_cause": "different accounting units: 125 is descriptor plus minimum range semantics, excluding frame; 126 is framed LOAD_DESCRIPTOR",
+    "descriptor_data_bytes": 112,
+    "minimum_semantic_input_bytes": 125,
+    "load_descriptor_frame_bytes": 126,
+    "load_descriptor_header_bytes": 10,
+    "load_descriptor_crc_bytes": 4,
+    "separate_start_range_wire_payload_bytes": 48,
+    "separate_start_range_frame_bytes": 62,
+    "two_command_load_start_frame_bytes": 188,
+    "no_terminator": true
+  },
+  "range_semantics": {
+    "wire_payload_bytes": 48,
+    "stored_start_bits": 32,
+    "stored_count_bits": 16,
+    "accepted_start_domain": "0..65535",
+    "accepted_count_domain": "1..64",
+    "range_id_bits": 16,
+    "contract_test": "max boundary accepted; 6 invalid start/count inputs rejected"
+  }
 }

@@ -46,12 +46,14 @@ def decode_descriptor(raw:bytes)->Descriptor:
     return Descriptor.decode(raw)
 RANGE=struct.Struct('<Q32sIHH') # generation, full job key, start index, count, range ID
 def encode_range(generation:int,job_key:bytes,start_index:int,count:int,range_id:int)->bytes:
-    if len(job_key)!=32 or not 0<=start_index<2**32 or not 1<=count<=64 or not 0<=range_id<=0xffff: raise ProtocolError(ErrorCode.RANGE_INVALID,'invalid range fields')
+    # The wire container keeps its v1 u32/u16 layout, while the qualified
+    # semantic domain is the auditor's bounded u16 start and count 1..64.
+    if len(job_key)!=32 or not 0<=start_index<2**16 or not 1<=count<=64 or not 0<=range_id<=0xffff: raise ProtocolError(ErrorCode.RANGE_INVALID,'invalid range fields')
     return RANGE.pack(generation,job_key,start_index,count,range_id)
 def decode_range(raw:bytes):
     if len(raw)!=RANGE.size: raise ProtocolError(ErrorCode.BAD_LENGTH,'START_RANGE payload must be 48 bytes')
     generation,key,start,count,rid=RANGE.unpack(raw)
-    if not 1<=count<=64: raise ProtocolError(ErrorCode.RANGE_INVALID,'range count must be 1..64')
+    if not 0<=start<2**16 or not 1<=count<=64: raise ProtocolError(ErrorCode.RANGE_INVALID,'range start/count outside qualified domain')
     return generation,key,start,count,rid
 STATUS_REQ=struct.Struct('<QH')
 STATUS_WIRE=struct.Struct('<QHBBHHHHHH') # 24-byte, six independent flag bits

@@ -1,0 +1,46 @@
+{
+  "descriptor": {
+    "length_bytes": 112,
+    "fields": [
+      {"name":"job_key","offset":0,"width":32,"encoding":"bytes"},
+      {"name":"generation","offset":32,"width":8,"encoding":"u64_le"},
+      {"name":"setup_seed64","offset":40,"width":8,"encoding":"u64_le"},
+      {"name":"noise_seed_A","offset":48,"width":32,"encoding":"bytes"},
+      {"name":"noise_seed_B","offset":80,"width":32,"encoding":"bytes"}
+    ]
+  },
+  "job_identity":"preserved",
+  "generation_identity":"preserved",
+  "range":{
+    "start":"explicit",
+    "count":"explicit",
+    "count_semantics":"number_of_work_items",
+    "start_width_bits":16,
+    "count_width_bits":8,
+    "range_id_width_bits":16,
+    "qualified_count":64
+  },
+  "status_semantics":["accepted","running","complete","aborted","error"],
+  "result":{
+    "raw_bytes":32,
+    "canonical_bytes":64,
+    "job_identity":true,
+    "generation_identity":true,
+    "range_identity":true,
+    "slot_identity":true
+  },
+  "operations":{"abort":"required_semantic","reset":"required_semantic","error_reporting":"required_semantic"},
+  "encodings":["descriptor_fields","range_fields","result_identity"],
+  "wire_projection":{
+    "load_descriptor_payload_bytes":112,
+    "frame_header_bytes":10,
+    "crc_trailer_bytes":4,
+    "load_descriptor_frame_bytes":126,
+    "start_range_wire_payload_bytes":48,
+    "start_range_wire_frame_bytes":62,
+    "current_start_range_wire_fields":"generation u64 + job_key[32] + start u32 + count u16 + range_id u16; semantic start is bounded to 0..65535 and count to 1..64",
+    "minimum_semantic_input_bytes":125,
+    "minimum_semantic_input_composition":"112-byte descriptor + 8-byte generation fence + 2-byte bounded start + 1-byte qualified count + 2-byte range ID; no frame headers, CRC, or duplicate START_RANGE job-key echo",
+    "two_command_wire_bytes_before_status_or_result":188
+  }
+}

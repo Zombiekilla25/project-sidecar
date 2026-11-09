@@ -1,0 +1,122 @@
+{
+  "schema": "PHK2-REAL-CORE-ORACLE-REPLAY-v1",
+  "simulator": "Verilator --binary --timing",
+  "scope": "one full work item per each of 13 authoritative production descriptors; each item runs eight serial 4x8 subtiles and compares generated 12-byte records plus composed raw/canonical result against production CPU oracle",
+  "passed": 13,
+  "total": 13,
+  "mismatches": 0,
+  "subtile_records_compared_per_descriptor": 32768,
+  "rtl_cycles_per_item": 13729978,
+  "batch64_rtl": "NOT_RUN (estimated 64x single-item RTL simulation cost; independent auditor batch64 set is CPU/reference data, not RTL execution)",
+  "items": [
+    {
+      "capture": "real-v3-slice-09f76caf_2097152-20261021T014622Z",
+      "descriptor_sha256": "d93717e152da6decdb7e8ae5bd0c7a75d496a6dfdf01b6ab0c2fa024c5433dd2",
+      "generation": 70,
+      "result": "PASS",
+      "subtile_records_compared": 32768,
+      "core_cycles": 13729978
+    },
+    {
+      "capture": "real-v3-slice-0c497f84_2097152-20261021T013213Z",
+      "descriptor_sha256": "f0217c29d9c4104d4c263a4b16466a0c03c5aad68589db7b8513c7e33d76b7bd",
+      "generation": 69,
+      "result": "PASS",
+      "subtile_records_compared": 32768,
+      "core_cycles": 13729978
+    },
+    {
+      "capture": "real-v3-slice-1017db2f_2097152-20261013T222702Z",
+      "descriptor_sha256": "5f1d1113ce423475583c2100c088215d8984e61bd48fbbe25b9b365487db25c0",
+      "generation": 8,
+      "result": "PASS",
+      "subtile_records_compared": 32768,
+      "core_cycles": 13729978
+    },
+    {
+      "capture": "real-v3-slice-2981ad6a_4194304-20261021T010328Z",
+      "descriptor_sha256": "baa712bd34d497fdec7f41392106bcbd1519d54b8c4a421e603f6920895bd34c",
+      "generation": 65,
+      "result": "PASS",
+      "subtile_records_compared": 32768,
+      "core_cycles": 13729978
+    },
+    {
+      "capture": "real-v3-slice-3b5cdc39_2097152-20261021T012250Z",
+      "descriptor_sha256": "c551198625a0363155d54427c98abf94a18bfb42b5c6354935cad4117518c378",
+      "generation": 67,
+      "result": "PASS",
+      "subtile_records_compared": 32768,
+      "core_cycles": 13729978
+    },
+    {
+      "capture": "real-v3-slice-521ec7e0_2097152-20261021T014659Z",
+      "descriptor_sha256": "e8396410a7058b88afb938aeb85b797cbe401382e4da6c1633acfd494ee4fae0",
+      "generation": 71,
+      "result": "PASS",
+      "subtile_records_compared": 32768,
+      "core_cycles": 13729978
+    },
+    {
+      "capture": "real-v3-slice-649aa864_2097152-20261021T012147Z",
+      "descriptor_sha256": "7ab1c4af587313934e3a03c5c6d3576b525225dd882a7cd9ae3449e77f796f04",
+      "generation": 66,
+      "result": "PASS",
+      "subtile_records_compared": 32768,
+      "core_cycles": 13729978
+    },
+    {
+      "capture": "real-v3-slice-653bee82_2097152-20261019T011443Z",
+      "descriptor_sha256": "1be7efb5c8e3a278535a1dcd077d06512ca84a8b1dd5723a0ccdc1d311641ce6",
+      "generation": 9,
+      "result": "PASS",
+      "subtile_records_compared": 32768,
+      "core_cycles": 13729978
+    },
+    {
+      "capture": "real-v3-slice-7a3cab9a_2097152-20261021T014706Z",
+      "descriptor_sha256": "465394dc213741d81b4f5a764a3315a75594c17883a2a50643ad8c6dabcf0ec4",
+      "generation": 72,
+      "result": "PASS",
+      "subtile_records_compared": 32768,
+      "core_cycles": 13729978
+    },
+    {
+      "capture": "real-v3-slice-7a3cab9a_2097152-20261024T014440Z",
+      "descriptor_sha256": "465394dc213741d81b4f5a764a3315a75594c17883a2a50643ad8c6dabcf0ec4",
+      "generation": 72,
+      "result": "PASS",
+      "subtile_records_compared": 32768,
+      "core_cycles": 13729978
+    },
+    {
+      "capture": "real-v3-slice-94292595_2097152-20261013T041523Z",
+      "descriptor_sha256": "f7a9b93e512a4ed1f4fb52c055497a41cb93e0e600b5aaf94308c10009b9973a",
+      "generation": 4,
+      "result": "PASS",
+      "subtile_records_compared": 32768,
+      "core_cycles": 13729978
+    },
+    {
+      "capture": "real-v3-slice-aa07e6fa_2097152-20261020T001234Z",
+      "descriptor_sha256": "86f21a1794c2f645148246b9912f294e4c888577d344af0cc3fb2d48c8ab1af2",
+      "generation": 64,
+      "result": "PASS",
+      "subtile_records_compared": 32768,
+      "core_cycles": 13729978
+    },
+    {
+      "capture": "real-v3-slice-cba94dfa_2097152-20261021T013137Z",
+      "descriptor_sha256": "6b62070c7e8e077a8c2686657cf86cbadf5b7ee4d387807b7f3693312a0dd72b",
+      "generation": 68,
+      "result": "PASS",
+      "subtile_records_compared": 32768,
+      "core_cycles": 13729978
+    }
+  ],
+  "initial_mismatch_root_cause": "previous diagnostic drove one 4x8 subtile but compared against full 16x16 CPU work item; missing rows 4..15 and columns 8..15",
+  "composition": "XOR of eight 512-bit subtile transcripts in row-group-major, then column-group order; final digest/filter performed after complete composition",
+  "source_oracle_unchanged": true,
+  "physical_board_binding": "NOT_QUALIFIED; board top still uses test stub",
+  "physical_qualification": false
+}

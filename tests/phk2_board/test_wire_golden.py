@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
-from board_protocol import Frame, crc32, decode_descriptor, encode_descriptor
+from board_protocol import (Frame, crc32, decode_descriptor, encode_descriptor,
+                            encode_range, decode_range, ProtocolError, ErrorCode)
 from generate_wire_vectors import generate
 from runtime import Descriptor
 
@@ -32,6 +33,21 @@ def main():
                          0x1112131415161718,bytes(range(32,64)),bytes(range(64,96)))
     encoded=encode_descriptor(synthetic)
     assert len(encoded)==112 and decode_descriptor(encoded)==synthetic
+    # Semantic bounds follow the independent audit while preserving the
+    # existing fixed-width wire representation.
+    max_range=encode_range(1,bytes(32),65535,64,65535)
+    assert len(max_range)==48 and decode_range(max_range)==(1,bytes(32),65535,64,65535)
+    for start,count in ((65536,1),(0,0),(0,65)):
+        try: encode_range(1,bytes(32),start,count,1)
+        except ProtocolError as e: assert e.code==ErrorCode.RANGE_INVALID
+        else: raise AssertionError(f'out-of-domain range accepted: start={start} count={count}')
+    for start,count in ((65536,1),(0,0),(0,65)):
+        bad=bytearray(encode_range(1,bytes(32),0,1,1))
+        import struct
+        struct.pack_into('<I',bad,40,start); struct.pack_into('<H',bad,44,count)
+        try: decode_range(bytes(bad))
+        except ProtocolError as e: assert e.code==ErrorCode.RANGE_INVALID
+        else: raise AssertionError(f'out-of-domain wire range accepted: start={start} count={count}')
     print('CRC_CONTRACT_TESTS=4/4')
     print('GOLDEN_WIRE_VECTORS=PASS (8 commands + bad-CRC rejection)')
     print('HOST_ENCODER_TO_GOLDEN=PASS')

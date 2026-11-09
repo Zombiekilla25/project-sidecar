@@ -1,6 +1,6 @@
 {
-  "schema": "PHK2-BOARD-CORE-DIFFERENTIAL-v1",
-  "classification": "FAIL_INCOMPATIBLE_COMPUTE_RESULT_CONTRACT",
+  "schema": "PHK2-BOARD-CORE-DIFFERENTIAL-v2",
+  "classification": "PASS_FULL_PRODUCTION_ITEM_VIA_EIGHT_4X8_SUBTILES",
   "source": {
     "worktree": "project-sidecar-phk2-v1-rtl",
     "commit": "84ef0eb998077270c4eef6b95f107c18cac70438",
@@ -12,17 +12,19 @@
     "retained_operand_tile_bytes": 49152,
     "workgen_records_compared": 4096,
     "workgen_record_bytes": 12,
-    "workgen_records_exact": true
+    "workgen_records_exact": true,
+    "workgen_records_compared_per_descriptor": 32768
   },
   "one_item": {
     "metadata_exact": true,
     "cpu_oracle_transcript_hex": "b16ffeff72de00009326fcff702a0200c7bf020007c20200e3b7f9ff46d303005753ffffb328f9ff619400005fee050058540100e524feff6b27fbff6d0df9ff",
-    "rtl_transcript_hex": "5ef10100769bfeff21d1feffe6f9ffff75aa0000fc5cfcfff7ef010045f90200f975fdff5ea305006315f9ff0f8bfbffa8aa0500d9f901006acc0200d14a0000",
-    "transcript_exact": false,
+    "rtl_transcript_hex": "b16ffeff72de00009326fcff702a0200c7bf020007c20200e3b7f9ff46d303005753ffffb328f9ff619400005fee050058540100e524feff6b27fbff6d0df9ff",
+    "transcript_exact": true,
     "cpu_oracle_digest_hex": "8005743203e9466067f0e97969c1eeb2ef3dc912ed22bd3e4353f8edee6bd8d9",
-    "rtl_digest_hex": "6e8324345437a1994399fa698d690ccac450ef6afd37dac61ef43df47c798cb6",
+    "rtl_digest_hex": "8005743203e9466067f0e97969c1eeb2ef3dc912ed22bd3e4353f8edee6bd8d9",
     "rtl_digest_matches_blake3_of_its_transcript": true,
-    "result_exact": false
+    "result_exact": true,
+    "rtl_core_cycles": 13729978
   },
   "interpretation": {
     "wire_ordering_issue": false,
@@ -41,6 +43,132 @@
     "bitstream": 0,
     "pool": 0,
     "cuda": 0,
-    "vivado_synthesis": 0
+    "vivado_synthesis": 0,
+    "route": 0
+  },
+  "historical_single_subtile_failure": {
+    "classification": "INCOMPLETE_4X8_SUBTILE_COVERAGE_OF_16X16_WORK_ITEM",
+    "first_missing_operand_offset": 12,
+    "expected_transcript_hex": "b16ffeff72de00009326fcff702a0200c7bf020007c20200e3b7f9ff46d303005753ffffb328f9ff619400005fee050058540100e524feff6b27fbff6d0df9ff",
+    "single_subtile_transcript_hex": "5ef10100769bfeff21d1feffe6f9ffff75aa0000fc5cfcfff7ef010045f90200f975fdff5ea305006315f9ff0f8bfbffa8aa0500d9f901006acc0200d14a0000",
+    "resolved_by": "serially running 8 4x8 subtiles (4 row groups x 2 column groups), XOR-composing the 16-word transcript before digest/filter; no PHK1 tile arithmetic or CPU oracle changes"
+  },
+  "production_descriptor_rtl_replays": {
+    "passed": 13,
+    "total": 13,
+    "mismatches": 0,
+    "items": [
+      {
+        "capture": "real-v3-slice-09f76caf_2097152-20261021T014622Z",
+        "descriptor_sha256": "d93717e152da6decdb7e8ae5bd0c7a75d496a6dfdf01b6ab0c2fa024c5433dd2",
+        "generation": 70,
+        "result": "PASS",
+        "subtile_records_compared": 32768,
+        "core_cycles": 13729978
+      },
+      {
+        "capture": "real-v3-slice-0c497f84_2097152-20261021T013213Z",
+        "descriptor_sha256": "f0217c29d9c4104d4c263a4b16466a0c03c5aad68589db7b8513c7e33d76b7bd",
+        "generation": 69,
+        "result": "PASS",
+        "subtile_records_compared": 32768,
+        "core_cycles": 13729978
+      },
+      {
+        "capture": "real-v3-slice-1017db2f_2097152-20261013T222702Z",
+        "descriptor_sha256": "5f1d1113ce423475583c2100c088215d8984e61bd48fbbe25b9b365487db25c0",
+        "generation": 8,
+        "result": "PASS",
+        "subtile_records_compared": 32768,
+        "core_cycles": 13729978
+      },
+      {
+        "capture": "real-v3-slice-2981ad6a_4194304-20261021T010328Z",
+        "descriptor_sha256": "baa712bd34d497fdec7f41392106bcbd1519d54b8c4a421e603f6920895bd34c",
+        "generation": 65,
+        "result": "PASS",
+        "subtile_records_compared": 32768,
+        "core_cycles": 13729978
+      },
+      {
+        "capture": "real-v3-slice-3b5cdc39_2097152-20261021T012250Z",
+        "descriptor_sha256": "c551198625a0363155d54427c98abf94a18bfb42b5c6354935cad4117518c378",
+        "generation": 67,
+        "result": "PASS",
+        "subtile_records_compared": 32768,
+        "core_cycles": 13729978
+      },
+      {
+        "capture": "real-v3-slice-521ec7e0_2097152-20261021T014659Z",
+        "descriptor_sha256": "e8396410a7058b88afb938aeb85b797cbe401382e4da6c1633acfd494ee4fae0",
+        "generation": 71,
+        "result": "PASS",
+        "subtile_records_compared": 32768,
+        "core_cycles": 13729978
+      },
+      {
+        "capture": "real-v3-slice-649aa864_2097152-20261021T012147Z",
+        "descriptor_sha256": "7ab1c4af587313934e3a03c5c6d3576b525225dd882a7cd9ae3449e77f796f04",
+        "generation": 66,
+        "result": "PASS",
+        "subtile_records_compared": 32768,
+        "core_cycles": 13729978
+      },
+      {
+        "capture": "real-v3-slice-653bee82_2097152-20261019T011443Z",
+        "descriptor_sha256": "1be7efb5c8e3a278535a1dcd077d06512ca84a8b1dd5723a0ccdc1d311641ce6",
+        "generation": 9,
+        "result": "PASS",
+        "subtile_records_compared": 32768,
+        "core_cycles": 13729978
+      },
+      {
+        "capture": "real-v3-slice-7a3cab9a_2097152-20261021T014706Z",
+        "descriptor_sha256": "465394dc213741d81b4f5a764a3315a75594c17883a2a50643ad8c6dabcf0ec4",
+        "generation": 72,
+        "result": "PASS",
+        "subtile_records_compared": 32768,
+        "core_cycles": 13729978
+      },
+      {
+        "capture": "real-v3-slice-7a3cab9a_2097152-20261024T014440Z",
+        "descriptor_sha256": "465394dc213741d81b4f5a764a3315a75594c17883a2a50643ad8c6dabcf0ec4",
+        "generation": 72,
+        "result": "PASS",
+        "subtile_records_compared": 32768,
+        "core_cycles": 13729978
+      },
+      {
+        "capture": "real-v3-slice-94292595_2097152-20261013T041523Z",
+        "descriptor_sha256": "f7a9b93e512a4ed1f4fb52c055497a41cb93e0e600b5aaf94308c10009b9973a",
+        "generation": 4,
+        "result": "PASS",
+        "subtile_records_compared": 32768,
+        "core_cycles": 13729978
+      },
+      {
+        "capture": "real-v3-slice-aa07e6fa_2097152-20261020T001234Z",
+        "descriptor_sha256": "86f21a1794c2f645148246b9912f294e4c888577d344af0cc3fb2d48c8ab1af2",
+        "generation": 64,
+        "result": "PASS",
+        "subtile_records_compared": 32768,
+        "core_cycles": 13729978
+      },
+      {
+        "capture": "real-v3-slice-cba94dfa_2097152-20261021T013137Z",
+        "descriptor_sha256": "6b62070c7e8e077a8c2686657cf86cbadf5b7ee4d387807b7f3693312a0dd72b",
+        "generation": 68,
+        "result": "PASS",
+        "subtile_records_compared": 32768,
+        "core_cycles": 13729978
+      }
+    ]
+  },
+  "physical_integration": {
+    "board_top_stub_present": true,
+    "real_core_board_bound": false,
+    "wire_protocol_frozen": false,
+    "board_synthesis": "NOT_RUN",
+    "reason": "BSCAN command/response endpoint, transaction adapter, CDC/clock integration remain unimplemented/ungated"
   }
 }
