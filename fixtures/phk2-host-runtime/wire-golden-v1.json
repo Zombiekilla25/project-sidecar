@@ -1,0 +1,66 @@
+{
+  "descriptor_data_bytes": 112,
+  "fixture_class": "SYNTHETIC_PROTOCOL_ONLY",
+  "frame_crc_bytes": 4,
+  "frame_crc_known_answer": {
+    "crc32_iso_hdlc": "cbf43926",
+    "input_hex": "313233343536373839"
+  },
+  "frame_header_bytes": 10,
+  "frame_overhead_bytes": 14,
+  "schema": "PHK2-WIRE-GOLDEN-VECTORS-v1",
+  "vectors": {
+    "ABORT": {
+      "request_hex": "c25a0114000006002c000807060504030201000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f0200070028d01d59",
+      "request_payload_bytes": 44,
+      "response_hex": "c25a0194010006000a000807060504030201020075c37a93",
+      "response_payload_bytes": 10
+    },
+    "BAD_CRC": {
+      "corrupt_request_hex": "c25a010100000000000028766113",
+      "expected": "REJECT_NO_COMMAND_NO_AUTOMATIC_RETRY"
+    },
+    "HELLO": {
+      "request_hex": "c25a010100000000000028766112",
+      "request_payload_bytes": 0,
+      "response_hex": "c25a0181010000000e00010003007000400070003f00000096208391",
+      "response_payload_bytes": 14
+    },
+    "LOAD_DESCRIPTOR": {
+      "request_hex": "c25a0110000001007000000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f08070605040302011817161514131211202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f120a514d",
+      "request_payload_bytes": 112,
+      "response_hex": "c25a01900100010028000807060504030201000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f50438ee0",
+      "response_payload_bytes": 40
+    },
+    "READ_RESULT": {
+      "request_hex": "c25a0113000005002e000807060504030201000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f02000000010008dca091",
+      "request_payload_bytes": 46,
+      "response_hex": "c25a019301000500700008070605040302010200000000000000000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f6b1924f1",
+      "response_payload_bytes": 112
+    },
+    "RESET": {
+      "request_hex": "c25a011f00000700000002a957b8",
+      "request_payload_bytes": 0,
+      "response_hex": "c25a019f01000700000055901dfb",
+      "response_payload_bytes": 0
+    },
+    "START_RANGE_COUNT_1": {
+      "request_hex": "c25a01110000020030000807060504030201000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f000000000100010021058da5",
+      "request_payload_bytes": 48,
+      "response_hex": "c25a0191010002000c00080706050403020101000100188b2b08",
+      "response_payload_bytes": 12
+    },
+    "START_RANGE_COUNT_64": {
+      "request_hex": "c25a01110000030030000807060504030201000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f0000000040000200b795c4c4",
+      "request_payload_bytes": 48,
+      "response_hex": "c25a0191010003000c0008070605040302010200400023cb945d",
+      "response_payload_bytes": 12
+    },
+    "STATUS": {
+      "request_hex": "c25a0112000004000a0008070605040302010200a9eac4c1",
+      "request_payload_bytes": 10,
+      "response_hex": "c25a01920100040018000807060504030201020003020000400040000000400000025a76f1d5",
+      "response_payload_bytes": 24
+    }
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "schema": "PHK2-FK33-INTEGRATION-STATUS-v1",
+  "utc_date": "2026-11-09",
+  "phase": "REAL_CORE_BOUNDARY_DIAGNOSTIC",
+  "protocol": {
+    "host_codec_golden": "PASS",
+    "crc_contract_tests": "4/4",
+    "host_encoder_to_golden": "PASS",
+    "golden_to_host_decoder": "PASS",
+    "standalone_rtl_response_encoder": "9/9_GOLDEN_BACKPRESSURE_PASS_NOT_CONNECTED",
+    "device_endpoint_complete": false,
+    "wire_protocol_frozen": false
+  },
+  "verification": {
+    "host_failure_matrix": "20/20_SOFTWARE_EMULATOR",
+    "host_stress_events": 250000,
+    "host_unexpected_failures": 0,
+    "board_stub_rtl_tests": "10/10_STUB_ONLY",
+    "mock_core_adapter_stress_events": 600000,
+    "real_core_operand_records_exact": "4096/4096_RETAINED_4X8_FIXTURE",
+    "real_core_count1_result_exact": false,
+    "real_core_operand_capture_comparison": "4096_RECORDS_EXACT_FOR_RETAINED_4X8_TILE",
+    "real_core_batch64": "NOT_RUN_AFTER_COUNT1_FAILURE"
+  },
+  "integration": {
+    "real_core_bound": false,
+    "test_stub_excluded_from_physical_top": false,
+    "input_cdc_board_qualified": false,
+    "output_cdc_board_qualified": false,
+    "175mhz_clock_plan": "PROPOSED_NOT_VIVADO_CHECKED",
+    "structural_validation": "NOT_RUN_FOR_REAL_CORE_TOP",
+    "board_synthesis_175": "NOT_RUN_GATES_FAILED"
+  },
+  "failure": {
+    "class": "COMPUTE_RESULT_CONTRACT_MISMATCH",
+    "expected_transcript_hex": "b16ffeff72de00009326fcff702a0200c7bf020007c20200e3b7f9ff46d303005753ffffb328f9ff619400005fee050058540100e524feff6b27fbff6d0df9ff",
+    "rtl_transcript_hex": "5ef10100769bfeff21d1feffe6f9ffff75aa0000fc5cfcfff7ef010045f90200f975fdff5ea305006315f9ff0f8bfbffa8aa0500d9f901006acc0200d14a0000",
+    "expected_digest_hex": "8005743203e9466067f0e97969c1eeb2ef3dc912ed22bd3e4353f8edee6bd8d9",
+    "rtl_digest_hex": "6e8324345437a1994399fa698d690ccac450ef6afd37dac61ef43df47c798cb6"
+  },
+  "vivado": {
+    "invoked": false,
+    "synthesis": "NOT_RUN",
+    "implementation": "NOT_RUN",
+    "write_bitstream": "NOT_RUN"
+  },
+  "external_activity": {
+    "testbench_ssh": 0,
+    "usb": 0,
+    "jtag": 0,
+    "fpga_programming": 0,
+    "pool_connections": 0,
+    "cuda_execution": 0
+  },
+  "next_action": "Reconcile PHK2 compute tile/result semantics with the production CPU oracle before completing board core binding."
+}

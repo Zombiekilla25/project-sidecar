@@ -152,6 +152,69 @@
       "path": "tests/phk2_board/tb_current_committed_core_smoke.sv",
       "role": "test_only",
       "sha256": "8431944a93e1b9239b7cca30b11cd05b255e136aa84d716338c103aa3a610286"
+    },
+    {
+      "commit": "84ef0eb998077270c4eef6b95f107c18cac70438",
+      "path": "rtl/phk2_v1_analysis_top.sv",
+      "repository": "/home/rmann/project-sidecar-phk2-v1-rtl",
+      "role": "routed_analysis_datapath_reference_only",
+      "sha256": "6eebc0c22346e33d9d521fb4a924468122056f2f999256339316976a8c7fc02d"
+    },
+    {
+      "commit": "84ef0eb998077270c4eef6b95f107c18cac70438",
+      "path": "rtl/phk2_production_operand_seq.sv",
+      "repository": "/home/rmann/project-sidecar-phk2-v1-rtl",
+      "role": "routed_analysis_datapath_reference_only",
+      "sha256": "3dc8772e43308fdd9a0b7252d383e62374481d9482a2dae3c9ec1217004413f1"
+    },
+    {
+      "commit": "84ef0eb998077270c4eef6b95f107c18cac70438",
+      "path": "rtl/phk2_philox4x32_10_seq.sv",
+      "repository": "/home/rmann/project-sidecar-phk2-v1-rtl",
+      "role": "routed_analysis_datapath_reference_only",
+      "sha256": "7c8a79afc75ccb2b28d2d7c04f9dc68872331a75e3e12cdff0df386e23306cb1"
+    },
+    {
+      "commit": "84ef0eb998077270c4eef6b95f107c18cac70438",
+      "path": "rtl/phk2_blake3_keyed_block_seq.sv",
+      "repository": "/home/rmann/project-sidecar-phk2-v1-rtl",
+      "role": "routed_analysis_datapath_reference_only",
+      "sha256": "3103fc0502dbea18d78b95fea4e004ef362dc29206cf0e1d9ec9c7e052b44222"
+    },
+    {
+      "commit": "84ef0eb998077270c4eef6b95f107c18cac70438",
+      "path": "rtl/phk2_tile_adapter.sv",
+      "repository": "/home/rmann/project-sidecar-phk2-v1-rtl",
+      "role": "routed_analysis_datapath_reference_only",
+      "sha256": "853508e58737a21b781f045d74dcb901c4b099011be5fd70afa3fbc9930f55db"
+    },
+    {
+      "commit": "84ef0eb998077270c4eef6b95f107c18cac70438",
+      "path": "rtl/phk2_result_filter.sv",
+      "repository": "/home/rmann/project-sidecar-phk2-v1-rtl",
+      "role": "routed_analysis_datapath_reference_only",
+      "sha256": "8956efc0bcdeb1d4486b77a8068327cf5f1412b145e5547ef098a2acddbf92b2"
+    },
+    {
+      "commit": "84ef0eb998077270c4eef6b95f107c18cac70438",
+      "path": "rtl/phk2_compact_result.sv",
+      "repository": "/home/rmann/project-sidecar-phk2-v1-rtl",
+      "role": "routed_analysis_datapath_reference_only",
+      "sha256": "83ff39cf707ce2c8af52a7034da3bf66fc593dfcc02f04a90541ff1672ba5ecc"
+    },
+    {
+      "commit": "84ef0eb998077270c4eef6b95f107c18cac70438",
+      "path": "rtl/vendor_phk1/packed_tile.sv",
+      "repository": "/home/rmann/project-sidecar-phk2-v1-rtl",
+      "role": "routed_analysis_datapath_reference_only",
+      "sha256": "4eb48273b11c327c0ce2068ac2fb083493d1d10dbc4355f094bc1679621c8fab"
+    },
+    {
+      "commit": "84ef0eb998077270c4eef6b95f107c18cac70438",
+      "path": "rtl/vendor_phk1/packed_mul2.sv",
+      "repository": "/home/rmann/project-sidecar-phk2-v1-rtl",
+      "role": "routed_analysis_datapath_reference_only",
+      "sha256": "ad9396097fbfc0df5b5a779730034a617c6022a64bdbebeb1a4dc798d5e80538"
     }
   ],
   "test_only_sources": [
@@ -161,5 +224,35 @@
   ],
   "test_only_stub": [
     "rtl/phk2_board/phk2_core_stub.sv"
-  ]
+  ],
+  "integration_diagnostic_experiment": {
+    "path": "experiments/phk2-core-contract-diagnostic/",
+    "physical_source_set": false,
+    "source_commit": "84ef0eb998077270c4eef6b95f107c18cac70438",
+    "wrapper_sha256": "5765543f294580e9d89553afdba1afbe2e1afae96277bd04ba2a0dc7d841cd06",
+    "testbench_sha256": "fbecf37d71225f6554c292f7ea9dabe1e634d4c007f804604a41610e465930a8",
+    "runner_sha256": "444f3ad3fedeac7c81db3832ee889f6f2618f3588c988f6fdb60e3e2e95f1c04",
+    "result": "FAIL_CPU_ORACLE_TRANSCRIPT_AND_DIGEST_MISMATCH",
+    "physical_use": "PROHIBITED_PENDING_RESULT_CONTRACT_RECONCILIATION"
+  },
+  "latest_timing_qualified_analysis_core": {
+    "commit": "84ef0eb998077270c4eef6b95f107c18cac70438",
+    "entry_module": "phk2_v1_analysis_top",
+    "target_part": "xcvu33p-fsvh2104-2-e",
+    "timing_basis_mhz": 175,
+    "routed_analysis_top": true,
+    "files": [
+      "rtl/phk2_v1_analysis_top.sv",
+      "rtl/phk2_production_operand_seq.sv",
+      "rtl/phk2_philox4x32_10_seq.sv",
+      "rtl/phk2_blake3_keyed_block_seq.sv",
+      "rtl/phk2_tile_adapter.sv",
+      "rtl/phk2_result_filter.sv",
+      "rtl/phk2_compact_result.sv",
+      "rtl/vendor_phk1/packed_tile.sv",
+      "rtl/vendor_phk1/packed_mul2.sv"
+    ],
+    "role": "timing-qualified analysis wrapper and datapath reference only; synthetic test driver, no transaction-level board interface",
+    "binding_status": "NOT_COMPATIBLE: descriptor/range command interface and board result response are absent"
+  }
 }

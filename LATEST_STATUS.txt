@@ -1,0 +1,18 @@
+PHK2 authoritative FK33 integration status
+UTC: 2026-11-09
+Phase: protocol/source audit and real-core boundary diagnostic
+Host codec and golden frames: PASS (host-only)
+CRC known-answer/contract tests: 4/4
+Host encoder/decoder golden agreement: PASS
+Standalone RTL response-frame encoder: 9/9 host golden responses, backpressure PASS; not yet connected to BSCAN top
+Host protocol failure matrix: 20/20 (software emulator)
+Host state stress: 250000 events, 0 unexpected failures/deadlocks
+Board RTL stub tests: 10/10 (stub only)
+Core contract mock stress: 600000 events, 0 unexpected failures/deadlocks/duplicates/drops
+Real core differential: FAIL; 4096 retained 4x8 operand records exact, result transcript/digest differ from production CPU oracle
+Wire protocol physical freeze: false
+Real PHK2 core bound to board top: false; board top still has test stub, and offline transaction wrapper failed CPU-oracle result comparison
+175 MHz clock plan: proposed only; clock legality not checked
+Board synthesis: NOT RUN because mandatory endpoint/core/clock gates fail
+Route/bitstream/hardware: NOT RUN
+Next: reconcile full production compute/result shape and host result record against the CPU oracle, then implement the board endpoint and clock checks

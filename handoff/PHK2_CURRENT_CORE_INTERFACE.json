@@ -1,10 +1,10 @@
 {
   "schema": "PHK2-CURRENT-CORE-INTERFACE-INVENTORY-v1",
   "source_repository": "/home/rmann/project-sidecar-phk2-v1-rtl",
-  "commit": "c4ec217a9073ba05f6826601e94680e067c495b7",
+  "commit": "84ef0eb998077270c4eef6b95f107c18cac70438",
   "module": "phk2_core_synth_top",
   "source": "rtl/phk2_core_synth_top.sv",
-  "sha256": "a22f1e46fb6e88a2b5fb83cadd3f16b9899504db580977807344257341b96a89",
+  "sha256": "c99d7f7dc34c0278cca36bb4862e42f5c4fe456d52752f8ddefc2cf85cf2dcf0",
   "clock_domain": "single clk/rst core domain; no BSCAN ports",
   "ports": [
     {
@@ -148,5 +148,10 @@
     "16-bit standard error code",
     "separate abort accepted handshake"
   ],
-  "binding_status": "FAIL: latest committed source is a data-path measurement wrapper, not the board transaction core. A control wrapper/adapter is needed; do not bind it directly to the board stub."
+  "binding_status": "FAIL: latest timing-qualified analysis wrapper has no descriptor/range BSCAN contract; measurement wrapper remains single-item datapath only.",
+  "timing_qualified_analysis_wrapper": {
+    "commit": "84ef0eb998077270c4eef6b95f107c18cac70438",
+    "module": "phk2_v1_analysis_top",
+    "role": "routed 175 MHz analysis top with synthetic internal work driver; not board transaction compatible"
+  }
 }
