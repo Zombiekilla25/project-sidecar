@@ -1,0 +1,99 @@
+{
+  "schema": "phk2-authoritative-descriptor-inventory-v1",
+  "count": 13,
+  "source": "13 qualified production capture manifests and CPU replay generations",
+  "payload_bytes": 112,
+  "items": [
+    {
+      "capture": "real-v3-slice-09f76caf_2097152-20261021T014622Z",
+      "descriptor_file": "real-v3-slice-09f76caf_2097152-20261021T014622Z.bin",
+      "descriptor_sha256": "d93717e152da6decdb7e8ae5bd0c7a75d496a6dfdf01b6ab0c2fa024c5433dd2",
+      "manifest_sha256": "f4634919923206c566d8b627c87723acc1c63948c61fed119501e25ce08e0cfa",
+      "generation_fence": 70
+    },
+    {
+      "capture": "real-v3-slice-0c497f84_2097152-20261021T013213Z",
+      "descriptor_file": "real-v3-slice-0c497f84_2097152-20261021T013213Z.bin",
+      "descriptor_sha256": "f0217c29d9c4104d4c263a4b16466a0c03c5aad68589db7b8513c7e33d76b7bd",
+      "manifest_sha256": "59a704118f8f3e6d76d66f48374a45c902fc76cebd82464fde19f2a3fd729f20",
+      "generation_fence": 69
+    },
+    {
+      "capture": "real-v3-slice-1017db2f_2097152-20261013T222702Z",
+      "descriptor_file": "real-v3-slice-1017db2f_2097152-20261013T222702Z.bin",
+      "descriptor_sha256": "5f1d1113ce423475583c2100c088215d8984e61bd48fbbe25b9b365487db25c0",
+      "manifest_sha256": "0825c5c762b9f900a15059353e318e720a933c5afe6576dd42197c111cfd5cee",
+      "generation_fence": 8
+    },
+    {
+      "capture": "real-v3-slice-2981ad6a_4194304-20261021T010328Z",
+      "descriptor_file": "real-v3-slice-2981ad6a_4194304-20261021T010328Z.bin",
+      "descriptor_sha256": "baa712bd34d497fdec7f41392106bcbd1519d54b8c4a421e603f6920895bd34c",
+      "manifest_sha256": "54a5e190efdf5fc3f2780602c16500d8c6ec87b70cb20a15aa49ad748cd969a1",
+      "generation_fence": 65
+    },
+    {
+      "capture": "real-v3-slice-3b5cdc39_2097152-20261021T012250Z",
+      "descriptor_file": "real-v3-slice-3b5cdc39_2097152-20261021T012250Z.bin",
+      "descriptor_sha256": "c551198625a0363155d54427c98abf94a18bfb42b5c6354935cad4117518c378",
+      "manifest_sha256": "6e276666cf440b638879d0dc0c0fb76c09fab4779a9485ca60281c21cca6c889",
+      "generation_fence": 67
+    },
+    {
+      "capture": "real-v3-slice-521ec7e0_2097152-20261021T014659Z",
+      "descriptor_file": "real-v3-slice-521ec7e0_2097152-20261021T014659Z.bin",
+      "descriptor_sha256": "e8396410a7058b88afb938aeb85b797cbe401382e4da6c1633acfd494ee4fae0",
+      "manifest_sha256": "097daff8af65c5ea1418e9e532ded4d8bb6a9688fc77263791ca596b20e8ab97",
+      "generation_fence": 71
+    },
+    {
+      "capture": "real-v3-slice-649aa864_2097152-20261021T012147Z",
+      "descriptor_file": "real-v3-slice-649aa864_2097152-20261021T012147Z.bin",
+      "descriptor_sha256": "7ab1c4af587313934e3a03c5c6d3576b525225dd882a7cd9ae3449e77f796f04",
+      "manifest_sha256": "75f855d75166caeb94ce488f683376a5b2174a04658c926dd4aa7082347863da",
+      "generation_fence": 66
+    },
+    {
+      "capture": "real-v3-slice-653bee82_2097152-20261019T011443Z",
+      "descriptor_file": "real-v3-slice-653bee82_2097152-20261019T011443Z.bin",
+      "descriptor_sha256": "1be7efb5c8e3a278535a1dcd077d06512ca84a8b1dd5723a0ccdc1d311641ce6",
+      "manifest_sha256": "f7113d766d660d3d72ffb854bffe047a996bcb565fe13cd97a1d99ed1711f6b0",
+      "generation_fence": 9
+    },
+    {
+      "capture": "real-v3-slice-7a3cab9a_2097152-20261021T014706Z",
+      "descriptor_file": "real-v3-slice-7a3cab9a_2097152-20261021T014706Z.bin",
+      "descriptor_sha256": "465394dc213741d81b4f5a764a3315a75594c17883a2a50643ad8c6dabcf0ec4",
+      "manifest_sha256": "81beeb48489acf0a1b6ede56dd9f6f25578d0ab0b9edf1b4486484b918f19659",
+      "generation_fence": 72
+    },
+    {
+      "capture": "real-v3-slice-7a3cab9a_2097152-20261024T014440Z",
+      "descriptor_file": "real-v3-slice-7a3cab9a_2097152-20261024T014440Z.bin",
+      "descriptor_sha256": "465394dc213741d81b4f5a764a3315a75594c17883a2a50643ad8c6dabcf0ec4",
+      "manifest_sha256": "ed89aa256603ba7d1803547b789ac44d4c5b81f0086658978ae8048f0463e154",
+      "generation_fence": 72
+    },
+    {
+      "capture": "real-v3-slice-94292595_2097152-20261013T041523Z",
+      "descriptor_file": "real-v3-slice-94292595_2097152-20261013T041523Z.bin",
+      "descriptor_sha256": "f7a9b93e512a4ed1f4fb52c055497a41cb93e0e600b5aaf94308c10009b9973a",
+      "manifest_sha256": "4bb091a1c14720c4a583e7216493c8070a4ae9c611488f863406ade6818177f3",
+      "generation_fence": 4
+    },
+    {
+      "capture": "real-v3-slice-aa07e6fa_2097152-20261020T001234Z",
+      "descriptor_file": "real-v3-slice-aa07e6fa_2097152-20261020T001234Z.bin",
+      "descriptor_sha256": "86f21a1794c2f645148246b9912f294e4c888577d344af0cc3fb2d48c8ab1af2",
+      "manifest_sha256": "946a2e0fa27f7d51facc229448cb4229c706b14af571f69c7c7003272762e2c5",
+      "generation_fence": 64
+    },
+    {
+      "capture": "real-v3-slice-cba94dfa_2097152-20261021T013137Z",
+      "descriptor_file": "real-v3-slice-cba94dfa_2097152-20261021T013137Z.bin",
+      "descriptor_sha256": "6b62070c7e8e077a8c2686657cf86cbadf5b7ee4d387807b7f3693312a0dd72b",
+      "manifest_sha256": "702c4adc03ec8c4834c0603d31d29443031b94047a0d0e2c83eba4f030abde17",
+      "generation_fence": 68
+    }
+  ]
+}

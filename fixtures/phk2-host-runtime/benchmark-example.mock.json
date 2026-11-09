@@ -1,0 +1,20 @@
+{
+  "schema_version": "PHK2-Benchmark-v1",
+  "measurement_class": "MOCK",
+  "clock_mhz": null,
+  "tile_count": null,
+  "batch": 64,
+  "work_items_per_sec": null,
+  "transport_fraction": null,
+  "fpga_fraction": null,
+  "power_w": null,
+  "performance_per_w": null,
+  "timing": {
+    "HOST_PACK_US": null,
+    "DESCRIPTOR_TX_US": null,
+    "FPGA_WORK_US": null,
+    "RESULT_RX_US": null,
+    "HOST_VERIFY_US": null,
+    "TOTAL_US": null
+  }
+}

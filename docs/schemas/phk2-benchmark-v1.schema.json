@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PHK2 Benchmark-v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "measurement_class",
+    "clock_mhz",
+    "tile_count",
+    "batch",
+    "work_items_per_sec",
+    "transport_fraction",
+    "fpga_fraction",
+    "power_w",
+    "performance_per_w"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "PHK2-Benchmark-v1"
+    },
+    "measurement_class": {
+      "enum": [
+        "MOCK",
+        "SILICON"
+      ]
+    },
+    "clock_mhz": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "tile_count": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "batch": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "work_items_per_sec": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "transport_fraction": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "fpga_fraction": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "power_w": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "performance_per_w": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "timing": {
+      "type": "object",
+      "properties": {
+        "HOST_PACK_US": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "DESCRIPTOR_TX_US": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "FPGA_WORK_US": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "RESULT_RX_US": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "HOST_VERIFY_US": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "TOTAL_US": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

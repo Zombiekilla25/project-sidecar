@@ -1,0 +1,99 @@
+{
+  "captures": [
+    {
+      "bundle_index": 0,
+      "capture": "real-v3-slice-09f76caf_2097152-20261021T014622Z",
+      "manifest_sha256": "f4634919923206c566d8b627c87723acc1c63948c61fed119501e25ce08e0cfa",
+      "tile_bytes": 49152,
+      "tile_sha256": "55acbd6a421c876c0eb521447302b622284686393533fd5a4cda90b026536a8e"
+    },
+    {
+      "bundle_index": 1,
+      "capture": "real-v3-slice-0c497f84_2097152-20261021T013213Z",
+      "manifest_sha256": "59a704118f8f3e6d76d66f48374a45c902fc76cebd82464fde19f2a3fd729f20",
+      "tile_bytes": 49152,
+      "tile_sha256": "3b3cf97b1ab15e9ff7dd9b3a0227cad84918651e02c147a6cfda3e25acf28522"
+    },
+    {
+      "bundle_index": 2,
+      "capture": "real-v3-slice-1017db2f_2097152-20261013T222702Z",
+      "manifest_sha256": "0825c5c762b9f900a15059353e318e720a933c5afe6576dd42197c111cfd5cee",
+      "tile_bytes": 49152,
+      "tile_sha256": "33374e35cea368641aec1a7ee3c9529d01740fd5c05073156b5296230066d2f7"
+    },
+    {
+      "bundle_index": 3,
+      "capture": "real-v3-slice-2981ad6a_4194304-20261021T010328Z",
+      "manifest_sha256": "54a5e190efdf5fc3f2780602c16500d8c6ec87b70cb20a15aa49ad748cd969a1",
+      "tile_bytes": 49152,
+      "tile_sha256": "faf6d66e23e6b1a2bae467e9456ec1f2cd2455661817a10e5f0879a89357d25a"
+    },
+    {
+      "bundle_index": 4,
+      "capture": "real-v3-slice-3b5cdc39_2097152-20261021T012250Z",
+      "manifest_sha256": "6e276666cf440b638879d0dc0c0fb76c09fab4779a9485ca60281c21cca6c889",
+      "tile_bytes": 49152,
+      "tile_sha256": "420e8330f4b3404e8318cd968bdfc6c1ee172a1845804ff5e46d7e992c268e8f"
+    },
+    {
+      "bundle_index": 5,
+      "capture": "real-v3-slice-521ec7e0_2097152-20261021T014659Z",
+      "manifest_sha256": "097daff8af65c5ea1418e9e532ded4d8bb6a9688fc77263791ca596b20e8ab97",
+      "tile_bytes": 49152,
+      "tile_sha256": "a9c35ffbfabb3e21c9a1a6518ba23591ad2e1c38792e4a9c326fc779be8eafa5"
+    },
+    {
+      "bundle_index": 6,
+      "capture": "real-v3-slice-649aa864_2097152-20261021T012147Z",
+      "manifest_sha256": "75f855d75166caeb94ce488f683376a5b2174a04658c926dd4aa7082347863da",
+      "tile_bytes": 49152,
+      "tile_sha256": "d86a46c241705e40bcd33d8703db89f48d308609310a9140accbd02927774288"
+    },
+    {
+      "bundle_index": 7,
+      "capture": "real-v3-slice-653bee82_2097152-20261019T011443Z",
+      "manifest_sha256": "f7113d766d660d3d72ffb854bffe047a996bcb565fe13cd97a1d99ed1711f6b0",
+      "tile_bytes": 49152,
+      "tile_sha256": "a47f5df4dd7ab94f3bda48b2465b57abb47342f3654945a74b77740a7b06e38a"
+    },
+    {
+      "bundle_index": 8,
+      "capture": "real-v3-slice-7a3cab9a_2097152-20261021T014706Z",
+      "manifest_sha256": "81beeb48489acf0a1b6ede56dd9f6f25578d0ab0b9edf1b4486484b918f19659",
+      "tile_bytes": 49152,
+      "tile_sha256": "f451d50229241132b103e045646c22ec62f587d9c953458d4a2c991d7fe2165f"
+    },
+    {
+      "bundle_index": 9,
+      "capture": "real-v3-slice-7a3cab9a_2097152-20261024T014440Z",
+      "manifest_sha256": "ed89aa256603ba7d1803547b789ac44d4c5b81f0086658978ae8048f0463e154",
+      "tile_bytes": 49152,
+      "tile_sha256": "f451d50229241132b103e045646c22ec62f587d9c953458d4a2c991d7fe2165f"
+    },
+    {
+      "bundle_index": 10,
+      "capture": "real-v3-slice-94292595_2097152-20261013T041523Z",
+      "manifest_sha256": "4bb091a1c14720c4a583e7216493c8070a4ae9c611488f863406ade6818177f3",
+      "tile_bytes": 49152,
+      "tile_sha256": "b864eee03cfdac4bb9f94d51adfef4de2ca9b1c223658adb37d563bbe29bb011"
+    },
+    {
+      "bundle_index": 11,
+      "capture": "real-v3-slice-aa07e6fa_2097152-20261020T001234Z",
+      "manifest_sha256": "946a2e0fa27f7d51facc229448cb4229c706b14af571f69c7c7003272762e2c5",
+      "tile_bytes": 49152,
+      "tile_sha256": "5ecde345f87401e47bfba90b05ccbcc233508382e692b6758320b31c93c54ba0"
+    },
+    {
+      "bundle_index": 12,
+      "capture": "real-v3-slice-cba94dfa_2097152-20261021T013137Z",
+      "manifest_sha256": "702c4adc03ec8c4834c0603d31d29443031b94047a0d0e2c83eba4f030abde17",
+      "tile_bytes": 49152,
+      "tile_sha256": "804191ca06b90d66b7a16beac87a38078de1b6576e147d506dacf88419c9308e"
+    }
+  ],
+  "count": 13,
+  "mapping": "first 4 A lanes x first 8 B^T lanes at coordinate (0,0)",
+  "schema": "phk2-authoritative-rtl-set-v1",
+  "unique_operand_sets": 12
+}

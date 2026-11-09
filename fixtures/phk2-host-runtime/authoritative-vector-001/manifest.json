@@ -1,0 +1,13 @@
+{
+  "capture_manifest_sha256": "0825c5c762b9f900a15059353e318e720a933c5afe6576dd42197c111cfd5cee",
+  "capture_run": "real-v3-slice-1017db2f_2097152-20261013T222702Z",
+  "descriptor_bytes": 112,
+  "descriptor_sha256": "5f1d1113ce423475583c2100c088215d8984e61bd48fbbe25b9b365487db25c0",
+  "expected_operand_bytes": 49152,
+  "expected_operand_sha256": "33374e35cea368641aec1a7ee3c9529d01740fd5c05073156b5296230066d2f7",
+  "generation": 8,
+  "job_id": "1017db2f_2097152",
+  "mapping": "A rows 0..3 and B^T rows/columns 0..7; each K record is 4 A signed-int8 bytes then 8 B signed-int8 bytes; row-major tile coordinate (0,0)",
+  "schema": "phk2-rtl-vector-001-v1",
+  "trace": "cpu_workgen_trace.json.gz"
+}

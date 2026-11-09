@@ -1,0 +1,227 @@
+{
+  "schema": "phk2-golden-case-index-v1",
+  "count": 13,
+  "items": [
+    {
+      "capture": "real-v3-slice-09f76caf_2097152-20261021T014622Z",
+      "job_id": "09f76caf_2097152",
+      "generation": 70,
+      "descriptor_file": "../authoritative-descriptors/real-v3-slice-09f76caf_2097152-20261021T014622Z.bin",
+      "seed64": "0957000000000004",
+      "noise_seed_A": "33a173b2790b2f7ea399a72d2452be4e269433d3b685ec5331b18bfa1c60036f",
+      "noise_seed_B": "df453e860693d2036f37a93340f5895dc773fb99f3967e1f0bfc4ce30646d281",
+      "expected_transcripts_file": "real-v3-slice-09f76caf_2097152-20261021T014622Z-expected_transcripts.bin",
+      "expected_digests_file": "real-v3-slice-09f76caf_2097152-20261021T014622Z-expected_digests.bin",
+      "expected_operand_port_sha256": [
+        "e2be60f52f12a45c42410d2b0c18a4851b50c9afe9bc6fb4c5e2a3b9a58d1d77",
+        "b2ce780d1521e447f4f0b8190e231488d953c3a80fd8b34b2a12ea6a276e615e",
+        "669383af3aa44ce58c1020e0241347cba1ddfe7b24e2208831a085319cb145aa",
+        "c32d88ea55d27da9a67087f567f700e007ee3facef4989f08b4b18a97ffa4ea5"
+      ]
+    },
+    {
+      "capture": "real-v3-slice-0c497f84_2097152-20261021T013213Z",
+      "job_id": "0c497f84_2097152",
+      "generation": 69,
+      "descriptor_file": "../authoritative-descriptors/real-v3-slice-0c497f84_2097152-20261021T013213Z.bin",
+      "seed64": "0957000000000004",
+      "noise_seed_A": "5f5c268969e56dc0acd9703393dcbde2dc13c7e148c9f22748ad8e2018c26b4a",
+      "noise_seed_B": "015353598a83b0ca90e83b79057b0739c7fc1b0127e7d9ecbb7b3f162c44b85a",
+      "expected_transcripts_file": "real-v3-slice-0c497f84_2097152-20261021T013213Z-expected_transcripts.bin",
+      "expected_digests_file": "real-v3-slice-0c497f84_2097152-20261021T013213Z-expected_digests.bin",
+      "expected_operand_port_sha256": [
+        "69bd8300d9c15b44198fd37abddee01b38f65f50f7f60f3238c60114c5bfc9fd",
+        "7026ea869226c50b6f0983d5b979602b1f5f0379ac7d198983b25ba5d1869f67",
+        "a3cf6dee5564a954fd3005d7f38e7c78c174d63fe78daa74b44d1a674ccf1d67",
+        "311cfd560f462a59c4ca4ba5eb874a2aa4bf2d4a67048e355cdc5c87a9c5ad59"
+      ]
+    },
+    {
+      "capture": "real-v3-slice-1017db2f_2097152-20261013T222702Z",
+      "job_id": "1017db2f_2097152",
+      "generation": 8,
+      "descriptor_file": "../authoritative-descriptors/real-v3-slice-1017db2f_2097152-20261013T222702Z.bin",
+      "seed64": "0957000000000004",
+      "noise_seed_A": "e413d10f92bc2019e720a8bcdcf50293379a9490e653be1fd5c71d794b3813bd",
+      "noise_seed_B": "f9826727201ac2de6bc8bebe0eec3047175578a6752751b2a444405e14e9fab2",
+      "expected_transcripts_file": "real-v3-slice-1017db2f_2097152-20261013T222702Z-expected_transcripts.bin",
+      "expected_digests_file": "real-v3-slice-1017db2f_2097152-20261013T222702Z-expected_digests.bin",
+      "expected_operand_port_sha256": [
+        "6fa07668d6fce8c0c58d630cec36b996bb6d748f1f31d60a27a156a7222e5a84",
+        "9faecf43893ddaecbf4c602232e84ed0563d24ba4727efd4adac8ef608d9dfec",
+        "77825ad92fe7eb227dc8f6a8cb499a3283c0161a5c65f90614e6e09286ad0f38",
+        "59fa8d02bf74c8c69e8995d082834cf7fa94bc5e32426b10f0da766d011b0b04"
+      ]
+    },
+    {
+      "capture": "real-v3-slice-2981ad6a_4194304-20261021T010328Z",
+      "job_id": "2981ad6a_4194304",
+      "generation": 65,
+      "descriptor_file": "../authoritative-descriptors/real-v3-slice-2981ad6a_4194304-20261021T010328Z.bin",
+      "seed64": "0957000000000004",
+      "noise_seed_A": "b40e9f81382ecc61fb02b0fe2bd9ec95d1c3586296054cf2021ff1beb3d42fb5",
+      "noise_seed_B": "1401dc381fa89c1810ebce572efd7a582e48ba1ed292d1016908edee99b8abcc",
+      "expected_transcripts_file": "real-v3-slice-2981ad6a_4194304-20261021T010328Z-expected_transcripts.bin",
+      "expected_digests_file": "real-v3-slice-2981ad6a_4194304-20261021T010328Z-expected_digests.bin",
+      "expected_operand_port_sha256": [
+        "42458370eaa04571c007656cf2a50554a904139cdf514bf31cf8cb16a0db0b3c",
+        "d20d81ad28c0230b5ba8cc6a653755a10109893e282f50af7fbb4d576f45d4ff",
+        "e1b4be21a2dd3862d49ff69a81c46aa560834eee93b25f1ca12a37ef32013d74",
+        "80ecc3dc3313a2db7ea7822878027a4f12916c421ec0b3f739fef10f81248917"
+      ]
+    },
+    {
+      "capture": "real-v3-slice-3b5cdc39_2097152-20261021T012250Z",
+      "job_id": "3b5cdc39_2097152",
+      "generation": 67,
+      "descriptor_file": "../authoritative-descriptors/real-v3-slice-3b5cdc39_2097152-20261021T012250Z.bin",
+      "seed64": "0957000000000004",
+      "noise_seed_A": "83815f2532accfa804331a61d768c308b806e8f8c7d491007e3d5dbfc95ef74e",
+      "noise_seed_B": "2d182904ea3e638ad637d8390e7336fa8a9a08a0cfdebf1dcc5c280fdda65403",
+      "expected_transcripts_file": "real-v3-slice-3b5cdc39_2097152-20261021T012250Z-expected_transcripts.bin",
+      "expected_digests_file": "real-v3-slice-3b5cdc39_2097152-20261021T012250Z-expected_digests.bin",
+      "expected_operand_port_sha256": [
+        "9a04ac5b2f8d19349a49193a96ed80aca0a980b0b82f60d6fd272f2b0ededa82",
+        "ae8346d61de0e548697ebf279c4c970688647dca2d05b107081f1f3ec47f3a8c",
+        "45b40d524a54a0952555ce261f9b17274a8c0696860ff63e6d9603b0fc875035",
+        "4be27b9456414e440967ec043f7d8d6a7ae538c2199a89406297d9fcf1e19c86"
+      ]
+    },
+    {
+      "capture": "real-v3-slice-521ec7e0_2097152-20261021T014659Z",
+      "job_id": "521ec7e0_2097152",
+      "generation": 71,
+      "descriptor_file": "../authoritative-descriptors/real-v3-slice-521ec7e0_2097152-20261021T014659Z.bin",
+      "seed64": "0957000000000004",
+      "noise_seed_A": "b7a6c8ff89297af46cdd740a1a75ed8ed587531f210c8447312fe671ae9ec431",
+      "noise_seed_B": "259b903e98a237f1bf2d2ba0c173b1c3b9a1dddd207cd99b6f2eff3387eb1c0b",
+      "expected_transcripts_file": "real-v3-slice-521ec7e0_2097152-20261021T014659Z-expected_transcripts.bin",
+      "expected_digests_file": "real-v3-slice-521ec7e0_2097152-20261021T014659Z-expected_digests.bin",
+      "expected_operand_port_sha256": [
+        "fadf620e43b259805ad605c2f2d01962fe8581c6ef1414772c7afa75dabc5129",
+        "3b61eb37798b464234f13d6ec340a64aeedf4e13af0c330cf1405e6ae7f92fb4",
+        "8b6747569e8adb4e6ed649830038228cc00d3778e0f4bdea95a59c585feeef89",
+        "59d83b488a645e02ebcab4de20f099ec03d45bc89e4bfd6e4227c63b23dfe9c5"
+      ]
+    },
+    {
+      "capture": "real-v3-slice-649aa864_2097152-20261021T012147Z",
+      "job_id": "649aa864_2097152",
+      "generation": 66,
+      "descriptor_file": "../authoritative-descriptors/real-v3-slice-649aa864_2097152-20261021T012147Z.bin",
+      "seed64": "0957000000000004",
+      "noise_seed_A": "5869281f653f67196e07806f7e8dd622a2504a8aa7c3a9ba5f790ea450ab62b7",
+      "noise_seed_B": "9c20393c656599d262f613234873647375eabfb790a104037ba22f52a0704adf",
+      "expected_transcripts_file": "real-v3-slice-649aa864_2097152-20261021T012147Z-expected_transcripts.bin",
+      "expected_digests_file": "real-v3-slice-649aa864_2097152-20261021T012147Z-expected_digests.bin",
+      "expected_operand_port_sha256": [
+        "0a39e8a22e08643f04d3042eab8d99c7229c85bdad50d3d9787ef6deb555bf7f",
+        "60e5fcb4e31a8d6477a2ef923877b4c44113a8929b89818ed8214a127744b62d",
+        "f04e16f0ea6d07ae89d108cd9d8dfba6efd379efb658be41bb57890027215a99",
+        "f1b6463ee51fce6c27294ad06a4c976f37c3ae1bb183369d5468ba0dbb211326"
+      ]
+    },
+    {
+      "capture": "real-v3-slice-653bee82_2097152-20261019T011443Z",
+      "job_id": "653bee82_2097152",
+      "generation": 9,
+      "descriptor_file": "../authoritative-descriptors/real-v3-slice-653bee82_2097152-20261019T011443Z.bin",
+      "seed64": "0957000000000004",
+      "noise_seed_A": "1878805ce57ff2ec22ca995eef34aecacc4d79a92170aedd471b77c341f4bd4f",
+      "noise_seed_B": "78ecc04342a86d9980ddb5a44b505f4c89ba9c306082f9ed67cbd8baa2ccd28f",
+      "expected_transcripts_file": "real-v3-slice-653bee82_2097152-20261019T011443Z-expected_transcripts.bin",
+      "expected_digests_file": "real-v3-slice-653bee82_2097152-20261019T011443Z-expected_digests.bin",
+      "expected_operand_port_sha256": [
+        "0a74d40d91efd8e34baa3da0d6042c1a2177088a747758c77869185d41ffd3ae",
+        "90799a33ba34ccd808aab60d9b0084f09a206857b16a8e487b77ad5fc84cacb5",
+        "39506adea143b914be007ab29c1083fef1bf87b4cbbcf1802dd9f57f369a3411",
+        "a6e966741bbf7f52a7204219dffbb17760dd09a90a12f86cdb50e71d109d8539"
+      ]
+    },
+    {
+      "capture": "real-v3-slice-7a3cab9a_2097152-20261021T014706Z",
+      "job_id": "7a3cab9a_2097152",
+      "generation": 72,
+      "descriptor_file": "../authoritative-descriptors/real-v3-slice-7a3cab9a_2097152-20261021T014706Z.bin",
+      "seed64": "0957000000000004",
+      "noise_seed_A": "f79ffb619591cc95bddb486f5b5df4a2a7793d9084f9c931acdfeb711a49e771",
+      "noise_seed_B": "10ccdad2d4c44d5640c660be6c07d5e23ad81f3f0ab35ba2fdd2273da7e86cff",
+      "expected_transcripts_file": "real-v3-slice-7a3cab9a_2097152-20261021T014706Z-expected_transcripts.bin",
+      "expected_digests_file": "real-v3-slice-7a3cab9a_2097152-20261021T014706Z-expected_digests.bin",
+      "expected_operand_port_sha256": [
+        "d0279a782e0cdf851fb1184822373f244c0b65015a9efef380c69b326e045e5b",
+        "7425de78d4e7d9f61e5a0d3f55d9c40184653c88fa0630d8a5b9e12bf23be240",
+        "e8ce865a2b5a629a36cc5e0dd8a520052216478a61c02779d9b97f5060ed06b2",
+        "610daf93bc7544fc24cc27d609ab119bf8c2a43e2e0fe86a963e8bf6158a2bbe"
+      ]
+    },
+    {
+      "capture": "real-v3-slice-7a3cab9a_2097152-20261024T014440Z",
+      "job_id": "7a3cab9a_2097152",
+      "generation": 72,
+      "descriptor_file": "../authoritative-descriptors/real-v3-slice-7a3cab9a_2097152-20261024T014440Z.bin",
+      "seed64": "0957000000000004",
+      "noise_seed_A": "f79ffb619591cc95bddb486f5b5df4a2a7793d9084f9c931acdfeb711a49e771",
+      "noise_seed_B": "10ccdad2d4c44d5640c660be6c07d5e23ad81f3f0ab35ba2fdd2273da7e86cff",
+      "expected_transcripts_file": "real-v3-slice-7a3cab9a_2097152-20261024T014440Z-expected_transcripts.bin",
+      "expected_digests_file": "real-v3-slice-7a3cab9a_2097152-20261024T014440Z-expected_digests.bin",
+      "expected_operand_port_sha256": [
+        "d0279a782e0cdf851fb1184822373f244c0b65015a9efef380c69b326e045e5b",
+        "7425de78d4e7d9f61e5a0d3f55d9c40184653c88fa0630d8a5b9e12bf23be240",
+        "e8ce865a2b5a629a36cc5e0dd8a520052216478a61c02779d9b97f5060ed06b2",
+        "610daf93bc7544fc24cc27d609ab119bf8c2a43e2e0fe86a963e8bf6158a2bbe"
+      ]
+    },
+    {
+      "capture": "real-v3-slice-94292595_2097152-20261013T041523Z",
+      "job_id": "94292595_2097152",
+      "generation": 4,
+      "descriptor_file": "../authoritative-descriptors/real-v3-slice-94292595_2097152-20261013T041523Z.bin",
+      "seed64": "0957000000000004",
+      "noise_seed_A": "9975a661ea3203457c3945ac1fd101c1c370c525cc05f5b7a9aa91e99bf6a407",
+      "noise_seed_B": "d69dcfeb01174e138113e72df4703209d51379b17f8cce670a2b2e9b26803b3a",
+      "expected_transcripts_file": "real-v3-slice-94292595_2097152-20261013T041523Z-expected_transcripts.bin",
+      "expected_digests_file": "real-v3-slice-94292595_2097152-20261013T041523Z-expected_digests.bin",
+      "expected_operand_port_sha256": [
+        "49ff26085c8ae85b2f753ef7c032c2da8e6ff6476060072fc9134839236795ae",
+        "2a9079190e88be098f282ae34b67faeb95ed98e7ae407d2d0bd40f974558c318",
+        "cdb84029df37b1e4b092ce598da6dfd4dc64068f7c53cf16d8c51debea19cb95",
+        "5c0c627a901defe7628092b065bef3cf97008e0c23d4f2121b6dee2208da707a"
+      ]
+    },
+    {
+      "capture": "real-v3-slice-aa07e6fa_2097152-20261020T001234Z",
+      "job_id": "aa07e6fa_2097152",
+      "generation": 64,
+      "descriptor_file": "../authoritative-descriptors/real-v3-slice-aa07e6fa_2097152-20261020T001234Z.bin",
+      "seed64": "0957000000000004",
+      "noise_seed_A": "ed49c4f3112a6c5d971951e4ac073d0e54416e9aa86d0af17c3e98e1cc97f0c3",
+      "noise_seed_B": "71c7b9987dd06f858da0365603c2395aafaf063541e323a2a7f08401512c99e6",
+      "expected_transcripts_file": "real-v3-slice-aa07e6fa_2097152-20261020T001234Z-expected_transcripts.bin",
+      "expected_digests_file": "real-v3-slice-aa07e6fa_2097152-20261020T001234Z-expected_digests.bin",
+      "expected_operand_port_sha256": [
+        "5357c10bcae25a74774b9c14d1642e426ac5b3aa92fb0a0b17945fd3a3256638",
+        "56027a6a3f223da76a22537f6dbaeb45e39526605e2c2949ca3a32b94e26d7d2",
+        "2c85c094966eeb47ee77250115e64b5debb9db6baf6b66f8621f2a706c23287e",
+        "6e66835a6796bfea718993f2dd990be87999b8ef6fbc091e613cf39a672c4ced"
+      ]
+    },
+    {
+      "capture": "real-v3-slice-cba94dfa_2097152-20261021T013137Z",
+      "job_id": "cba94dfa_2097152",
+      "generation": 68,
+      "descriptor_file": "../authoritative-descriptors/real-v3-slice-cba94dfa_2097152-20261021T013137Z.bin",
+      "seed64": "0957000000000004",
+      "noise_seed_A": "7d7043044db2a2ee197d1fa19d8fa56a6827e0eec4f5a0fa097cc36060486ead",
+      "noise_seed_B": "a94e39136cd868c44e942fa26733a922df6c4b66200a2f5601f98b97fc12360d",
+      "expected_transcripts_file": "real-v3-slice-cba94dfa_2097152-20261021T013137Z-expected_transcripts.bin",
+      "expected_digests_file": "real-v3-slice-cba94dfa_2097152-20261021T013137Z-expected_digests.bin",
+      "expected_operand_port_sha256": [
+        "30eca6511b88b24916f8242ea1348c46f9886287de40ec716327503c17d21028",
+        "ac58733f7ddc21ac5d3c4e46cb13af91be463f8487dc4879e7a0e3e17316a75e",
+        "a911468b568b80d914e9ca62f3196a3c9f88e38cd202d43931c0e3ec77b7fc2e",
+        "ab4e18098445d3e2061d20682d1ecbb60b090d2ac2ce1e42f0c52c637a32df4a"
+      ]
+    }
+  ]
+}

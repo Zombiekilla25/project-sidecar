@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PHK2 Evidence-v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "manifest",
+    "descriptor",
+    "job_range",
+    "status_trace",
+    "result_trace",
+    "timing",
+    "cpu_oracle_comparison"
+  ],
+  "properties": {
+    "schema": {
+      "const": "PHK2-Evidence-v1"
+    },
+    "manifest": {
+      "type": "object",
+      "required": [
+        "mode",
+        "descriptor_sha256",
+        "target_image_identity"
+      ]
+    },
+    "descriptor": {
+      "type": "object",
+      "required": [
+        "length",
+        "sha256",
+        "generation"
+      ],
+      "properties": {
+        "length": {
+          "const": 112
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "job_range": {
+      "type": "object",
+      "required": [
+        "range_id",
+        "result_count"
+      ]
+    },
+    "status_trace": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "op",
+          "state"
+        ]
+      }
+    },
+    "result_trace": {
+      "type": "array"
+    },
+    "timing": {
+      "type": "object",
+      "required": [
+        "measurement_class",
+        "HOST_PACK_US",
+        "DESCRIPTOR_TX_US",
+        "FPGA_WORK_US",
+        "RESULT_RX_US",
+        "HOST_VERIFY_US",
+        "TOTAL_US"
+      ],
+      "properties": {
+        "measurement_class": {
+          "enum": [
+            "MOCK",
+            "SILICON"
+          ]
+        },
+        "HOST_PACK_US": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "DESCRIPTOR_TX_US": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "FPGA_WORK_US": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "RESULT_RX_US": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "HOST_VERIFY_US": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "TOTAL_US": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "cpu_oracle_comparison": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

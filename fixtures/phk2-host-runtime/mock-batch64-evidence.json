@@ -1,0 +1,587 @@
+{
+  "schema": "PHK2-Evidence-v1",
+  "manifest": {
+    "mode": "mock",
+    "descriptor_sha256": "5f1d1113ce423475583c2100c088215d8984e61bd48fbbe25b9b365487db25c0",
+    "target_image_identity": null,
+    "target_image_status": "NOT_PHYSICALLY_QUALIFIED"
+  },
+  "descriptor": {
+    "length": 112,
+    "sha256": "5f1d1113ce423475583c2100c088215d8984e61bd48fbbe25b9b365487db25c0",
+    "generation": 8
+  },
+  "job_range": {
+    "range_id": 1,
+    "result_count": 64
+  },
+  "status_trace": [
+    {
+      "op": "LOAD_JOB",
+      "state": "READY",
+      "generation": 8
+    },
+    {
+      "op": "START_RANGE",
+      "state": "RUNNING",
+      "generation": 8,
+      "start": 0,
+      "count": 64,
+      "range_id": 1
+    },
+    {
+      "op": "STATUS",
+      "state": "DONE",
+      "generation": 8
+    },
+    {
+      "op": "READ_RESULT",
+      "state": "DONE",
+      "generation": 8,
+      "range_id": 1,
+      "count": 64
+    }
+  ],
+  "result_trace": [
+    {
+      "slot": 0,
+      "generation": 8,
+      "row_tile": 0,
+      "col_tile": 0,
+      "raw_result_hex": "911c4501c8d10c00543e2ffb5aec4970379de377c7517d79c201ba3096079661",
+      "canonical_result_hex": "cd9743dc2a9d83770d6f89031af2cd421b50a3730cba8b2ee95a836f94ca397f"
+    },
+    {
+      "slot": 1,
+      "generation": 8,
+      "row_tile": 0,
+      "col_tile": 1,
+      "raw_result_hex": "d0b0ae1d478b99a390c91c6a53558585c4ad0010f739a0d5a90705278241f76c",
+      "canonical_result_hex": "5bc2a5584d6bfd68ea0693e151c358c97c470e9fede91eb40cdf41fa256dd73d"
+    },
+    {
+      "slot": 2,
+      "generation": 8,
+      "row_tile": 0,
+      "col_tile": 2,
+      "raw_result_hex": "331ea492209e9bcc902e6ec2f947c5ee8cab0d59b1fdb1a70857910171c390e6",
+      "canonical_result_hex": "64bb7746dd5722bf94eeb0f0c36eb69ccc99c44ecfa11e33e88186bb6bff8d7a"
+    },
+    {
+      "slot": 3,
+      "generation": 8,
+      "row_tile": 0,
+      "col_tile": 3,
+      "raw_result_hex": "2ba4abd83615dc32500ddacb88d6fd921d4ebd81fe9a31d663b4b82e722bb17a",
+      "canonical_result_hex": "f5d618be1cec8c68533c79dcc2ed6b49437b7ece4b31c846c6fddc2701a13183"
+    },
+    {
+      "slot": 4,
+      "generation": 8,
+      "row_tile": 0,
+      "col_tile": 4,
+      "raw_result_hex": "dbf7a286cbc387d818eba78da3c3c69887bc373c9a145d3ddffb27ce43452b81",
+      "canonical_result_hex": "42dd6cfe8e2f98e3daf5f4ca9c3dca774c8b8cc77f02ade24e62863cf25321d7"
+    },
+    {
+      "slot": 5,
+      "generation": 8,
+      "row_tile": 0,
+      "col_tile": 5,
+      "raw_result_hex": "675c6b1baf1cc74bafe1df92c8f056b305f76bf9e2c48377b63e8bbd7a8f8ff3",
+      "canonical_result_hex": "512a352d8b7a0429f5b79dc4f88afcc4764038d641263fc27721ef7a3b309f78"
+    },
+    {
+      "slot": 6,
+      "generation": 8,
+      "row_tile": 0,
+      "col_tile": 6,
+      "raw_result_hex": "de7bc11c690148d36ef6a758f3993ffb539203ea1d1c23954710b3e67758e7b7",
+      "canonical_result_hex": "8213beb134684ec2fdaeb6291efae3c8bc3be95b863c6146c658fd875a53313a"
+    },
+    {
+      "slot": 7,
+      "generation": 8,
+      "row_tile": 0,
+      "col_tile": 7,
+      "raw_result_hex": "1cadc02a005f566a47c55d3a9059ad7f657bddd8d1503f05a1de162ac9c18a8c",
+      "canonical_result_hex": "6e065f9074e0dfbb175b9d5880c3e35963f7fdc2efebd50e6942aaf765dc4ba5"
+    },
+    {
+      "slot": 8,
+      "generation": 8,
+      "row_tile": 1,
+      "col_tile": 0,
+      "raw_result_hex": "aee5f5f44b5bf4868eac5f52f001d80f8660e1d7be867b8c2bc7da01f50a77f8",
+      "canonical_result_hex": "790a080b6a27f2b66eec7f323b7da444be9eea24f43235d4bbd402d064109bb4"
+    },
+    {
+      "slot": 9,
+      "generation": 8,
+      "row_tile": 1,
+      "col_tile": 1,
+      "raw_result_hex": "804d5fe4b78c627f1bd6293cc522ee579c76e21ae351fd37205a676439189f24",
+      "canonical_result_hex": "641d339d229a7c1e9e6089e78cfe4e40dce0f58aa8a88a594b4a7a45dd0e4b4c"
+    },
+    {
+      "slot": 10,
+      "generation": 8,
+      "row_tile": 1,
+      "col_tile": 2,
+      "raw_result_hex": "c6ccb2df34d992256a76d3e2801efb166a8740c5c270028c76527caae6242c0e",
+      "canonical_result_hex": "1bbb2e62cf431ccffa743b57b20093da6582633acef924b1a51f82900788fe4d"
+    },
+    {
+      "slot": 11,
+      "generation": 8,
+      "row_tile": 1,
+      "col_tile": 3,
+      "raw_result_hex": "b21ad3eaa779ffa3d6dc8650db4c6196225dea54c49be29d4849659e5abb893d",
+      "canonical_result_hex": "314bc9c690e0b025770bac43f64f77dc8ceac9473f8f7b99bf0c4f38510b36ba"
+    },
+    {
+      "slot": 12,
+      "generation": 8,
+      "row_tile": 1,
+      "col_tile": 4,
+      "raw_result_hex": "4866dc362b99bc44242d7f8f1c0fc5c66122f15521e9f76d5d3362d8d31b8403",
+      "canonical_result_hex": "8f768aad8bef3a890178f9cb703fea3a1f01329dccf348d7b2ca83d583cfe352"
+    },
+    {
+      "slot": 13,
+      "generation": 8,
+      "row_tile": 1,
+      "col_tile": 5,
+      "raw_result_hex": "e36e04d673ef928ea1308490d12fe1a48035738dc13279fb5ba6962c407b1ad1",
+      "canonical_result_hex": "354ab4046c591d7edbe1b1643e00dc1f826e99c9ffc05dc0f881274060959837"
+    },
+    {
+      "slot": 14,
+      "generation": 8,
+      "row_tile": 1,
+      "col_tile": 6,
+      "raw_result_hex": "27739dff5dd18bd9744bae8fab613bf53d5d613cd1460a090bf6c94aad1bd3a6",
+      "canonical_result_hex": "1102f8af5e38bc155d81421193d735419379b9360a596f5e9fd34d82baf876c0"
+    },
+    {
+      "slot": 15,
+      "generation": 8,
+      "row_tile": 1,
+      "col_tile": 7,
+      "raw_result_hex": "1698d38799fb6feb2cb7d447880ef635bcc80cff47ef9e3d98b3d6f2d5dbeaf9",
+      "canonical_result_hex": "e28e76b97b04193215c7e3942bb9c589e8813554ecf4d4425d0321d76bc6ac2a"
+    },
+    {
+      "slot": 16,
+      "generation": 8,
+      "row_tile": 2,
+      "col_tile": 0,
+      "raw_result_hex": "c0d78c7140cada4e5b2320cab180b1d67504141bda7c99bc8563b04d812bb782",
+      "canonical_result_hex": "d6e708aa0d91e0b9cf7c145f4f4e79d92ce1b727e20b3e9e578b27590f35dbf4"
+    },
+    {
+      "slot": 17,
+      "generation": 8,
+      "row_tile": 2,
+      "col_tile": 1,
+      "raw_result_hex": "e6c760041d8d1492991a594f00c5b85b16a8d4fd5bc65afed8af00167adfff4a",
+      "canonical_result_hex": "a3ef806666c52f6e66cbf24311ebc0625a707d6e1cfd1304b5b40da9f3192cf5"
+    },
+    {
+      "slot": 18,
+      "generation": 8,
+      "row_tile": 2,
+      "col_tile": 2,
+      "raw_result_hex": "b5f59712198c3f9bf9f47b4c1fa540b82a5d1bce43a8b525249b3e5b3e5c905e",
+      "canonical_result_hex": "2022c570c79bdcb19728d8993354477d62361f7d3fc314ddfc93ab2cbccc7ba3"
+    },
+    {
+      "slot": 19,
+      "generation": 8,
+      "row_tile": 2,
+      "col_tile": 3,
+      "raw_result_hex": "e06ff24d7665937960b2f2a9745feb7d829c6a59a6bab9ffb2ed2a03b6801b7c",
+      "canonical_result_hex": "2b595018c7bcfaaec320ef76c7e2d941d259ce944898eeb5251250efd6d972b8"
+    },
+    {
+      "slot": 20,
+      "generation": 8,
+      "row_tile": 2,
+      "col_tile": 4,
+      "raw_result_hex": "3895eac70c2fbd02f707acb2050644bd962159ada5ceb793cf216a2e1ba17501",
+      "canonical_result_hex": "5d196427bc3aaf639a4530c58f26b066d835b79f3c6e7d752d2e2575d95fbe1a"
+    },
+    {
+      "slot": 21,
+      "generation": 8,
+      "row_tile": 2,
+      "col_tile": 5,
+      "raw_result_hex": "f1134cfd0495733867c286cb9099fc4e1e64149389456b849e6482cbdaa028fd",
+      "canonical_result_hex": "a49f46073661099b5237d832960e899bca185728c4a1f4762daa38dab93b2a35"
+    },
+    {
+      "slot": 22,
+      "generation": 8,
+      "row_tile": 2,
+      "col_tile": 6,
+      "raw_result_hex": "70e1bf92921c7fae4ddddb44102124d2bc30ab486e44aee91ef2894ee1f8fc19",
+      "canonical_result_hex": "14822a39560516dd8e5124d7f9d786a416b82c31866969d74ae3120ebddb58d5"
+    },
+    {
+      "slot": 23,
+      "generation": 8,
+      "row_tile": 2,
+      "col_tile": 7,
+      "raw_result_hex": "9c92663861e1bbfa4630f148aeb9e3be230fdaf9b483d30948598e4218a94d0b",
+      "canonical_result_hex": "b824f63619766f1f9e8980511d5a65c90d41f849d4e9c95dfae545200dd0fab5"
+    },
+    {
+      "slot": 24,
+      "generation": 8,
+      "row_tile": 3,
+      "col_tile": 0,
+      "raw_result_hex": "d4a753995772c01580762983276e4efe8430a0ab5d6148572a53e2d277b1a154",
+      "canonical_result_hex": "a402270f32f0fa098d17c6a593a8fa6c45f0d461332a46f673aa742aaa8cd02c"
+    },
+    {
+      "slot": 25,
+      "generation": 8,
+      "row_tile": 3,
+      "col_tile": 1,
+      "raw_result_hex": "27d15c724bf9cf105ce8ee9fe4d51f95987b3c30cc0e93ad475548ec0f2083ee",
+      "canonical_result_hex": "e4b4abae0e11647af3ec8b13aeb0021402a26508472fc8d510da73d7e3833789"
+    },
+    {
+      "slot": 26,
+      "generation": 8,
+      "row_tile": 3,
+      "col_tile": 2,
+      "raw_result_hex": "2f6a62caead1de43f85176b445a7a0924009a260a7e64f370850a11cb184670b",
+      "canonical_result_hex": "2c42858d25ad271b06a790c94dd7952631314fc90859c82a62fb1bd7e467ec51"
+    },
+    {
+      "slot": 27,
+      "generation": 8,
+      "row_tile": 3,
+      "col_tile": 3,
+      "raw_result_hex": "739b501b049ea6cad7421e204cb3b2f898955e8e2700ed23675277f943c4fda0",
+      "canonical_result_hex": "e04a2328b7b168614b01634015a65599437096ee0193f8a1e978f012ba6743b3"
+    },
+    {
+      "slot": 28,
+      "generation": 8,
+      "row_tile": 3,
+      "col_tile": 4,
+      "raw_result_hex": "5315cf93c284946eedc636c4b48dd99d510362a4fedee02f3153eb77c9119e11",
+      "canonical_result_hex": "0cf7ddc2922c9b41107625bbeff94b3b4f6f429989397edbe849a93149e71ab9"
+    },
+    {
+      "slot": 29,
+      "generation": 8,
+      "row_tile": 3,
+      "col_tile": 5,
+      "raw_result_hex": "f9de796b58407b9e3cf1d4e8c9f4716b1dff2f14f98dff3fb383dab7d998cc47",
+      "canonical_result_hex": "9a5c2cd030ebb2d825b23167ee767199ee502fe5304c1b4bcbf8d06a90d44a6a"
+    },
+    {
+      "slot": 30,
+      "generation": 8,
+      "row_tile": 3,
+      "col_tile": 6,
+      "raw_result_hex": "a33f6b8260bf073a150cf74491a5c1769d3e48e18cebcc3e1da464cbc165f875",
+      "canonical_result_hex": "132f785aff34360346caa445ab6709c6a5b297c602f384b5e707cc9e5f5517a2"
+    },
+    {
+      "slot": 31,
+      "generation": 8,
+      "row_tile": 3,
+      "col_tile": 7,
+      "raw_result_hex": "68a7deba3b5d3e84c9ab3ca16d7228c4989f83d0c2d380a5190212d19b1029fe",
+      "canonical_result_hex": "eff79498a11d78821a07c9287331cd89b0be6deea03ba250039dda821d615ae4"
+    },
+    {
+      "slot": 32,
+      "generation": 8,
+      "row_tile": 4,
+      "col_tile": 0,
+      "raw_result_hex": "580313d6907529fa50f0059a24384fdd5f0e09f4a27f4fda2320c644ed2235e3",
+      "canonical_result_hex": "0ee0f8f192c2bebe0f3272dae8f745f875b37e79e827db6d7f5edfa091254867"
+    },
+    {
+      "slot": 33,
+      "generation": 8,
+      "row_tile": 4,
+      "col_tile": 1,
+      "raw_result_hex": "f87d6845fcc022418f51cf853dc81690888e3e258aa415d99fdf6f213817b4f4",
+      "canonical_result_hex": "14d9e8b807fe0cf135fba516845859c5ee5036a82d60ea4e1c6df2e872e67417"
+    },
+    {
+      "slot": 34,
+      "generation": 8,
+      "row_tile": 4,
+      "col_tile": 2,
+      "raw_result_hex": "176f38be61c3cd7bbddf842220b731e4fa1b5025674c8818894aeb7640632227",
+      "canonical_result_hex": "ecdb387a1121d88d78b5f147677c63e687334ab30b22579547afedb55a4c2446"
+    },
+    {
+      "slot": 35,
+      "generation": 8,
+      "row_tile": 4,
+      "col_tile": 3,
+      "raw_result_hex": "e12685f5b6439a0c692eaa82b1a53f23b50787952591e27493341d0d988437bf",
+      "canonical_result_hex": "8df2eca3ff40005e62c5e7d904c0005fc69544ff5ef794ca7031dbb3d15ed82a"
+    },
+    {
+      "slot": 36,
+      "generation": 8,
+      "row_tile": 4,
+      "col_tile": 4,
+      "raw_result_hex": "3652abb2f761c955fa92cfa7ba970245410e8a3ce69f6560f2719b14d59d260c",
+      "canonical_result_hex": "2ae26620e57f324c0123bc383f0867aeeed7fa47d8104fbfe98576598b181d6a"
+    },
+    {
+      "slot": 37,
+      "generation": 8,
+      "row_tile": 4,
+      "col_tile": 5,
+      "raw_result_hex": "ee5ba6f9db0c0ae98dcea5242927ba65f84f5cb12ab51ad4b3420df11324b1f3",
+      "canonical_result_hex": "4bac976a23ce87d072521bbce1a283cc83c55921b7df26bb847e244a49cc348a"
+    },
+    {
+      "slot": 38,
+      "generation": 8,
+      "row_tile": 4,
+      "col_tile": 6,
+      "raw_result_hex": "afd87da4d90785cd919bb4352ce50b325ab0956693d63b9258352a5c109c0380",
+      "canonical_result_hex": "a9a1e140deb33a12120ea7f722e92159af4584094c8e28dc5231b49d99331458"
+    },
+    {
+      "slot": 39,
+      "generation": 8,
+      "row_tile": 4,
+      "col_tile": 7,
+      "raw_result_hex": "27e12e2574c48b9b612b2f777b4273341e588643aa112141e87bce1c3ef8ff3d",
+      "canonical_result_hex": "6bd8094a623081da1321899c4ca780f16bb116ba192ec729865bb982b383cb35"
+    },
+    {
+      "slot": 40,
+      "generation": 8,
+      "row_tile": 5,
+      "col_tile": 0,
+      "raw_result_hex": "a3c1c1fa0d495b99b82cca62195475b52bacea6e45074cc5d4e03feee7af7310",
+      "canonical_result_hex": "feabf65f0b51f477e53e1548e6266a51dce8d26b0fcc7f506d3f5e342616c458"
+    },
+    {
+      "slot": 41,
+      "generation": 8,
+      "row_tile": 5,
+      "col_tile": 1,
+      "raw_result_hex": "bec8dd2aec419e7129bc9f5749678ed07420c844b270c06e73976a043d91be28",
+      "canonical_result_hex": "a34ef68c07491ef09260986e8d3c61f6dbe646a13cd960418637540c10091b33"
+    },
+    {
+      "slot": 42,
+      "generation": 8,
+      "row_tile": 5,
+      "col_tile": 2,
+      "raw_result_hex": "dede558fd6c72832ec9d8ebbd08eefea60a170fab6b8f7f96aa65f95c4095f9b",
+      "canonical_result_hex": "40bbec373ef08f8d93fd4b853a63c9c5467b29003096557b6c87d5bfe197c998"
+    },
+    {
+      "slot": 43,
+      "generation": 8,
+      "row_tile": 5,
+      "col_tile": 3,
+      "raw_result_hex": "369cf1298f1a1c94acd065a11b0a7923949a3d9e1639a9de97a2e70c8cfca9ca",
+      "canonical_result_hex": "2c0662b6e30e230635cb4df757be5351a12e04ff97c8d5a279921d59e5d1e4ee"
+    },
+    {
+      "slot": 44,
+      "generation": 8,
+      "row_tile": 5,
+      "col_tile": 4,
+      "raw_result_hex": "2d78f18c4fce9194ccf8adcb1d5e0c6a8095fff4bc439c3d77a17b51b4924c70",
+      "canonical_result_hex": "2b1d3c0db3612b2180cf0f571a695ea51138cd56101bb0f9f4ffb8fa138e8251"
+    },
+    {
+      "slot": 45,
+      "generation": 8,
+      "row_tile": 5,
+      "col_tile": 5,
+      "raw_result_hex": "a257eb3b42370f339340ad8088997c5665a2709922494aef91c4369069ef8361",
+      "canonical_result_hex": "4c8b3ed3b1ae031d29b7ee56427d31d15a4eb87dc6d24a2364492a7764c14b89"
+    },
+    {
+      "slot": 46,
+      "generation": 8,
+      "row_tile": 5,
+      "col_tile": 6,
+      "raw_result_hex": "447febed1b1693824670f3a2bf20c4a6dada70caf918860be82cab4e179a4481",
+      "canonical_result_hex": "7f1dce707e4b28068b0365fabcf305225c7079fe1d8189c229ae65d7e0b52a9b"
+    },
+    {
+      "slot": 47,
+      "generation": 8,
+      "row_tile": 5,
+      "col_tile": 7,
+      "raw_result_hex": "bc314763a23d9ce7b513a389b691073feb7bf477b7bb04482a341b6d2fa0d979",
+      "canonical_result_hex": "e823b177d5cdcb78a2dcb128a92ab68e284b2edb1b1cf86246442e13df459e52"
+    },
+    {
+      "slot": 48,
+      "generation": 8,
+      "row_tile": 6,
+      "col_tile": 0,
+      "raw_result_hex": "dc4373aca3adad87d702d111fd38dc12fe7c0822f8d6108eee2745f6bc0fc473",
+      "canonical_result_hex": "6643695886ebf02a5a623f9994d8281626f577c3a6cf2c08fbcd479c92912cb7"
+    },
+    {
+      "slot": 49,
+      "generation": 8,
+      "row_tile": 6,
+      "col_tile": 1,
+      "raw_result_hex": "3befe149049e7326804bfdef6e9c0af56df0d342e516faea5bfcd33491e65145",
+      "canonical_result_hex": "ac9893bf15dadd5ca2bff8fef9a646dcce8ac998fecccaaf16db31987e856f24"
+    },
+    {
+      "slot": 50,
+      "generation": 8,
+      "row_tile": 6,
+      "col_tile": 2,
+      "raw_result_hex": "3189f5fe5d89c0e5eb55ad315e2a2aa37c80bed9b94234b13f27395dc22a084a",
+      "canonical_result_hex": "e12e220389a99f9f40041073b09e285ff6be48241fbcd642a86b4efdeade4d92"
+    },
+    {
+      "slot": 51,
+      "generation": 8,
+      "row_tile": 6,
+      "col_tile": 3,
+      "raw_result_hex": "d09249105cab4805d2a57d616af393046d0d1eca42564ac70df06e85809a93aa",
+      "canonical_result_hex": "55a2a51814d7691397c448767175644e56c41b57ecb143a07c5daa520bbc19ce"
+    },
+    {
+      "slot": 52,
+      "generation": 8,
+      "row_tile": 6,
+      "col_tile": 4,
+      "raw_result_hex": "aee6ce4c6435158ab0d7886357ba91fadaab421e3ac23f5a05b4c60dbcacb0c7",
+      "canonical_result_hex": "8e15660a13761dc11953afa8f57004a5c397ca03c1dda86b5b58556d631846f9"
+    },
+    {
+      "slot": 53,
+      "generation": 8,
+      "row_tile": 6,
+      "col_tile": 5,
+      "raw_result_hex": "4bbc38305979a7a6178d683ac2e29acada6956a29e031de3d6c72759a03d81e6",
+      "canonical_result_hex": "e9ce015ccaf98ea80c6512c9fa6799b5de056d88d8f5f263047966979c586c08"
+    },
+    {
+      "slot": 54,
+      "generation": 8,
+      "row_tile": 6,
+      "col_tile": 6,
+      "raw_result_hex": "5c7608a088d192a5ac1e7e4346468bfaa417c814775f1d573a056f241d85915f",
+      "canonical_result_hex": "923a4505465d8bb688c2ebefea6a8ba77a1c7813d6e3bc969a71b3bfb54484c6"
+    },
+    {
+      "slot": 55,
+      "generation": 8,
+      "row_tile": 6,
+      "col_tile": 7,
+      "raw_result_hex": "97a4afc65ef4bffed63dc4dad355b211b1b9de95d4e2763c014712f3dbab0d8d",
+      "canonical_result_hex": "ed10e77f2e7a6b1b63791224ab6e5eee1a120b2b87aca17746fd99b50c8c3bed"
+    },
+    {
+      "slot": 56,
+      "generation": 8,
+      "row_tile": 7,
+      "col_tile": 0,
+      "raw_result_hex": "f34f9cc9b41f8817e7f7be5c3c75f7c4d7fb95b174a13ce59949ceddf83c7fb6",
+      "canonical_result_hex": "6fe46597d0acc328dcee7159d6168d68359aecf4a827a49c632c44b3adbf85cf"
+    },
+    {
+      "slot": 57,
+      "generation": 8,
+      "row_tile": 7,
+      "col_tile": 1,
+      "raw_result_hex": "800fa0ebb22f781f8d54f5cdd0dc8b87754aa8a35814b92e985a0482a66b5e16",
+      "canonical_result_hex": "641be72febc695a2b7ccab4a0146d66fb9e18ae10fa78bb2cf479df7f8aef134"
+    },
+    {
+      "slot": 58,
+      "generation": 8,
+      "row_tile": 7,
+      "col_tile": 2,
+      "raw_result_hex": "042a1659fec12a6eaec8391309068da0319644728ab578eb914b0ce94369e34c",
+      "canonical_result_hex": "ee43808a940844688c52d84ddf940dbbf22feef66cd2ecf48f6ae7afc9e3b359"
+    },
+    {
+      "slot": 59,
+      "generation": 8,
+      "row_tile": 7,
+      "col_tile": 3,
+      "raw_result_hex": "e27f7cc7f9fb9dab56381fcc351d1115104a1c0b3aeaf435f6835eeb46c843ce",
+      "canonical_result_hex": "fadabea34339375c3d4744f723363e19a64250dd84804cc70de503e4a07be33b"
+    },
+    {
+      "slot": 60,
+      "generation": 8,
+      "row_tile": 7,
+      "col_tile": 4,
+      "raw_result_hex": "4af61664b46db058dc1e92853f30a3c73f337f41b177568253cb274991003ba6",
+      "canonical_result_hex": "81654c4ce1a31c409bc187853fba65f52a079bfbf41bd393afb93df247640e42"
+    },
+    {
+      "slot": 61,
+      "generation": 8,
+      "row_tile": 7,
+      "col_tile": 5,
+      "raw_result_hex": "585f83c3f37a8852230ec32fb3b952f0ed149e61cf7b1973cfa9e283c7260455",
+      "canonical_result_hex": "9a1eaa2b9ab21807890d97d0449442319781e025babb509fac0fdf86e81925da"
+    },
+    {
+      "slot": 62,
+      "generation": 8,
+      "row_tile": 7,
+      "col_tile": 6,
+      "raw_result_hex": "e9857501ac0dba09832806cfe8e464f4f98bf4d4b78c2b5474527c5901ffc1c0",
+      "canonical_result_hex": "63f5c6eadbdca9c6d31243dcd804183f649839e01ce787f60661e21ab17ca7dd"
+    },
+    {
+      "slot": 63,
+      "generation": 8,
+      "row_tile": 7,
+      "col_tile": 7,
+      "raw_result_hex": "3c250853b10a6424f657942b59223373fd5b4a16ad489afd3e82068cde4ec79e",
+      "canonical_result_hex": "970642325e0a9d5921a4d77379aa353184ee5428fe05009e598c1fe45f367ef7"
+    }
+  ],
+  "timing": {
+    "measurement_class": "MOCK",
+    "HOST_PACK_US": 1.828,
+    "DESCRIPTOR_TX_US": 4.569,
+    "FPGA_WORK_US": 201.052,
+    "RESULT_RX_US": 2.104,
+    "HOST_VERIFY_US": 3483426.155,
+    "TOTAL_US": 3483706.048
+  },
+  "cpu_oracle_comparison": {
+    "classification": "QUALIFIED_CPU_GOLDEN_CAPTURE_REPLAY",
+    "fixture_operand_sha256": "33374e35cea368641aec1a7ee3c9529d01740fd5c05073156b5296230066d2f7",
+    "trace_operand_sha256": "33374e35cea368641aec1a7ee3c9529d01740fd5c05073156b5296230066d2f7",
+    "records": 4096,
+    "oracle_checks": {
+      "operand_exact": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "transcript_exact": true,
+      "digest_exact": true,
+      "exact": true
+    },
+    "mock_batch_cpu_exact": true,
+    "exact": true
+  }
+}
