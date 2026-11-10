@@ -1,5 +1,9 @@
 # PHK2 v4 five-row CDC-11 intake
 
+> Superseded by the complete immutable package review at
+> [phk2-v4-complete-cdc11-review.md](phk2-v4-complete-cdc11-review.md).
+> The result below was based on the earlier incomplete evidence package.
+
 ## Immutable input and result
 
 The intake reads Git objects from evidence commit

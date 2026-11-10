@@ -1,0 +1,222 @@
+{
+  "BSCAN_CLOCK_COLLAPSE_SAFE": false,
+  "BSCAN_TCK_DETAILS": [
+    {
+      "BSCAN_INSTANCE": "u_user1",
+      "CLOCK_OBJECT": "bscan_tck",
+      "CLOCK_ROOT": "X7Y1",
+      "PERIOD": "20.000 ns",
+      "PHYSICAL_NET": "tck1",
+      "RECOVERY_REMOVAL_PASS": true,
+      "RECOVERY_REMOVAL_SLACK_NS": 0.07,
+      "TCK_PIN": "u_user1/INTERNAL_TCK"
+    },
+    {
+      "BSCAN_INSTANCE": "u_user2",
+      "CLOCK_OBJECT": "bscan_tck",
+      "CLOCK_ROOT": "X7Y0",
+      "PERIOD": "20.000 ns",
+      "PHYSICAL_NET": "tck2",
+      "RECOVERY_REMOVAL_PASS": true,
+      "RECOVERY_REMOVAL_SLACK_NS": 0.17,
+      "TCK_PIN": "u_user2/INTERNAL_TCK"
+    },
+    {
+      "BSCAN_INSTANCE": "u_user3",
+      "CLOCK_OBJECT": "bscan_tck",
+      "CLOCK_ROOT": "direct (no BUFG clock-root token)",
+      "PERIOD": "20.000 ns",
+      "PHYSICAL_NET": "scan3_reset_release/clk",
+      "RECOVERY_REMOVAL_PASS": true,
+      "RECOVERY_REMOVAL_SLACK_NS": 0.364,
+      "TCK_PIN": "u_user3/INTERNAL_TCK"
+    }
+  ],
+  "BSCAN_TCK_PINS": 3,
+  "CDC11_ACCEPTANCE_PASS": false,
+  "CDC11_INDETERMINATE": false,
+  "CDC11_REAL_UNSAFE": true,
+  "CDC11_ROWS": 5,
+  "CDC11_ROWS_ACCOUNTED": 5,
+  "CDC11_ROW_DETAILS": [
+    {
+      "ASYNC_REG": "true",
+      "CLOCK_ROOT": "X7Y0",
+      "DESTINATION": "input_fifo/rd_up_w1_reg/D",
+      "DESTINATION_CELL": "input_fifo/rd_up_w1_reg",
+      "DESTINATION_CLOCK": "bscan_tck",
+      "REPORT_ROW_ID": 5,
+      "REPORT_TOPOLOGY_CROSSCHECK": "ASYNC_FIFO_LOCAL_UP_HANDSHAKE",
+      "ROW_ID": 1,
+      "SOURCE": "clockgen/reset_release/release_pipe_reg[3]/C",
+      "SOURCE_CLOCK": "pll_core_unbuf",
+      "SYNC_STAGES": 2,
+      "TOPOLOGY_CLASS": "FIFO_LOCAL_UP_HANDSHAKE"
+    },
+    {
+      "ASYNC_REG": "true",
+      "CLOCK_ROOT": "X7Y1",
+      "DESTINATION": "result_fifo/wr_up_r1_reg/D",
+      "DESTINATION_CELL": "result_fifo/wr_up_r1_reg",
+      "DESTINATION_CLOCK": "bscan_tck",
+      "REPORT_ROW_ID": 11,
+      "REPORT_TOPOLOGY_CROSSCHECK": "ASYNC_FIFO_LOCAL_UP_HANDSHAKE",
+      "ROW_ID": 2,
+      "SOURCE": "clockgen/reset_release/release_pipe_reg[3]/C",
+      "SOURCE_CLOCK": "pll_core_unbuf",
+      "SYNC_STAGES": 2,
+      "TOPOLOGY_CLASS": "FIFO_LOCAL_UP_HANDSHAKE"
+    },
+    {
+      "ASYNC_REG": "true",
+      "CLOCK_ROOT": "X7Y1",
+      "DESTINATION": "scan1_reset_release/release_pipe_reg[0]/PRE",
+      "DESTINATION_CELL": "scan1_reset_release/release_pipe_reg[0]",
+      "DESTINATION_CLOCK": "bscan_tck",
+      "REPORT_ROW_ID": 13,
+      "REPORT_TOPOLOGY_CROSSCHECK": "ASYNC_ASSERT_SYNC_RELEASE_RESET",
+      "ROW_ID": 3,
+      "SOURCE": "clockgen/reset_release/release_pipe_reg[3]/C",
+      "SOURCE_CLOCK": "pll_core_unbuf",
+      "SYNC_STAGES": 2,
+      "TOPOLOGY_CLASS": "RESET_RELEASE"
+    },
+    {
+      "ASYNC_REG": "true",
+      "CLOCK_ROOT": "X7Y0",
+      "DESTINATION": "scan2_reset_release/release_pipe_reg[0]/PRE",
+      "DESTINATION_CELL": "scan2_reset_release/release_pipe_reg[0]",
+      "DESTINATION_CLOCK": "bscan_tck",
+      "REPORT_ROW_ID": 15,
+      "REPORT_TOPOLOGY_CROSSCHECK": "ASYNC_ASSERT_SYNC_RELEASE_RESET",
+      "ROW_ID": 4,
+      "SOURCE": "clockgen/reset_release/release_pipe_reg[3]/C",
+      "SOURCE_CLOCK": "pll_core_unbuf",
+      "SYNC_STAGES": 2,
+      "TOPOLOGY_CLASS": "RESET_RELEASE"
+    },
+    {
+      "ASYNC_REG": "true",
+      "CLOCK_ROOT": "direct (no BUFG clock-root token)",
+      "DESTINATION": "scan3_reset_release/release_pipe_reg[0]/PRE",
+      "DESTINATION_CELL": "scan3_reset_release/release_pipe_reg[0]",
+      "DESTINATION_CLOCK": "bscan_tck",
+      "REPORT_ROW_ID": 17,
+      "REPORT_TOPOLOGY_CROSSCHECK": "ASYNC_ASSERT_SYNC_RELEASE_RESET",
+      "ROW_ID": 5,
+      "SOURCE": "clockgen/reset_release/release_pipe_reg[3]/C",
+      "SOURCE_CLOCK": "pll_core_unbuf",
+      "SYNC_STAGES": 2,
+      "TOPOLOGY_CLASS": "RESET_RELEASE"
+    }
+  ],
+  "CDC11_STRUCTURALLY_SAFE": false,
+  "CDC9_ROWS": 3,
+  "CONCLUSION": "All reset CDC-11 endpoints use the same logical bscan_tck clock object. Routed reset paths show distinct physical clock branches, while XDC collapses them into one object. Three independent reset-release chains in the same logical domain can release on different TCK edges; CDC-9 recognition does not waive CDC-11.",
+  "DISTINCT_RESET_DOMAINS": 1,
+  "FAILING_ROW_IDS": [
+    3,
+    4,
+    5
+  ],
+  "FIFO_HANDSHAKE_PROOFS": [
+    {
+      "ASYNC_REG": "true",
+      "DESTINATION_DOMAIN": "bscan_tck",
+      "FANOUT_BEFORE_SYNC": "core reset-release flop fans to both FIFO handshake first stages and three reset PREs (5 CDC-11 endpoints)",
+      "LEVEL_OR_PULSE": "level",
+      "RECONVERGENCE": "one synchronized local-up value gates the owning FIFO ready/empty/full and pointer state",
+      "ROW_ID": 1,
+      "SAME_DOMAIN_DUPLICATE_SYNC": false,
+      "SOURCE_DOMAIN": "pll_core_unbuf/core_clk",
+      "STARTUP_RESET_COHERENT": true,
+      "SYNC_STAGE_COUNT": 2
+    },
+    {
+      "ASYNC_REG": "true",
+      "DESTINATION_DOMAIN": "bscan_tck",
+      "FANOUT_BEFORE_SYNC": "core reset-release flop fans to both FIFO handshake first stages and three reset PREs (5 CDC-11 endpoints)",
+      "LEVEL_OR_PULSE": "level",
+      "RECONVERGENCE": "one synchronized local-up value gates the owning FIFO ready/empty/full and pointer state",
+      "ROW_ID": 2,
+      "SAME_DOMAIN_DUPLICATE_SYNC": false,
+      "SOURCE_DOMAIN": "pll_core_unbuf/core_clk",
+      "STARTUP_RESET_COHERENT": true,
+      "SYNC_STAGE_COUNT": 2
+    }
+  ],
+  "FIFO_HANDSHAKE_ROWS": 2,
+  "FIFO_HANDSHAKE_UNSAFE_ROWS": [],
+  "MANIFEST_VALID": true,
+  "MISSING_OR_FAILING_EVIDENCE": [],
+  "OTHER_ROWS": 0,
+  "PLACED_DCP_SHA256": "c4a396a84f663c9d108e6a48fc793932fc2f5a91d93d9a8a701da3fe18308ca6",
+  "RAW_ROUTED_CDC_REPORT": "results/phk2-v4-reset-correction-20261110/revision2/route/cdc.rpt",
+  "RESET_LOGICAL_DESTINATION_CLOCK_OBJECTS": [
+    "bscan_tck"
+  ],
+  "RESET_PHYSICAL_CLOCK_ROOTS": [
+    "X7Y0",
+    "X7Y1",
+    "direct (no BUFG clock-root token)"
+  ],
+  "RESET_ROWS": 3,
+  "RESET_ROW_PROOFS": [
+    {
+      "ASYNC_ASSERT": true,
+      "ASYNC_REG_PRESENT": true,
+      "CDC9_MATCH": true,
+      "CDC9_ROW": "12",
+      "DESTINATION_CLOCK": "bscan_tck",
+      "DESTINATION_CLOCK_ROOT": "X7Y1",
+      "DOMAIN_ID": "logical:bscan_tck",
+      "EVIDENCE_BASIS": "raw routed CDC+reset timing path; immutable RTL and reset test summary",
+      "RECOVERY_REMOVAL_PASS": true,
+      "ROW_ID": 3,
+      "STOPPED_CLOCK_SAFE": true,
+      "SYNC_DEASSERT": true,
+      "SYNC_STAGES": 2
+    },
+    {
+      "ASYNC_ASSERT": true,
+      "ASYNC_REG_PRESENT": true,
+      "CDC9_MATCH": true,
+      "CDC9_ROW": "14",
+      "DESTINATION_CLOCK": "bscan_tck",
+      "DESTINATION_CLOCK_ROOT": "X7Y0",
+      "DOMAIN_ID": "logical:bscan_tck",
+      "EVIDENCE_BASIS": "raw routed CDC+reset timing path; immutable RTL and reset test summary",
+      "RECOVERY_REMOVAL_PASS": true,
+      "ROW_ID": 4,
+      "STOPPED_CLOCK_SAFE": true,
+      "SYNC_DEASSERT": true,
+      "SYNC_STAGES": 2
+    },
+    {
+      "ASYNC_ASSERT": true,
+      "ASYNC_REG_PRESENT": true,
+      "CDC9_MATCH": true,
+      "CDC9_ROW": "16",
+      "DESTINATION_CLOCK": "bscan_tck",
+      "DESTINATION_CLOCK_ROOT": "direct (no BUFG clock-root token)",
+      "DOMAIN_ID": "logical:bscan_tck",
+      "EVIDENCE_BASIS": "raw routed CDC+reset timing path; immutable RTL and reset test summary",
+      "RECOVERY_REMOVAL_PASS": true,
+      "ROW_ID": 5,
+      "STOPPED_CLOCK_SAFE": true,
+      "SYNC_DEASSERT": true,
+      "SYNC_STAGES": 2
+    }
+  ],
+  "ROUTED_DCP_SHA256": "853af691b7ab1d8e8ac8b108e5a13fba6c2c5a4e357171caf99c2154ad45d400",
+  "RTL_FIX_REQUIRED": true,
+  "SAME_DOMAIN_DUPLICATE_RELEASE_CHAINS": 2,
+  "SHA256SUMS_VALID": true,
+  "SYNTH_DCP_SHA256": "d2ee37bc487359dc1599e04e02cfbc530791d5ceeb10c3317c9c19b1f44a23a0",
+  "UNIQUE_TCK_CLOCK_OBJECTS": 1,
+  "UNIQUE_TCK_CLOCK_ROOTS": 3,
+  "V4_EVIDENCE_COMMIT": "221002426f26dd7a3705ba5ec58d40a2ea4c2674",
+  "V4_IDENTITY_VERIFIED": true,
+  "V4_SOURCE_COMMIT": "5a6ceadb8fc2eb6d972b5d338b507ab0b5296a2a",
+  "V4_SOURCE_TREE_HASH": "18139976ecd88843c93a43d3f8bb08659049307b"
+}
