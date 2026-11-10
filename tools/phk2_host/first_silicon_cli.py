@@ -9,6 +9,9 @@ from runtime import Descriptor,fixture_descriptor,fixture_path,sha
 
 ROOT=Path(__file__).resolve().parents[2]
 AUTH_SCHEMA="PHK2-FIRST-SILICON-AUTH-v1"
+# Deliberately fixed false in this host-only worktree. No routed/bitstream-
+# qualified PHK2 physical image or response endpoint is available here.
+PHYSICAL_QUALIFICATION_AVAILABLE=False
 
 def fail(message):
     print(json.dumps({"classification":"PRECHECK_REFUSAL","live_action_performed":False,"reason":message},indent=2));return 3
@@ -86,6 +89,7 @@ def main(argv=None):
             lock_sha=sha(a.target_lock.read_bytes())
             validate_live_authorization(a.authorization,actual,lock_sha,desc_sha)
         except Exception as exc:return fail(f"live authorization/precheck refused: {exc}")
+        if not PHYSICAL_QUALIFICATION_AVAILABLE:return fail("no physically qualified PHK2 image/response endpoint is available; live transport remains disabled")
         # Import is deliberately deferred until every explicit gate passes.
         # This worktree has no physical adapter today; do not substitute the mock.
         if importlib.util.find_spec("phk2_first_silicon_live_adapter") is None:return fail("PHK2 physical programmer/transactor adapter is not installed; no hardware opened")

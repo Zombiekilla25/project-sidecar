@@ -87,3 +87,47 @@ PYTHONPATH=tools/phk2_host .venv/bin/python tools/phk2_host/first_silicon_qualif
 
 The first command is an offline fixture run and emits an immutable mock evidence
 bundle. No physical invocation is authorized by this document.
+
+## Physical adapter boundary
+
+`tools/phk2_host/physical_adapter_boundary.py` defines the non-invoking
+`PhysicalTransport` and selected-endpoint discovery contracts. Discovery must
+return an explicitly selected endpoint and must never scan implicitly. The
+preflight binds the opaque durable target identity and candidate image digest
+from the lock before a transport factory can run. Its capability contract is
+the frozen HELLO tuple `(major=1, minor=0, profile=3, descriptor=112,
+max_batch=64, result=112, features=0x3f)`. The HELLO payload does not attest a
+physical serial or image digest; those are bound out of band by the lock and
+endpoint identity. The guard rejects timeout, truncated/malformed response,
+wrong sequence, disconnect, stale session, duplicate result slot, and duplicate
+ABORT without retry or reconnect. ABORT is one-shot; close is idempotent.
+
+### Future one-card gate sequence (documented, not run)
+
+1. Verify a routed-image qualification record and exact image SHA, plus exact
+   host, protocol, and adapter identities. This worktree's physical-image gate
+   is currently hard-coded false.
+2. Require a fresh, one-use authorization bound to that image, the descriptor,
+   and the v2 target lock; require rollback readiness, evidence-path readiness,
+   explicit one-card scope, and peer exclusion.
+3. Resolve only the endpoint explicitly selected by the target lock. Compare
+   durable target identity, candidate image binding, and declared capability
+   tuple before constructing/opening a transport. A missing/mismatched endpoint
+   refuses without sending HELLO.
+4. Create the unique evidence directory and fsync the manifest, identities,
+   source hashes, descriptor bytes, counters, and pre-recovery marker before
+   the first transport command.
+5. Open the qualified adapter and issue HELLO exactly once. Check frame CRC,
+   opcode, sequence, protocol version/profile, descriptor size, batch limit,
+   result size, and feature bits. Any timeout, partial/malformed response,
+   disconnect, or mismatch poisons the session; do not retry or reconnect.
+6. Only after HELLO passes, load one descriptor once, start one range once,
+   poll bounded status, and read the exact expected count. Reject stale or
+   duplicate results and compare raw, canonical, and CPU outputs.
+7. Fsync result/error evidence before recovery. Invoke separately qualified
+   recovery hooks, verify rollback and semantic workload continuity, close the
+   adapter, and finalize evidence. Never program a peer or start another
+   transaction.
+
+No step in this sequence was executed in this worktree. The CLI refuses at
+step 1 today, before endpoint discovery, adapter import, or HELLO.

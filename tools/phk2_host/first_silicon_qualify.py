@@ -1,11 +1,14 @@
 """Offline first-silicon host harness qualification and 100k mock stress."""
 from __future__ import annotations
-import contextlib,hashlib,io,json,random,struct,tempfile,time
+import contextlib,hashlib,io,json,random,struct,tempfile,time,types,unittest.mock as mock
 from pathlib import Path
 from board_protocol import *
 from board_transport import HostTransportAdapter,SoftwareTransportEmulator
 from first_silicon_harness import *
 from first_silicon_cli import main as cli_main
+import first_silicon_cli
+from physical_adapter_boundary import (AdapterRefusal,EndpointIdentity,ExpectedIdentity,
+    GuardedPhysicalSession,QualificationGates,prepare_physical_session,make_hello_request)
 from oracle import predict
 from runtime import Descriptor,fixture_descriptor,fixture_path,sha
 
@@ -58,6 +61,95 @@ class StressDevice(SoftwareTransportEmulator):
             try:return super().exchange(raw)
             finally:self.state=saved;self.busy_left-=1
         return super().exchange(raw)
+
+class MockSelectedEndpoint:
+    def __init__(self,endpoint):self.endpoint=endpoint;self.calls=0
+    def selected_endpoint(self):self.calls+=1;return self.endpoint
+
+class MockPhysicalTransport:
+    """Protocol fixture only; physical access counter is invariantly zero."""
+    def __init__(self,mode='ok'):self.mode=mode;self.mock_calls=0;self.physical_access_count=0;self.close_count=0;self.timeouts=[]
+    def transact(self,raw,timeout_ms):
+        self.mock_calls+=1;self.timeouts.append(timeout_ms)
+        req=Frame.decode(raw)
+        if self.mode=='timeout':raise TimeoutError('fixture timeout')
+        if self.mode=='disconnect':raise ConnectionError('fixture disconnect')
+        if self.mode=='partial':return response(req,hello_payload())[:-1]
+        if self.mode=='malformed':return b'not a protocol frame'
+        if self.mode=='wrong_sequence':return Frame(req.opcode|0x80,RESPONSE,req.sequence+1,hello_payload()).encode()
+        if self.mode=='wrong_caps':
+            p=bytearray(hello_payload());p[2]=9;return response(req,bytes(p))
+        payload=hello_payload() if req.opcode==Opcode.HELLO else struct.pack('<QH',1,1)
+        return response(req,payload)
+    def close(self):self.close_count+=1
+
+def physical_boundary_tests(tmp):
+    checks=[]; identity=ExpectedIdentity('a'*64,'b'*64)
+    endpoint=EndpointIdentity(identity.target_identity_sha256,identity.candidate_image_sha256,'fixture-selected-endpoint')
+    good=QualificationGates(True,True,True,True,True,True,True,True,True)
+    opened=[]
+    def factory(_):
+        t=MockPhysicalTransport();opened.append(t);return t
+    # Missing selected endpoint: no transport open, transaction or hardware access.
+    discovery=MockSelectedEndpoint(None)
+    try:prepare_physical_session(good,identity,discovery,factory);raise AssertionError('missing endpoint accepted')
+    except AdapterRefusal:pass
+    checks.append(discovery.calls==1 and not opened)
+    # Unqualified image and missing authorization fail before endpoint discovery.
+    for gates in (QualificationGates(True,True,False,True,True,True,True,True,True),
+                  QualificationGates(True,False,True,True,True,True,True,True,True)):
+        d=MockSelectedEndpoint(endpoint)
+        try:prepare_physical_session(gates,identity,d,factory);raise AssertionError('missing gate accepted')
+        except AdapterRefusal:pass
+        checks.append(d.calls==0 and not opened)
+    # Wrong physical identity or declared protocol/capability never opens transport.
+    wrong=EndpointIdentity('c'*64,identity.candidate_image_sha256,'fixture-wrong-target');d=MockSelectedEndpoint(wrong)
+    try:prepare_physical_session(good,identity,d,factory);raise AssertionError('wrong identity accepted')
+    except AdapterRefusal:pass
+    checks.append(d.calls==1 and not opened)
+    wrong_proto=EndpointIdentity(identity.target_identity_sha256,identity.candidate_image_sha256,'fixture-wrong-protocol',(2,0,3,112,64,112,0x3f));d=MockSelectedEndpoint(wrong_proto)
+    try:prepare_physical_session(good,identity,d,factory);raise AssertionError('wrong protocol accepted')
+    except AdapterRefusal:pass
+    checks.append(d.calls==1 and not opened)
+    # Valid mocked endpoint: exactly one HELLO, explicit timeout, no retry.
+    d=MockSelectedEndpoint(endpoint);transport=MockPhysicalTransport();session=prepare_physical_session(good,identity,d,lambda _:transport,timeout_ms=1234)
+    caps=session.hello_once();checks.append(caps.profile_id==3 and session.hello_attempts==1 and transport.mock_calls==1 and transport.timeouts==[1234] and transport.physical_access_count==0)
+    try:session.hello_once();raise AssertionError('duplicate HELLO accepted')
+    except AdapterRefusal:pass
+    checks.append(session.hello_attempts==1 and transport.mock_calls==1)
+    # Timeout, partial, malformed, wrong sequence, and disconnect poison the session without reconnect/retry.
+    for mode in ('timeout','partial','malformed','wrong_sequence','disconnect'):
+        t=MockPhysicalTransport(mode);s=GuardedPhysicalSession(t,endpoint,321)
+        try:s.hello_once();raise AssertionError(f'{mode} response accepted')
+        except (AdapterRefusal,TimeoutError,ConnectionError,ProtocolError):pass
+        try:s.hello_once();raise AssertionError(f'{mode} session re-used')
+        except AdapterRefusal:pass
+        checks.append(s.closed and t.mock_calls==1 and t.close_count==1 and t.physical_access_count==0)
+    # HELLO protocol mismatch closes immediately; session identity is sticky.
+    t=MockPhysicalTransport('wrong_caps');s=GuardedPhysicalSession(t,endpoint)
+    try:s.hello_once();raise AssertionError('wrong HELLO capabilities accepted')
+    except (AdapterRefusal,ProtocolError):pass
+    checks.append(s.closed and t.mock_calls==1 and t.physical_access_count==0)
+    # Stale session and stale/duplicate result identities are rejected.
+    t=MockPhysicalTransport();s=GuardedPhysicalSession(t,endpoint);s.close()
+    try:s.hello_once();raise AssertionError('closed session accepted HELLO')
+    except AdapterRefusal:pass
+    checks.append(t.mock_calls==0 and t.close_count==1)
+    s=GuardedPhysicalSession(MockPhysicalTransport(),endpoint);s.bind_transaction(8,3);s.accept_result_slot(8,3,0)
+    try:s.accept_result_slot(8,3,0);raise AssertionError('duplicate result accepted')
+    except AdapterRefusal:pass
+    try:s.accept_result_slot(7,3,1);raise AssertionError('stale result accepted')
+    except AdapterRefusal:pass
+    checks.append(len(s._seen_result_slots)==1)
+    # ABORT is one-shot and close is idempotent.
+    t=MockPhysicalTransport();s=GuardedPhysicalSession(t,endpoint);s.bind_transaction(1,1)
+    ack=s.abort_once(request(Opcode.ABORT,0,b'fixture-abort'))
+    try:s.abort_once(request(Opcode.ABORT,1,b'fixture-abort'));raise AssertionError('duplicate abort accepted')
+    except AdapterRefusal:pass
+    s.close();s.close();checks.append(ack==struct.pack('<QH',1,1) and s.abort_attempts==1 and t.mock_calls==1 and t.close_count==1 and t.physical_access_count==0)
+    # Aggregate fixture counters prove every physical I/O counter stayed zero.
+    checks.append(all(t.physical_access_count==0 for t in opened+[transport]))
+    return len(checks),len(checks),checks
 
 def must(cond,msg):
     if not cond:raise AssertionError(msg)
@@ -214,16 +306,19 @@ def qualify():
         cli_tests+=int(cli_manifest['candidate_bitstream_sha256']==hashlib.sha256(fake_bit.read_bytes()).hexdigest() and cli_manifest['target_lock_sha256']==sha(fake_lock.read_bytes()) and cli_manifest['descriptor_sha256']==sha((fixture_path()/'descriptor.bin').read_bytes()) and cli_manifest['host_executable_sha256'] is None and all(cli_manifest.get(k) for k in ('host_cli_source_sha256','host_harness_source_sha256','protocol_source_sha256','transport_reference_source_sha256')))
         auth=tmp/'authorization.json'; auth.write_text(json.dumps({"schema":"PHK2-FIRST-SILICON-AUTH-v1","single_use":True,"one_card_authorized":True,"candidate_image_qualified":True,"wire_contract_qualified":True,"bitstream_sha256":hashlib.sha256(fake_bit.read_bytes()).hexdigest(),"target_lock_sha256":sha(fake_lock.read_bytes()),"descriptor_sha256":sha((fixture_path()/'descriptor.bin').read_bytes()),"max_program_attempts":1,"max_hello_attempts":1,"max_transactions":1,"peer_program_allowed":False,"expires_utc":"2099-01-01T00:00:00Z"}))
         capture=io.StringIO()
-        with contextlib.redirect_stdout(capture):refusal=cli_main(['--live','--authorization',str(auth),'--bitstream',str(fake_bit),'--bitstream-sha',hashlib.sha256(fake_bit.read_bytes()).hexdigest(),'--target-lock',str(fake_lock),'--descriptor',str(fixture_path()/'descriptor.bin'),'--evidence-dir',str(tmp/'live-evidence')])
-        refused=json.loads(capture.getvalue());cli_tests+=int(refusal==3 and refused['classification']=='PRECHECK_REFUSAL' and not refused['live_action_performed'] and auth.exists() and not (tmp/'live-evidence').exists())
+        with mock.patch.object(first_silicon_cli.importlib,'import_module',side_effect=AssertionError('live adapter import forbidden')), mock.patch.object(first_silicon_cli.importlib.util,'find_spec',side_effect=AssertionError('endpoint discovery forbidden')), contextlib.redirect_stdout(capture):
+            refusal=cli_main(['--live','--authorization',str(auth),'--bitstream',str(fake_bit),'--bitstream-sha',hashlib.sha256(fake_bit.read_bytes()).hexdigest(),'--target-lock',str(fake_lock),'--descriptor',str(fixture_path()/'descriptor.bin'),'--evidence-dir',str(tmp/'live-evidence')])
+        refused=json.loads(capture.getvalue());cli_tests+=int(refusal==3 and refused['classification']=='PRECHECK_REFUSAL' and not refused['live_action_performed'] and 'no physically qualified' in refused['reason'] and auth.exists() and not (tmp/'live-evidence').exists())
         checks['COMMAND_GENERATOR_TESTS']=f'{cli_tests}/3'
+        fail_closed_passed,fail_closed_total,fail_closed_cases=physical_boundary_tests(tmp/'physical-boundary')
+        checks['FAIL_CLOSED_TESTS']=f'{fail_closed_passed}/{fail_closed_total}';checks['FAIL_CLOSED_CASES']=fail_closed_cases
     stress=run_stress(d,single);checks['HOST_STRESS_EVENTS']=stress['events'];checks['UNEXPECTED_FAILURES']=stress['unexpected_failures'];checks['DUPLICATE_RESULTS']=stress['duplicate_results'];checks['DROPPED_RESULTS']=stress['dropped_results'];checks['STALE_RESULT_ACCEPTS']=stress['stale_result_accepts']
     checks['DESCRIPTOR_ENCODER_EXACT']='PASS' if encoder==14 else 'FAIL'
     checks['SINGLE_RAW_RESULT_EXACT']='PASS' if r['raw_result_exact']=='PASS' else 'FAIL'
     checks['RESULTS_RAW_CANONICAL_CPU']='PASS' if all(checks[k]=='PASS' for k in ('BATCH64_RAW_RESULT_EXACT','BATCH64_CANONICAL_RESULT_EXACT','BATCH64_CPU_CROSSCHECK')) else 'FAIL'
     checks['HARDWARE_ACCESS']=0;checks['FPGA_PROGRAM_ATTEMPTS']=0;checks['HELLO_ATTEMPTS']=0;checks['LIVE_TRANSACTION_COUNT']=0
     checks['SINGLE_RAW_RESULT_EXACT']=r['raw_result_exact'];checks['SINGLE_CANONICAL_RESULT_EXACT']=r['canonical_result_exact'];checks['SINGLE_CPU_CROSSCHECK']=r['cpu_crosscheck']
-    checks['FIRST_SILICON_HOST_READY']=bool(encoder==14 and fixture_index_tests==3 and hello_tests==4 and error_tests==4 and status_tests==3 and result_tests==4 and single_tests==4 and br['classification']=='PASS' and br['result_count']==64 and checks['RESULTS_RAW_CANONICAL_CPU']=='PASS' and len(fault)==15 and stress['events']>=100000 and not any(stress[k] for k in ('unexpected_failures','duplicate_results','dropped_results','stale_result_accepts')) and evidence_tests==5 and peer_ok and cli_tests==3 and hooks.calls==['restore_xbt','restore_shared_bridge','restore_miner_workloads','check_semantic_workload_continuity'])
+    checks['FIRST_SILICON_HOST_READY']=bool(encoder==14 and fixture_index_tests==3 and hello_tests==4 and error_tests==4 and status_tests==3 and result_tests==4 and single_tests==4 and br['classification']=='PASS' and br['result_count']==64 and checks['RESULTS_RAW_CANONICAL_CPU']=='PASS' and len(fault)==15 and stress['events']>=100000 and not any(stress[k] for k in ('unexpected_failures','duplicate_results','dropped_results','stale_result_accepts')) and evidence_tests==5 and peer_ok and cli_tests==3 and fail_closed_passed==fail_closed_total and hooks.calls==['restore_xbt','restore_shared_bridge','restore_miner_workloads','check_semantic_workload_continuity'])
     checks['BASE_COMMIT']='1978750ef21471076d463d99166f3ab011269d14';checks['HOST_RUNTIME_REFERENCE_COMMIT']='6ec5e5ac959c169df3e706377e7287f9c55b3392';checks['PHYSICAL_PROTOCOL_QUALIFIED']=False
     checks['scope_note']='Host/mock readiness only. Current project records still mark the physical board response endpoint/protocol unqualified; this result authorizes no hardware action.'
     return checks
