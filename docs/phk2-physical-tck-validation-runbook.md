@@ -17,6 +17,21 @@ the operator must provide the active, authorized target lock and route report
 with hashes. If any identity or evidence is absent, stale, ambiguous, or
 mismatched, stop before opening XVC.
 
+The offline preflight tooling and synthetic refusal tests are in
+[`physical_tck_preflight.py`](../tools/phk2_host/physical_tck_preflight.py).
+At a future authorized physical run, require a fresh target lock, bridge policy
+and qualified package passed with `--qualification-manifest <file>`. See the
+fail-closed schemas in
+[`PHK2_PHYSICAL_TCK_TARGET_LOCK.template.json`](../ops/PHK2_PHYSICAL_TCK_TARGET_LOCK.template.json),
+[`PHK2_SQRL_XVC_BRIDGE_POLICY.template.json`](../ops/PHK2_SQRL_XVC_BRIDGE_POLICY.template.json),
+and [`PHK2_QUALIFICATION_MANIFEST.template.json`](../ops/PHK2_QUALIFICATION_MANIFEST.template.json).
+The qualification manifest binds `SOURCE_COMMIT`, source tree archive/hash,
+routed DCP/hash, constraint model/hash, `TARGET_PART`, the qualified TCK
+analysis envelope and timing report/hash, `QUALIFICATION_STATUS`, and
+independent promotion evidence/hash/linkage. Evidence files must be regular
+package files and hash-match. No v3 artifact is pinned; the manifest must name
+the actual promoted route, including a future v4.
+
 The task context says the routed design passed timing/reset analysis through
 50 MHz. Treat 50 MHz as a reported analysis point only. It is not a selected
 production maximum. The PHK2 board evidence currently in this worktree says
@@ -67,6 +82,26 @@ ss -Hltpn '( sport = :<PORT> )'
 ss -Htnp state established '( sport = :<PORT> or dport = :<PORT> )'
 nft list ruleset
 ```
+
+The future local-only preflight command is:
+
+```sh
+python3 tools/phk2_host/physical_tck_preflight.py \
+  --target-lock /authorized/evidence/current-target-lock.json \
+  --bridge-policy /authorized/evidence/deployed-bridge-policy.json \
+  --qualification-manifest /authorized/evidence/qualified-route/manifest.json \
+  --lock-dir /run/user/$(id -u)/phk2-exclusive-locks
+```
+
+It reads `ps`, `ss`, `/proc`, the bridge ELF Build ID and hashed service
+configuration; it makes no socket connection. It takes a per-target OS
+`flock` and waits for Enter before releasing it, so keep that process alive for
+the whole separately authorized maintenance window. A stale metadata PID is
+never used to declare ownership: metadata is reclaimed only after acquiring
+the OS lock, and malformed or foreign-target metadata refuses. The tool checks
+local process/socket state only. Remote peer exclusion still requires
+independently verified network ACL evidence and a maintenance lock; if those
+cannot be established, do not open XVC.
 
 On the operator/client host, capture the same `ps` and established-socket
 snapshot. These commands inspect local process/socket/firewall state only;
@@ -174,14 +209,23 @@ TCK proof.
 ## Required disposition
 
 ```text
-PHYSICAL_TCK_TEST_READY=false  # runbook prepared; exact adapter/deployment/envelope not yet bound
+EXCLUSIVE_PREFLIGHT_READY=true       # implemented and synthetic dry-run tested only
+PEER_EXCLUSION_READY=true            # local process/socket/lock checks implemented; not run against a host
+BRIDGE_ATTESTATION_READY=true        # schema pins reviewed ELF hash and Build ID
+ARTIFACT_ATTESTATION_READY=true      # manifest schema/hash gates implemented
+PHYSICAL_TCK_RUNBOOK_READY=true
+PHYSICAL_TCK_TEST_SOFTWARE_READY=true
+LIVE_EXECUTION_AUTHORIZED=false
+PHYSICAL_TCK_TEST_READY=false        # exact adapter/deployment/envelope not yet bound
 FPGA_PROGRAMMING_REQUIRED=false
 USER_INSTRUCTION_REQUIRED=false
 WORKLOAD_CHANGE_REQUIRED=false
-PEER_EXCLUSION_READY=false      # procedure prepared; exclusivity has not been established
 SETTCK_RESPONSE_TRUSTED=false
 MEASUREMENT_REQUIRED=true
 PHYSICAL_AUTHORIZATION_REQUIRED=true
+HARDWARE_ACCESS_COUNT=0
+LIVE_XVC_CONNECTIONS=0
+JTAG_TRANSACTIONS=0
 ```
 
 No physical authorization is implied by this runbook. Do not execute without

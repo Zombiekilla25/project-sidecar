@@ -1,0 +1,30 @@
+{
+  "schema": "PHK2-PHYSICAL-TCK-TARGET-LOCK-v1",
+  "status": "NOT_RUN",
+  "match_count": null,
+  "created_utc": null,
+  "expires_utc": null,
+  "adapter": {
+    "usb_path": null,
+    "ftdi_serial": null,
+    "vid": null,
+    "pid": null,
+    "interface": null
+  },
+  "target": {
+    "board_id": null,
+    "target_part": null,
+    "idcode": null,
+    "dna": null,
+    "current_image_sha256": null,
+    "expected_chain_topology": null
+  },
+  "xvc": {
+    "host": null,
+    "port": null
+  },
+  "notes": [
+    "This is a schema template, not a target identity or authorization.",
+    "The preflight rejects this NOT_RUN template until an authorized, fresh, unique lock is supplied."
+  ]
+}

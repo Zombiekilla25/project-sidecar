@@ -1,0 +1,19 @@
+{
+  "schema": "PHK2-SQRL-XVC-BRIDGE-POLICY-v1",
+  "BRIDGE_PATH": "/absolute/path/to/deployed/sqrl_bridge_rawjtag_coe",
+  "BRIDGE_SHA256": "8c7230f0bf586e9297dc0e568bd19278aeeb7cff8dbb3dde150811f11393218a",
+  "BUILD_ID": "b0562d538761373e2f1025c8bc8d8188ff8a0c40",
+  "SERVICE_UNIT": "replace-with-exact.service",
+  "SERVICE_CONFIG_PATH": "/absolute/path/to/service-or-config-file",
+  "SERVICE_CONFIG_HASH": "replace-with-64-character-sha256",
+  "SERVICE_EXEC_TOKENS": ["exact", "tokens", "from", "service/config"],
+  "XVC_PORT": null,
+  "FTDI_SERIAL": null,
+  "ARGV_CONTAINS": ["-j", "replace-port", "-s", ",replace-serial"],
+  "TARGET_PART": null,
+  "notes": [
+    "The pinned BRIDGE_SHA256 and BUILD_ID identify the statically reviewed ELF.",
+    "Replace every placeholder using offline service/deployment evidence.",
+    "The preflight rejects this template until config, endpoint, serial, and part are attested."
+  ]
+}

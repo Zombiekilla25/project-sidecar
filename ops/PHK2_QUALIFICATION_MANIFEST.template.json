@@ -1,0 +1,38 @@
+{
+  "schema": "PHK2-QUALIFICATION-MANIFEST-v1",
+  "SOURCE_COMMIT": null,
+  "SOURCE_TREE_HASH": null,
+  "SOURCE_TREE_ARCHIVE": {"path": null, "sha256": null},
+  "ROUTED_DCP_HASH": null,
+  "ROUTED_DCP": {"path": null, "sha256": null},
+  "CONSTRAINT_MODEL": {"name": null, "path": null, "sha256": null},
+  "TARGET_PART": null,
+  "TCK_ANALYSIS_ENVELOPE": {
+    "qualified": false,
+    "minimum_tck_hz": null,
+    "maximum_tck_hz": null,
+    "minimum_high_ns": null,
+    "minimum_low_ns": null,
+    "minimum_duty_cycle_percent": null,
+    "maximum_duty_cycle_percent": null,
+    "maximum_period_jitter_p2p_ns": null,
+    "maximum_period_jitter_rms_ns": null,
+    "timing_report": {"path": null, "sha256": null}
+  },
+  "QUALIFICATION_STATUS": "PENDING",
+  "INDEPENDENT_PROMOTION": {
+    "status": "PENDING",
+    "result": "PENDING",
+    "approval_id": null,
+    "SOURCE_COMMIT": null,
+    "SOURCE_TREE_HASH": null,
+    "ROUTED_DCP_HASH": null,
+    "CONSTRAINT_MODEL_HASH": null,
+    "TARGET_PART": null,
+    "evidence": {"path": null, "sha256": null}
+  },
+  "notes": [
+    "All artifact paths are relative to this manifest's directory and must be regular files without symlink traversal.",
+    "This template is not qualification evidence and is rejected until every hash, route result, TCK envelope, and independent promotion is complete."
+  ]
+}
