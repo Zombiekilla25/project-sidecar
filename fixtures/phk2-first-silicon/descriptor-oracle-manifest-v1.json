@@ -1,0 +1,442 @@
+{
+  "authority": {
+    "board_integration_commit": "1978750ef21471076d463d99166f3ab011269d14",
+    "host_runtime_commit": "6ec5e5ac959c169df3e706377e7287f9c55b3392",
+    "wire_golden_sha256": "47a0815a159cd553a24d6e4a7ad907d158d3107966ca1485f0f4ccbf5507e932"
+  },
+  "count": 13,
+  "descriptor_bytes": 112,
+  "fixtures": {
+    "batch64": {
+      "checks": {
+        "batch64_captured_cpu_overlap_exact": true,
+        "batch64_operand_hashes_exact": true,
+        "exact": true,
+        "model_generated": true
+      },
+      "cpu_oracle_sha256": "d22805581d384b9573df0fb90029b52fee7e22e08e7ac3e04edfb08e742391fa",
+      "descriptor_path": "fixtures/phk2-host-runtime/authoritative-vector-001/descriptor.bin",
+      "descriptor_sha256": "5f1d1113ce423475583c2100c088215d8984e61bd48fbbe25b9b365487db25c0",
+      "expected_canonical_result_sha256": "2b86f4f4072e530c52461666ee96f9a4ecec833954c06a6473caefd1200c4a16",
+      "expected_raw_result_sha256": "77cb1f4d847ee9c7336ae8f036ff6b5fd862fb9a2acb5663801f9ffc30514f39",
+      "expected_result_count": 64,
+      "generation": 8,
+      "job_identity_hex": "c5427cd1512f0bc4b0c90540187f18f32c8f0cb63f9955c4a396b79a3440bc4d",
+      "job_identity_sha256": "35bddb641de3647180d4b0fa23aae3896fd5886282d5297d90658002f14aaf16",
+      "range": {
+        "count": 64,
+        "start": 0
+      },
+      "seed_identity_sha256": "4e86db4e502637fe4ec0d3d345515d19cd0d2f56999334d8bc3428cafbff05c9"
+    },
+    "single_work": {
+      "capture": "real-v3-slice-1017db2f_2097152-20261013T222702Z",
+      "cpu_capture_checks": {
+        "digest_exact": true,
+        "exact": true,
+        "operand_exact": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "transcript_exact": true
+      },
+      "cpu_capture_result_count": 20,
+      "cpu_oracle_sha256": "02a10d28bd1d3f8ba054ac0397e00f26093dd16f842addff4b6cbbc91fbd8ae2",
+      "descriptor_path": "fixtures/phk2-host-runtime/authoritative-descriptors/real-v3-slice-1017db2f_2097152-20261013T222702Z.bin",
+      "descriptor_sha256": "5f1d1113ce423475583c2100c088215d8984e61bd48fbbe25b9b365487db25c0",
+      "expected_canonical_result_sha256": "9edbeb92ecbe4af504b6123b47fa859335de4b92bc4969640911152b91ed8868",
+      "expected_raw_result_sha256": "59532ea45cde03490c1677bc1842a7173979e5232132692690387099266b04dd",
+      "expected_result_count": 1,
+      "generation": 8,
+      "job_identity_hex": "c5427cd1512f0bc4b0c90540187f18f32c8f0cb63f9955c4a396b79a3440bc4d",
+      "job_identity_sha256": "35bddb641de3647180d4b0fa23aae3896fd5886282d5297d90658002f14aaf16",
+      "range": {
+        "count": 1,
+        "start": 0
+      },
+      "seed_identity_sha256": "4e86db4e502637fe4ec0d3d345515d19cd0d2f56999334d8bc3428cafbff05c9"
+    }
+  },
+  "retained_production_descriptors": [
+    {
+      "capture": "real-v3-slice-09f76caf_2097152-20261021T014622Z",
+      "cpu_capture_checks": {
+        "digest_exact": true,
+        "exact": true,
+        "operand_exact": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "transcript_exact": true
+      },
+      "cpu_capture_result_count": 20,
+      "cpu_oracle_sha256": "8deeb64183aae20de9ff1edf1727cf4cfce0b3991ba702ae4915dac34fb373eb",
+      "descriptor_path": "fixtures/phk2-host-runtime/authoritative-descriptors/real-v3-slice-09f76caf_2097152-20261021T014622Z.bin",
+      "descriptor_sha256": "d93717e152da6decdb7e8ae5bd0c7a75d496a6dfdf01b6ab0c2fa024c5433dd2",
+      "expected_canonical_result_sha256": "dbd612a1dfb5dae972c5dd53c1d0a647eb84d8d2b76257355e91ec0077b472f6",
+      "expected_raw_result_sha256": "e4387a06578afe0941979227d29dfe1f8be9adf6e454c0e7a97e38feb0636ef4",
+      "expected_result_count": 1,
+      "generation": 70,
+      "job_identity_hex": "62290fda03e3b0086af1ab75fa87183c49b87c38b7c02d826b5a53fa88ed31ed",
+      "job_identity_sha256": "9ec0e7b3bb0da3d085e51eafe9ab2d62796b69e4eab7bd7b0af07dc8be9e0408",
+      "range": {
+        "count": 1,
+        "start": 0
+      },
+      "seed_identity_sha256": "30d9485e5ea90149d95fed30fb3d35e01e6732e2105047eee75b87c6c9c317b9"
+    },
+    {
+      "capture": "real-v3-slice-0c497f84_2097152-20261021T013213Z",
+      "cpu_capture_checks": {
+        "digest_exact": true,
+        "exact": true,
+        "operand_exact": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "transcript_exact": true
+      },
+      "cpu_capture_result_count": 20,
+      "cpu_oracle_sha256": "dabe0e02e57faeb561b6bcae1a2514a26495f31e51f313031de585f4703ff009",
+      "descriptor_path": "fixtures/phk2-host-runtime/authoritative-descriptors/real-v3-slice-0c497f84_2097152-20261021T013213Z.bin",
+      "descriptor_sha256": "f0217c29d9c4104d4c263a4b16466a0c03c5aad68589db7b8513c7e33d76b7bd",
+      "expected_canonical_result_sha256": "b30788b83cf774f2184a0fedbc7ffc4ca296d528adbc400f54d9019a307eb51c",
+      "expected_raw_result_sha256": "dffaf4f39aca989749cb62410d1039b7d61c229998dd64a10723c7630b89a75f",
+      "expected_result_count": 1,
+      "generation": 69,
+      "job_identity_hex": "be477098fd89865576cbd13980fd9741b5b4ad7534ef911d7e185d187eaef838",
+      "job_identity_sha256": "25d697bdea037b9a93ace7b2f45ecdf1ef6582c79b0faa44ec28d42f6d144986",
+      "range": {
+        "count": 1,
+        "start": 0
+      },
+      "seed_identity_sha256": "2e7be363e14cb9d745f5de97aecd35db24826ee661e6fef3666fbd8864812b14"
+    },
+    {
+      "capture": "real-v3-slice-1017db2f_2097152-20261013T222702Z",
+      "cpu_capture_checks": {
+        "digest_exact": true,
+        "exact": true,
+        "operand_exact": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "transcript_exact": true
+      },
+      "cpu_capture_result_count": 20,
+      "cpu_oracle_sha256": "02a10d28bd1d3f8ba054ac0397e00f26093dd16f842addff4b6cbbc91fbd8ae2",
+      "descriptor_path": "fixtures/phk2-host-runtime/authoritative-descriptors/real-v3-slice-1017db2f_2097152-20261013T222702Z.bin",
+      "descriptor_sha256": "5f1d1113ce423475583c2100c088215d8984e61bd48fbbe25b9b365487db25c0",
+      "expected_canonical_result_sha256": "9edbeb92ecbe4af504b6123b47fa859335de4b92bc4969640911152b91ed8868",
+      "expected_raw_result_sha256": "59532ea45cde03490c1677bc1842a7173979e5232132692690387099266b04dd",
+      "expected_result_count": 1,
+      "generation": 8,
+      "job_identity_hex": "c5427cd1512f0bc4b0c90540187f18f32c8f0cb63f9955c4a396b79a3440bc4d",
+      "job_identity_sha256": "35bddb641de3647180d4b0fa23aae3896fd5886282d5297d90658002f14aaf16",
+      "range": {
+        "count": 1,
+        "start": 0
+      },
+      "seed_identity_sha256": "4e86db4e502637fe4ec0d3d345515d19cd0d2f56999334d8bc3428cafbff05c9"
+    },
+    {
+      "capture": "real-v3-slice-2981ad6a_4194304-20261021T010328Z",
+      "cpu_capture_checks": {
+        "digest_exact": true,
+        "exact": true,
+        "operand_exact": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "transcript_exact": true
+      },
+      "cpu_capture_result_count": 20,
+      "cpu_oracle_sha256": "1e778f842a7f3e381f6e8d9724bf159c499414d9976d4a3c2c0ad091216ffdbf",
+      "descriptor_path": "fixtures/phk2-host-runtime/authoritative-descriptors/real-v3-slice-2981ad6a_4194304-20261021T010328Z.bin",
+      "descriptor_sha256": "baa712bd34d497fdec7f41392106bcbd1519d54b8c4a421e603f6920895bd34c",
+      "expected_canonical_result_sha256": "22d7270b291c72132f88ef004bbdb8b43d8c8b289df3981bb2ad69eb531fc457",
+      "expected_raw_result_sha256": "24fb0e301a66dc7a3a43fbb000dc78c23dd13c467617397f7665be8c2c759abc",
+      "expected_result_count": 1,
+      "generation": 65,
+      "job_identity_hex": "0c6a596fea90debd68c5fd15bbc7ac032065f631ef0f56d4da767a7eb3f533e4",
+      "job_identity_sha256": "5399032e35b80ed9b3cfbfe70935fc37bd71c91577bb2a2f48e9a5a8339bd7c5",
+      "range": {
+        "count": 1,
+        "start": 0
+      },
+      "seed_identity_sha256": "37a561b8ed53cfc7b72c996e86bc4e56660e229a6008638b344c6e5b40fcdfad"
+    },
+    {
+      "capture": "real-v3-slice-3b5cdc39_2097152-20261021T012250Z",
+      "cpu_capture_checks": {
+        "digest_exact": true,
+        "exact": true,
+        "operand_exact": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "transcript_exact": true
+      },
+      "cpu_capture_result_count": 20,
+      "cpu_oracle_sha256": "680bd22da70d79d28e29fe1efe7e11b5eb93aa1a0dda48c38cc1278c8afc4a0d",
+      "descriptor_path": "fixtures/phk2-host-runtime/authoritative-descriptors/real-v3-slice-3b5cdc39_2097152-20261021T012250Z.bin",
+      "descriptor_sha256": "c551198625a0363155d54427c98abf94a18bfb42b5c6354935cad4117518c378",
+      "expected_canonical_result_sha256": "add945c89bc9ac0f08b8bf93b09971b72cc39c95ce9d8fc344756be5fc313315",
+      "expected_raw_result_sha256": "decf59aa8a799aa76d4bd19d246d2c1e994c31ae48722e4cb6ccc9659eb82238",
+      "expected_result_count": 1,
+      "generation": 67,
+      "job_identity_hex": "26fa4024511dc498648d9c93c2b332f7f968e5230af5401040e2cb944ab32db8",
+      "job_identity_sha256": "423e6e8eb232b5a3cdfe6c44b61f84139773221c6d4726bcd8162e12825d5335",
+      "range": {
+        "count": 1,
+        "start": 0
+      },
+      "seed_identity_sha256": "fe60cecd794d2bce9af116f5d1e40cce1d252a8faa941d949472ea83862307b9"
+    },
+    {
+      "capture": "real-v3-slice-521ec7e0_2097152-20261021T014659Z",
+      "cpu_capture_checks": {
+        "digest_exact": true,
+        "exact": true,
+        "operand_exact": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "transcript_exact": true
+      },
+      "cpu_capture_result_count": 20,
+      "cpu_oracle_sha256": "df5ff9a696b1d7aea99607537361e65e9c7f1382f40eb31241a3583b0a1243f5",
+      "descriptor_path": "fixtures/phk2-host-runtime/authoritative-descriptors/real-v3-slice-521ec7e0_2097152-20261021T014659Z.bin",
+      "descriptor_sha256": "e8396410a7058b88afb938aeb85b797cbe401382e4da6c1633acfd494ee4fae0",
+      "expected_canonical_result_sha256": "529449e69b7b58afba4024f1c094fe57f0b0e6cf3c99873bc346c8214181e97a",
+      "expected_raw_result_sha256": "b3870f2293b587594bc5027795febc3431b4b5af9bfb251be715ac8d8c722386",
+      "expected_result_count": 1,
+      "generation": 71,
+      "job_identity_hex": "1faf1b263f6c8b04308372454bcd90c52fc5a364f699599a050fb9d2695d95bb",
+      "job_identity_sha256": "51f5c74c41b5ac74aa8aa4fb4746d5bc1e5ffae768a4e75aa7ba7841fc477024",
+      "range": {
+        "count": 1,
+        "start": 0
+      },
+      "seed_identity_sha256": "3b3d4f1479685d07baff8b3538ade771b7ae6a1e3d86bceaba7735fe32436823"
+    },
+    {
+      "capture": "real-v3-slice-649aa864_2097152-20261021T012147Z",
+      "cpu_capture_checks": {
+        "digest_exact": true,
+        "exact": true,
+        "operand_exact": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "transcript_exact": true
+      },
+      "cpu_capture_result_count": 20,
+      "cpu_oracle_sha256": "b0d9a57e246fa3ce179028e3695241831666d69ec69583a5b1d2a7ff0f08a9fa",
+      "descriptor_path": "fixtures/phk2-host-runtime/authoritative-descriptors/real-v3-slice-649aa864_2097152-20261021T012147Z.bin",
+      "descriptor_sha256": "7ab1c4af587313934e3a03c5c6d3576b525225dd882a7cd9ae3449e77f796f04",
+      "expected_canonical_result_sha256": "840b539645521e42b362b59c37c6d71a3e3210e33772aa453688f49c9139b3ee",
+      "expected_raw_result_sha256": "cecefb5b0d38cf5575898032613dd4160d666e70e2298ae1259cf20277e6d713",
+      "expected_result_count": 1,
+      "generation": 66,
+      "job_identity_hex": "ec7a4a0ad15436b929f8f3665c1d61be29d7f6f2deb4016f0fd4814276d760aa",
+      "job_identity_sha256": "ef2fb12e66873f449faf95f6483cb757c72b9419d2c4c36a0c190126b32bb62b",
+      "range": {
+        "count": 1,
+        "start": 0
+      },
+      "seed_identity_sha256": "ceed908cba877fee3c03722781741f1bf79a74dac690f19ecd1764b38461166f"
+    },
+    {
+      "capture": "real-v3-slice-653bee82_2097152-20261019T011443Z",
+      "cpu_capture_checks": {
+        "digest_exact": true,
+        "exact": true,
+        "operand_exact": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "transcript_exact": true
+      },
+      "cpu_capture_result_count": 20,
+      "cpu_oracle_sha256": "a4e65810f97db8b9b7aa2b0b66fffc203b3bb81d4bf0558c88c8e56f9dce4c5b",
+      "descriptor_path": "fixtures/phk2-host-runtime/authoritative-descriptors/real-v3-slice-653bee82_2097152-20261019T011443Z.bin",
+      "descriptor_sha256": "1be7efb5c8e3a278535a1dcd077d06512ca84a8b1dd5723a0ccdc1d311641ce6",
+      "expected_canonical_result_sha256": "2c93a22ee9c5f1eece8d5b484fd1011fc4f539cefc3eab0ee63b947658cb8c0d",
+      "expected_raw_result_sha256": "308c04dbd604d085fd0c39338b1bac10fd892b2a328ca0198898fe839dadfd1a",
+      "expected_result_count": 1,
+      "generation": 9,
+      "job_identity_hex": "8df3b5f9c2cf064cc5009a351ba2fd251959e3a15653e400ea9dd8855318e214",
+      "job_identity_sha256": "14f7cac531da35935426e9e9c72c0936c6964af245bd0ebee250c65d1b36d7bf",
+      "range": {
+        "count": 1,
+        "start": 0
+      },
+      "seed_identity_sha256": "1fadb24930d36880f4be9dc7b3b1f8206f4c7db6566575df37dee7d100e69fc6"
+    },
+    {
+      "capture": "real-v3-slice-7a3cab9a_2097152-20261021T014706Z",
+      "cpu_capture_checks": {
+        "digest_exact": true,
+        "exact": true,
+        "operand_exact": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "transcript_exact": true
+      },
+      "cpu_capture_result_count": 20,
+      "cpu_oracle_sha256": "b9941045b8e2d536505df24500777cc7c432c8c4e9649f9249c00834dd0ba068",
+      "descriptor_path": "fixtures/phk2-host-runtime/authoritative-descriptors/real-v3-slice-7a3cab9a_2097152-20261021T014706Z.bin",
+      "descriptor_sha256": "465394dc213741d81b4f5a764a3315a75594c17883a2a50643ad8c6dabcf0ec4",
+      "expected_canonical_result_sha256": "17ffbcdfaf8595bd0ebf9042a15e358db13e7c863e297166fd90859d1a56a7de",
+      "expected_raw_result_sha256": "5ccdae5a540025473642120b1fdb3c37792a225bb12dd0a40e1c383da10fefe9",
+      "expected_result_count": 1,
+      "generation": 72,
+      "job_identity_hex": "c9f269c7458cdbd61046ea863f8ade93ef153666a47220d6f876fd3e983f23b8",
+      "job_identity_sha256": "95fac2fe73fcc149e49aba3232a3228f8cb506aaeec7c130fb5a5a305b1a3710",
+      "range": {
+        "count": 1,
+        "start": 0
+      },
+      "seed_identity_sha256": "9e6c67d3e8f8f369c75ef01c552cf5b3cdbbbefc377043679c15902eeb48c30b"
+    },
+    {
+      "capture": "real-v3-slice-7a3cab9a_2097152-20261024T014440Z",
+      "cpu_capture_checks": {
+        "digest_exact": true,
+        "exact": true,
+        "operand_exact": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "transcript_exact": true
+      },
+      "cpu_capture_result_count": 20,
+      "cpu_oracle_sha256": "b9941045b8e2d536505df24500777cc7c432c8c4e9649f9249c00834dd0ba068",
+      "descriptor_path": "fixtures/phk2-host-runtime/authoritative-descriptors/real-v3-slice-7a3cab9a_2097152-20261024T014440Z.bin",
+      "descriptor_sha256": "465394dc213741d81b4f5a764a3315a75594c17883a2a50643ad8c6dabcf0ec4",
+      "expected_canonical_result_sha256": "17ffbcdfaf8595bd0ebf9042a15e358db13e7c863e297166fd90859d1a56a7de",
+      "expected_raw_result_sha256": "5ccdae5a540025473642120b1fdb3c37792a225bb12dd0a40e1c383da10fefe9",
+      "expected_result_count": 1,
+      "generation": 72,
+      "job_identity_hex": "c9f269c7458cdbd61046ea863f8ade93ef153666a47220d6f876fd3e983f23b8",
+      "job_identity_sha256": "95fac2fe73fcc149e49aba3232a3228f8cb506aaeec7c130fb5a5a305b1a3710",
+      "range": {
+        "count": 1,
+        "start": 0
+      },
+      "seed_identity_sha256": "9e6c67d3e8f8f369c75ef01c552cf5b3cdbbbefc377043679c15902eeb48c30b"
+    },
+    {
+      "capture": "real-v3-slice-94292595_2097152-20261013T041523Z",
+      "cpu_capture_checks": {
+        "digest_exact": true,
+        "exact": true,
+        "operand_exact": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "transcript_exact": true
+      },
+      "cpu_capture_result_count": 20,
+      "cpu_oracle_sha256": "b7c51a93a7758eac79be8fdb60a40b73c30b6146d393ffafdb8b3d28d8ac6bdb",
+      "descriptor_path": "fixtures/phk2-host-runtime/authoritative-descriptors/real-v3-slice-94292595_2097152-20261013T041523Z.bin",
+      "descriptor_sha256": "f7a9b93e512a4ed1f4fb52c055497a41cb93e0e600b5aaf94308c10009b9973a",
+      "expected_canonical_result_sha256": "3ad7ed9c28b909021c17432ee191d45cf89298f76a0034dacb102a75e5ddda46",
+      "expected_raw_result_sha256": "67644ad006608934b9fb7cdea86f72fcfff63d75a9a94d618290dc8fde158527",
+      "expected_result_count": 1,
+      "generation": 4,
+      "job_identity_hex": "1975ee3ce14ca9c74ac6fb4656029a6e0473acc89a3bad5ed0a9c93c5d766522",
+      "job_identity_sha256": "a03eaa2067861d63279ce8aeffcd9f71506f654ccbafec35a0cf22c849e430ac",
+      "range": {
+        "count": 1,
+        "start": 0
+      },
+      "seed_identity_sha256": "cd25aec6ed450fde57512cf8f721b1633c19dcdd3b1536f28edb4083d7926b27"
+    },
+    {
+      "capture": "real-v3-slice-aa07e6fa_2097152-20261020T001234Z",
+      "cpu_capture_checks": {
+        "digest_exact": true,
+        "exact": true,
+        "operand_exact": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "transcript_exact": true
+      },
+      "cpu_capture_result_count": 20,
+      "cpu_oracle_sha256": "0cc79bb5fb00817bd2348b940bbb0f4e22b01631fa8a4460b51022b94ef425e1",
+      "descriptor_path": "fixtures/phk2-host-runtime/authoritative-descriptors/real-v3-slice-aa07e6fa_2097152-20261020T001234Z.bin",
+      "descriptor_sha256": "86f21a1794c2f645148246b9912f294e4c888577d344af0cc3fb2d48c8ab1af2",
+      "expected_canonical_result_sha256": "49286473491b25cf90d7a739eb07e822ecaf0537a2559e24006248353235e28c",
+      "expected_raw_result_sha256": "595bbf1fc85be36cd42d03b5867327dfa18eede33bb40905bf856abc0d418537",
+      "expected_result_count": 1,
+      "generation": 64,
+      "job_identity_hex": "2ee969421a9f2447cc80324eec5e6bfb25e7eca8979b285288c820dacaa02831",
+      "job_identity_sha256": "480116cffaa2329c7089b83bf462dd0c7af9b18103ed66f04845508c159e0037",
+      "range": {
+        "count": 1,
+        "start": 0
+      },
+      "seed_identity_sha256": "44e4609f849777ec6707284d952bdbc89d22e3bec3380856b6daf3912b8c913a"
+    },
+    {
+      "capture": "real-v3-slice-cba94dfa_2097152-20261021T013137Z",
+      "cpu_capture_checks": {
+        "digest_exact": true,
+        "exact": true,
+        "operand_exact": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "transcript_exact": true
+      },
+      "cpu_capture_result_count": 20,
+      "cpu_oracle_sha256": "13d03937f959f955440fc9030703e45026a641cf1f10ba692f12bb598bdfda8a",
+      "descriptor_path": "fixtures/phk2-host-runtime/authoritative-descriptors/real-v3-slice-cba94dfa_2097152-20261021T013137Z.bin",
+      "descriptor_sha256": "6b62070c7e8e077a8c2686657cf86cbadf5b7ee4d387807b7f3693312a0dd72b",
+      "expected_canonical_result_sha256": "4fcb629c996812101e82131d239ce0d4ab5e889fc32c284464afc25f24d2b60a",
+      "expected_raw_result_sha256": "7c0ce079dc07a0cb2a1740be79d49318f135c71fd7a584be7fbd46592ecb94d7",
+      "expected_result_count": 1,
+      "generation": 68,
+      "job_identity_hex": "a7e890c3d0e35a6769f51479e69edc1b0f533c9cfea603067d55c0ad0b8c4e7d",
+      "job_identity_sha256": "ecd026d35f196893561f324772542b635adb2780e559e17058c45b7187bcf85b",
+      "range": {
+        "count": 1,
+        "start": 0
+      },
+      "seed_identity_sha256": "d770086964cd3a1246f0ba51669179131ee15a356fd9048a6e2eada5d5c7cf5e"
+    }
+  ],
+  "schema": "PHK2-FIRST-SILICON-FIXTURE-INDEX-v1"
+}
