@@ -1,0 +1,58 @@
+{
+  "ARCHITECTURAL_REASON": "No common release barrier exists across scan1/scan2/scan3. The RTL has a cross-island USER2-to-USER3 rx_full status path: rx_full_src is reset by scan2_rst, while rx_full_s1/s2 and status capture are reset by scan3_rst. USER3 can capture the reset-default rx_full_src=0 while USER2 remains reset; FIFO wr_full is high while not ready. The two-stage status synchronizer handles metastability but does not guarantee coherent startup semantics. FIFO local-up handshakes protect FIFO pointer epochs, not this status-visible activation window.",
+  "ASYNC_RESET_DEASSERTION_CAN_RESOLVE_ON_DIFFERENT_SOURCE_EDGES": true,
+  "BSCAN_CLOCK_BRANCH_DETAILS": [
+    {
+      "clock_object": "bscan_tck",
+      "clock_root": "X7Y1",
+      "instance": "u_user1",
+      "period_ns": 20.0,
+      "physical_branch": "tck1",
+      "waveform": "rise@0.000ns fall@10.000ns"
+    },
+    {
+      "clock_object": "bscan_tck",
+      "clock_root": "X7Y0",
+      "instance": "u_user2",
+      "period_ns": 20.0,
+      "physical_branch": "tck2",
+      "waveform": "rise@0.000ns fall@10.000ns"
+    },
+    {
+      "clock_object": "bscan_tck",
+      "clock_root": "direct/no BUFG root token",
+      "instance": "u_user3",
+      "period_ns": 20.0,
+      "physical_branch": "scan3_reset_release/clk",
+      "waveform": "rise@0.000ns fall@10.000ns"
+    }
+  ],
+  "BSCAN_LOGICAL_CLOCK_DOMAINS": 1,
+  "BSCAN_PHYSICAL_CLOCK_BRANCHES": 3,
+  "CDC11_ACCEPTANCE_PASS": false,
+  "COMMON_TAP_TCK_SOURCE_CONFIRMED_BY_IMMUTABLE_RTL_COMMENT": true,
+  "DIVERGENT_RELEASE_ARCHITECTURALLY_SAFE": false,
+  "DIVERGENT_RELEASE_EDGE_POSSIBLE": true,
+  "FAILING_RESET_ROW_IDS": [
+    3,
+    4,
+    5
+  ],
+  "FIFO_LOCAL_UP_HANDSHAKES_PROTECT_POINTER_EPOCHS": true,
+  "INDEPENDENT_QUALIFICATION_COMMIT": "7893357612d9d8bc671badde63525e8925668dff",
+  "INDEPENDENT_RELEASE_CHAINS": 3,
+  "RIGHT_38_OF_38_RESULT_VALID": false,
+  "RIGHT_ACCEPTANCE_PREMISE": "Three independently named RTL TCK destinations are treated as three reset domains; each has a local chain and local consumer tests. CDC-9 match, two stages, and recovery/removal PASS are accepted as sufficient. The qualification checker does not compare routed clock-object identities or clock roots.",
+  "RIGHT_ACCEPTANCE_PREMISE_VALID": false,
+  "RIGHT_CODE_CHECKS_DISTINCT_DOMAIN_CLOCK_OBJECTS": false,
+  "RIGHT_CODE_COUNTS_NAMED_TCK_INSTANTIATIONS": true,
+  "RIGHT_COMPONENT_CASE_EXECUTION_COUNTS_RETAINED": true,
+  "RIGHT_QUALIFICATION_PROMOTION_VALID": false,
+  "RIGHT_REPORTED_QUALIFICATION_CASES_PASS": 38,
+  "RIGHT_REPORTED_TCK_INDEPENDENT_PASS": 38,
+  "ROUTED_CDC_DESTINATION_CLOCK": "bscan_tck for all five CDC-11 rows",
+  "RTL_FIX_REQUIRED": true,
+  "V4_EVIDENCE_COMMIT": "221002426f26dd7a3705ba5ec58d40a2ea4c2674",
+  "V4_SOURCE_COMMIT": "5a6ceadb8fc2eb6d972b5d338b507ab0b5296a2a",
+  "WHY_RIGHT_RESULT_IS_TOO_PERMISSIVE": "It substitutes three RTL signal names and a testbench with three independently driven clocks for proof of three genuinely distinct routed domains. The routed CDC report instead assigns all five crossings to one bscan_tck object; all BSCANE2 outputs share the physical TAP TCK source and differ only in routed branch/root. Per-domain CDC-9 and recovery/removal prove each chain works locally, not that separate chains release coherently or that cross-island activation is safe."
+}
