@@ -1,0 +1,29 @@
+{
+  "schema": "PHK2-VIVADO-CDC11-RESET-REVIEW-v1",
+  "synthetic_fixture": true,
+  "source": {
+    "SOURCE_COMMIT": null,
+    "SOURCE_TREE_HASH": null,
+    "SOURCE_TREE_ARCHIVE": {"path": null, "sha256": null},
+    "SOURCE_FILES": {}
+  },
+  "mapped_checkpoint": {"stage": "SYNTH_MAPPED", "path": null, "sha256": null, "source_commit": null},
+  "cdc_default_report": {"path": null, "sha256": null},
+  "cdc_all_checks_report": {"path": null, "sha256": null},
+  "timing_summary_report": {"path": null, "sha256": null},
+  "recovery_removal_report": {"path": null, "sha256": null},
+  "exceptions_report": {"path": null, "sha256": null},
+  "clock_inventory_report": {"path": null, "sha256": null},
+  "reset_cell_inventory_report": {"path": null, "sha256": null},
+  "cdc_methodology": {"all_checks_per_endpoint": false, "cdc_default_report_generated": false},
+  "reported_counts": {"CDC11_COUNT": null, "CDC9_COUNT": null},
+  "cdc11_rows": [],
+  "cdc9_reset_chains": [],
+  "recovery_removal": {"analysis_present": false, "pass": false, "false_path_hiding": null},
+  "gray_constraints": {"max_delay": [], "bus_skew": []},
+  "notes": [
+    "Template is not evidence and is rejected while synthetic_fixture is true.",
+    "Use read-only Tcl capture after route and bind every report/checkpoint/source file by SHA256.",
+    "Domain identity requires Vivado clock root, period, generated-clock relationship, physical source, and logical domain; clock name alone is insufficient."
+  ]
+}
