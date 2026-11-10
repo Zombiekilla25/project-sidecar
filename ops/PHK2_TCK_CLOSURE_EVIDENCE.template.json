@@ -1,0 +1,48 @@
+{
+  "schema": "PHK2-TCK-CLOSURE-EVIDENCE-v1",
+  "evidence_class": "PENDING_PHYSICAL_CAPTURE",
+  "synthetic_fixture": true,
+  "production_evidence": false,
+  "captured_utc": null,
+  "manifest_sha256": null,
+  "routed_dcp_hash": null,
+  "image_hash": null,
+  "bridge_sha256": null,
+  "authorization_sha256": null,
+  "peer_exclusion": "NOT_RUN",
+  "one_card_scope": false,
+  "workload_unchanged": false,
+  "preflight": {"path": null, "sha256": null},
+  "adapter_identity": {"path": null, "sha256": null},
+  "case_a": {
+    "case_id": null,
+    "status": "NOT_RUN",
+    "MEASURED_TCK_HZ": null,
+    "MEASURED_PERIOD_NS": null,
+    "MEASURED_HIGH_NS": null,
+    "MEASURED_LOW_NS": null,
+    "MEASURED_DUTY_CYCLE": null,
+    "MEASURED_JITTER_P2P_NS": null,
+    "MEASURED_JITTER_RMS_NS": null,
+    "raw_waveform": {"path": null, "sha256": null},
+    "settck_used_as_measurement": false
+  },
+  "case_b": {
+    "case_id": null,
+    "status": "NOT_RUN",
+    "before_state": null,
+    "after_state": null,
+    "tap_cycles": null,
+    "fpga_programming": false,
+    "workload_changed": false,
+    "transcript": {"path": null, "sha256": null},
+    "physical_clock_correlation": {"path": null, "sha256": null}
+  },
+  "final_case_statuses": {},
+  "close": {"transport_closed": false, "tap_idle": false, "peer_count_after": null},
+  "notes": [
+    "Template is deliberately non-promotable. Replace synthetic_fixture/evidence class only for actual authorized captured evidence.",
+    "Exact case IDs and BSCAN procedure must come from the authenticated qualified-v4 matrix/report; do not copy IDs into this template by assumption.",
+    "XVC settck echo is not physical TCK evidence."
+  ]
+}

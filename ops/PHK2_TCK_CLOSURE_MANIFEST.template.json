@@ -1,0 +1,54 @@
+{
+  "schema": "PHK2-TCK-CLOSURE-MANIFEST-v1",
+  "synthetic_fixture": true,
+  "TCK_INDEPENDENT_PASS": null,
+  "TCK_INDEPENDENT_FAIL": null,
+  "independent_qualification": {"result": "PENDING"},
+  "TARGET_PART": null,
+  "artifacts": {
+    "routed_dcp": {"path": null, "sha256": null},
+    "image": {"path": null, "sha256": null}
+  },
+  "ROUTED_DCP_HASH": null,
+  "IMAGE_HASH": null,
+  "route_qualification": {"status": "PENDING"},
+  "TCK_ANALYSIS_ENVELOPE": {
+    "qualified": false,
+    "minimum_tck_hz": null,
+    "maximum_tck_hz": null,
+    "minimum_high_ns": null,
+    "minimum_low_ns": null,
+    "minimum_duty_cycle_percent": null,
+    "maximum_duty_cycle_percent": null,
+    "maximum_period_jitter_p2p_ns": null,
+    "maximum_period_jitter_rms_ns": null
+  },
+  "qualification_matrix": {"status": "PENDING", "source": {"path": null, "sha256": null}},
+  "tck_dependent_cases": [
+    {
+      "case_id": null,
+      "kind": "PHYSICAL_TCK_WAVEFORM",
+      "purpose": null,
+      "required_inputs": [],
+      "required_measurement": [],
+      "pass_criteria": [],
+      "fail_criteria": [],
+      "evidence_output": []
+    },
+    {
+      "case_id": null,
+      "kind": "BSCAN_CLOCK_INTERACTION",
+      "purpose": null,
+      "required_inputs": [],
+      "required_measurement": [],
+      "pass_criteria": [],
+      "fail_criteria": [],
+      "evidence_output": []
+    }
+  ],
+  "notes": [
+    "This template is intentionally non-qualifying.",
+    "Populate case IDs and criteria only from the authenticated independent qualification matrix and qualified routed v4 reports.",
+    "No v3 hash is pinned; routed checkpoint and image identities are artifact parameters."
+  ]
+}
