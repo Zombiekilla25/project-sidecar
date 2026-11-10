@@ -1,5 +1,9 @@
 # PHK2 CDC-11 reset-fanout review
 
+> Superseded for v4 row count and evidence status by
+> [the strict five-row v4 intake](phk2-v4-cdc11-five-row-review.md). This
+> earlier note records the pre-v4 review state; it is not the current finding.
+
 ## Current evidence result
 
 The current local HEAD at review start was
