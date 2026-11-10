@@ -1,0 +1,1937 @@
+{
+  "all_pass": true,
+  "cases": {
+    "continuity": [
+      {
+        "case": "disconnect_before_transmit_definitely_unsent",
+        "pass": true
+      },
+      {
+        "case": "disconnect_during_transmit_ambiguous",
+        "pass": true
+      },
+      {
+        "case": "disconnect_after_send_before_ack_ambiguous",
+        "pass": true
+      },
+      {
+        "case": "disconnect_while_pending_is_sent",
+        "pass": true
+      },
+      {
+        "case": "disconnect_during_result_received",
+        "pass": true
+      },
+      {
+        "case": "verified_result_survives_restart",
+        "pass": true
+      },
+      {
+        "case": "duplicate_response_rejected",
+        "pass": true
+      },
+      {
+        "case": "wrong_session_result_rejected",
+        "pass": true
+      },
+      {
+        "case": "wrong_image_result_rejected",
+        "pass": true
+      },
+      {
+        "case": "work_id_reuse_rejected",
+        "pass": true
+      },
+      {
+        "case": "session_id_reuse_rejected",
+        "pass": true
+      },
+      {
+        "case": "work_id_reuse_rejected_after_restart",
+        "pass": true
+      },
+      {
+        "case": "session_id_reuse_rejected_after_restart",
+        "pass": true
+      },
+      {
+        "case": "duplicate_result_rejected_after_restart",
+        "pass": true
+      },
+      {
+        "case": "result_before_send_rejected",
+        "pass": true
+      }
+    ],
+    "crash": [
+      {
+        "case": "host_crash_reconcile_pre_send",
+        "pass": true
+      },
+      {
+        "case": "adapter_crash_reconcile_mid_send",
+        "pass": true
+      },
+      {
+        "case": "evidence_hash_chain_detects_tamper",
+        "pass": true
+      },
+      {
+        "case": "evidence_write_failure_fails_closed",
+        "pass": true
+      },
+      {
+        "case": "journal_has_identity_image_session_work_hashes_timestamps",
+        "pass": true
+      }
+    ],
+    "identity": [
+      {
+        "case": "endpoint_reorder",
+        "pass": true
+      },
+      {
+        "case": "endpoint_disappearance_reappearance",
+        "pass": true
+      },
+      {
+        "case": "duplicate_apparent_endpoint",
+        "pass": true
+      },
+      {
+        "case": "same_transport_wrong_device",
+        "pass": true
+      },
+      {
+        "case": "correct_device_wrong_image",
+        "pass": true
+      },
+      {
+        "case": "stale_identity_cache_session_reuse",
+        "pass": true
+      },
+      {
+        "case": "identity_mismatch_after_reconnect",
+        "pass": true
+      },
+      {
+        "case": "peer_card_substitution",
+        "pass": true
+      }
+    ],
+    "recovery": [
+      {
+        "case": "legal:PRECHECK->FAILED_CLOSED",
+        "pass": true
+      },
+      {
+        "case": "legal:PRECHECK->IDENTIFY",
+        "pass": true
+      },
+      {
+        "case": "legal:IDENTIFY->FAILED_CLOSED",
+        "pass": true
+      },
+      {
+        "case": "legal:IDENTIFY->OPEN",
+        "pass": true
+      },
+      {
+        "case": "legal:IDENTIFY->QUARANTINED",
+        "pass": true
+      },
+      {
+        "case": "legal:OPEN->DISCONNECTED",
+        "pass": true
+      },
+      {
+        "case": "legal:OPEN->ABORTING",
+        "pass": true
+      },
+      {
+        "case": "legal:OPEN->FAILED_CLOSED",
+        "pass": true
+      },
+      {
+        "case": "legal:OPEN->HELLO",
+        "pass": true
+      },
+      {
+        "case": "legal:HELLO->DISCONNECTED",
+        "pass": true
+      },
+      {
+        "case": "legal:HELLO->ABORTING",
+        "pass": true
+      },
+      {
+        "case": "legal:HELLO->READY",
+        "pass": true
+      },
+      {
+        "case": "legal:HELLO->FAILED_CLOSED",
+        "pass": true
+      },
+      {
+        "case": "legal:READY->FAILED_CLOSED",
+        "pass": true
+      },
+      {
+        "case": "legal:READY->DISCONNECTED",
+        "pass": true
+      },
+      {
+        "case": "legal:READY->CLOSE",
+        "pass": true
+      },
+      {
+        "case": "legal:READY->WORK_SENT",
+        "pass": true
+      },
+      {
+        "case": "legal:READY->ABORTING",
+        "pass": true
+      },
+      {
+        "case": "legal:WORK_SENT->FAILED_CLOSED",
+        "pass": true
+      },
+      {
+        "case": "legal:WORK_SENT->DISCONNECTED",
+        "pass": true
+      },
+      {
+        "case": "legal:WORK_SENT->ABORTING",
+        "pass": true
+      },
+      {
+        "case": "legal:WORK_SENT->RESULT_PENDING",
+        "pass": true
+      },
+      {
+        "case": "legal:WORK_SENT->QUARANTINED",
+        "pass": true
+      },
+      {
+        "case": "legal:RESULT_PENDING->FAILED_CLOSED",
+        "pass": true
+      },
+      {
+        "case": "legal:RESULT_PENDING->DISCONNECTED",
+        "pass": true
+      },
+      {
+        "case": "legal:RESULT_PENDING->RESULT_RECEIVED",
+        "pass": true
+      },
+      {
+        "case": "legal:RESULT_PENDING->ABORTING",
+        "pass": true
+      },
+      {
+        "case": "legal:RESULT_PENDING->QUARANTINED",
+        "pass": true
+      },
+      {
+        "case": "legal:RESULT_RECEIVED->FAILED_CLOSED",
+        "pass": true
+      },
+      {
+        "case": "legal:RESULT_RECEIVED->QUARANTINED",
+        "pass": true
+      },
+      {
+        "case": "legal:RESULT_RECEIVED->CLOSE",
+        "pass": true
+      },
+      {
+        "case": "legal:CLOSE->ROLLBACK_REQUIRED",
+        "pass": true
+      },
+      {
+        "case": "legal:CLOSE->FAILED_CLOSED",
+        "pass": true
+      },
+      {
+        "case": "legal:CLOSE->QUARANTINED",
+        "pass": true
+      },
+      {
+        "case": "legal:ABORTING->DISCONNECTED",
+        "pass": true
+      },
+      {
+        "case": "legal:ABORTING->ROLLBACK_REQUIRED",
+        "pass": true
+      },
+      {
+        "case": "legal:ABORTING->FAILED_CLOSED",
+        "pass": true
+      },
+      {
+        "case": "legal:ABORTING->QUARANTINED",
+        "pass": true
+      },
+      {
+        "case": "legal:DISCONNECTED->ROLLBACK_REQUIRED",
+        "pass": true
+      },
+      {
+        "case": "legal:DISCONNECTED->RECOVERING",
+        "pass": true
+      },
+      {
+        "case": "legal:DISCONNECTED->FAILED_CLOSED",
+        "pass": true
+      },
+      {
+        "case": "legal:DISCONNECTED->QUARANTINED",
+        "pass": true
+      },
+      {
+        "case": "legal:RECOVERING->ROLLBACK_REQUIRED",
+        "pass": true
+      },
+      {
+        "case": "legal:RECOVERING->FAILED_CLOSED",
+        "pass": true
+      },
+      {
+        "case": "legal:RECOVERING->IDENTIFY",
+        "pass": true
+      },
+      {
+        "case": "legal:RECOVERING->QUARANTINED",
+        "pass": true
+      },
+      {
+        "case": "legal:ROLLBACK_REQUIRED->ROLLBACK_COMPLETE",
+        "pass": true
+      },
+      {
+        "case": "legal:ROLLBACK_REQUIRED->FAILED_CLOSED",
+        "pass": true
+      },
+      {
+        "case": "legal:ROLLBACK_REQUIRED->QUARANTINED",
+        "pass": true
+      },
+      {
+        "case": "legal:ROLLBACK_COMPLETE->FAILED_CLOSED",
+        "pass": true
+      },
+      {
+        "case": "legal:ROLLBACK_COMPLETE->CLOSE",
+        "pass": true
+      },
+      {
+        "case": "legal:QUARANTINED->FAILED_CLOSED",
+        "pass": true
+      },
+      {
+        "case": "illegal:PRECHECK->PRECHECK",
+        "pass": true
+      },
+      {
+        "case": "illegal:PRECHECK->OPEN",
+        "pass": true
+      },
+      {
+        "case": "illegal:PRECHECK->HELLO",
+        "pass": true
+      },
+      {
+        "case": "illegal:PRECHECK->READY",
+        "pass": true
+      },
+      {
+        "case": "illegal:PRECHECK->WORK_SENT",
+        "pass": true
+      },
+      {
+        "case": "illegal:PRECHECK->RESULT_PENDING",
+        "pass": true
+      },
+      {
+        "case": "illegal:PRECHECK->RESULT_RECEIVED",
+        "pass": true
+      },
+      {
+        "case": "illegal:PRECHECK->CLOSE",
+        "pass": true
+      },
+      {
+        "case": "illegal:PRECHECK->ABORTING",
+        "pass": true
+      },
+      {
+        "case": "illegal:PRECHECK->DISCONNECTED",
+        "pass": true
+      },
+      {
+        "case": "illegal:PRECHECK->RECOVERING",
+        "pass": true
+      },
+      {
+        "case": "illegal:PRECHECK->ROLLBACK_REQUIRED",
+        "pass": true
+      },
+      {
+        "case": "illegal:PRECHECK->ROLLBACK_COMPLETE",
+        "pass": true
+      },
+      {
+        "case": "illegal:PRECHECK->QUARANTINED",
+        "pass": true
+      },
+      {
+        "case": "illegal:IDENTIFY->PRECHECK",
+        "pass": true
+      },
+      {
+        "case": "illegal:IDENTIFY->IDENTIFY",
+        "pass": true
+      },
+      {
+        "case": "illegal:IDENTIFY->HELLO",
+        "pass": true
+      },
+      {
+        "case": "illegal:IDENTIFY->READY",
+        "pass": true
+      },
+      {
+        "case": "illegal:IDENTIFY->WORK_SENT",
+        "pass": true
+      },
+      {
+        "case": "illegal:IDENTIFY->RESULT_PENDING",
+        "pass": true
+      },
+      {
+        "case": "illegal:IDENTIFY->RESULT_RECEIVED",
+        "pass": true
+      },
+      {
+        "case": "illegal:IDENTIFY->CLOSE",
+        "pass": true
+      },
+      {
+        "case": "illegal:IDENTIFY->ABORTING",
+        "pass": true
+      },
+      {
+        "case": "illegal:IDENTIFY->DISCONNECTED",
+        "pass": true
+      },
+      {
+        "case": "illegal:IDENTIFY->RECOVERING",
+        "pass": true
+      },
+      {
+        "case": "illegal:IDENTIFY->ROLLBACK_REQUIRED",
+        "pass": true
+      },
+      {
+        "case": "illegal:IDENTIFY->ROLLBACK_COMPLETE",
+        "pass": true
+      },
+      {
+        "case": "illegal:OPEN->PRECHECK",
+        "pass": true
+      },
+      {
+        "case": "illegal:OPEN->IDENTIFY",
+        "pass": true
+      },
+      {
+        "case": "illegal:OPEN->OPEN",
+        "pass": true
+      },
+      {
+        "case": "illegal:OPEN->READY",
+        "pass": true
+      },
+      {
+        "case": "illegal:OPEN->WORK_SENT",
+        "pass": true
+      },
+      {
+        "case": "illegal:OPEN->RESULT_PENDING",
+        "pass": true
+      },
+      {
+        "case": "illegal:OPEN->RESULT_RECEIVED",
+        "pass": true
+      },
+      {
+        "case": "illegal:OPEN->CLOSE",
+        "pass": true
+      },
+      {
+        "case": "illegal:OPEN->RECOVERING",
+        "pass": true
+      },
+      {
+        "case": "illegal:OPEN->ROLLBACK_REQUIRED",
+        "pass": true
+      },
+      {
+        "case": "illegal:OPEN->ROLLBACK_COMPLETE",
+        "pass": true
+      },
+      {
+        "case": "illegal:OPEN->QUARANTINED",
+        "pass": true
+      },
+      {
+        "case": "illegal:HELLO->PRECHECK",
+        "pass": true
+      },
+      {
+        "case": "illegal:HELLO->IDENTIFY",
+        "pass": true
+      },
+      {
+        "case": "illegal:HELLO->OPEN",
+        "pass": true
+      },
+      {
+        "case": "illegal:HELLO->HELLO",
+        "pass": true
+      },
+      {
+        "case": "illegal:HELLO->WORK_SENT",
+        "pass": true
+      },
+      {
+        "case": "illegal:HELLO->RESULT_PENDING",
+        "pass": true
+      },
+      {
+        "case": "illegal:HELLO->RESULT_RECEIVED",
+        "pass": true
+      },
+      {
+        "case": "illegal:HELLO->CLOSE",
+        "pass": true
+      },
+      {
+        "case": "illegal:HELLO->RECOVERING",
+        "pass": true
+      },
+      {
+        "case": "illegal:HELLO->ROLLBACK_REQUIRED",
+        "pass": true
+      },
+      {
+        "case": "illegal:HELLO->ROLLBACK_COMPLETE",
+        "pass": true
+      },
+      {
+        "case": "illegal:HELLO->QUARANTINED",
+        "pass": true
+      },
+      {
+        "case": "illegal:READY->PRECHECK",
+        "pass": true
+      },
+      {
+        "case": "illegal:READY->IDENTIFY",
+        "pass": true
+      },
+      {
+        "case": "illegal:READY->OPEN",
+        "pass": true
+      },
+      {
+        "case": "illegal:READY->HELLO",
+        "pass": true
+      },
+      {
+        "case": "illegal:READY->READY",
+        "pass": true
+      },
+      {
+        "case": "illegal:READY->RESULT_PENDING",
+        "pass": true
+      },
+      {
+        "case": "illegal:READY->RESULT_RECEIVED",
+        "pass": true
+      },
+      {
+        "case": "illegal:READY->RECOVERING",
+        "pass": true
+      },
+      {
+        "case": "illegal:READY->ROLLBACK_REQUIRED",
+        "pass": true
+      },
+      {
+        "case": "illegal:READY->ROLLBACK_COMPLETE",
+        "pass": true
+      },
+      {
+        "case": "illegal:READY->QUARANTINED",
+        "pass": true
+      },
+      {
+        "case": "illegal:WORK_SENT->PRECHECK",
+        "pass": true
+      },
+      {
+        "case": "illegal:WORK_SENT->IDENTIFY",
+        "pass": true
+      },
+      {
+        "case": "illegal:WORK_SENT->OPEN",
+        "pass": true
+      },
+      {
+        "case": "illegal:WORK_SENT->HELLO",
+        "pass": true
+      },
+      {
+        "case": "illegal:WORK_SENT->READY",
+        "pass": true
+      },
+      {
+        "case": "illegal:WORK_SENT->WORK_SENT",
+        "pass": true
+      },
+      {
+        "case": "illegal:WORK_SENT->RESULT_RECEIVED",
+        "pass": true
+      },
+      {
+        "case": "illegal:WORK_SENT->CLOSE",
+        "pass": true
+      },
+      {
+        "case": "illegal:WORK_SENT->RECOVERING",
+        "pass": true
+      },
+      {
+        "case": "illegal:WORK_SENT->ROLLBACK_REQUIRED",
+        "pass": true
+      },
+      {
+        "case": "illegal:WORK_SENT->ROLLBACK_COMPLETE",
+        "pass": true
+      },
+      {
+        "case": "illegal:RESULT_PENDING->PRECHECK",
+        "pass": true
+      },
+      {
+        "case": "illegal:RESULT_PENDING->IDENTIFY",
+        "pass": true
+      },
+      {
+        "case": "illegal:RESULT_PENDING->OPEN",
+        "pass": true
+      },
+      {
+        "case": "illegal:RESULT_PENDING->HELLO",
+        "pass": true
+      },
+      {
+        "case": "illegal:RESULT_PENDING->READY",
+        "pass": true
+      },
+      {
+        "case": "illegal:RESULT_PENDING->WORK_SENT",
+        "pass": true
+      },
+      {
+        "case": "illegal:RESULT_PENDING->RESULT_PENDING",
+        "pass": true
+      },
+      {
+        "case": "illegal:RESULT_PENDING->CLOSE",
+        "pass": true
+      },
+      {
+        "case": "illegal:RESULT_PENDING->RECOVERING",
+        "pass": true
+      },
+      {
+        "case": "illegal:RESULT_PENDING->ROLLBACK_REQUIRED",
+        "pass": true
+      },
+      {
+        "case": "illegal:RESULT_PENDING->ROLLBACK_COMPLETE",
+        "pass": true
+      },
+      {
+        "case": "illegal:RESULT_RECEIVED->PRECHECK",
+        "pass": true
+      },
+      {
+        "case": "illegal:RESULT_RECEIVED->IDENTIFY",
+        "pass": true
+      },
+      {
+        "case": "illegal:RESULT_RECEIVED->OPEN",
+        "pass": true
+      },
+      {
+        "case": "illegal:RESULT_RECEIVED->HELLO",
+        "pass": true
+      },
+      {
+        "case": "illegal:RESULT_RECEIVED->READY",
+        "pass": true
+      },
+      {
+        "case": "illegal:RESULT_RECEIVED->WORK_SENT",
+        "pass": true
+      },
+      {
+        "case": "illegal:RESULT_RECEIVED->RESULT_PENDING",
+        "pass": true
+      },
+      {
+        "case": "illegal:RESULT_RECEIVED->RESULT_RECEIVED",
+        "pass": true
+      },
+      {
+        "case": "illegal:RESULT_RECEIVED->ABORTING",
+        "pass": true
+      },
+      {
+        "case": "illegal:RESULT_RECEIVED->DISCONNECTED",
+        "pass": true
+      },
+      {
+        "case": "illegal:RESULT_RECEIVED->RECOVERING",
+        "pass": true
+      },
+      {
+        "case": "illegal:RESULT_RECEIVED->ROLLBACK_REQUIRED",
+        "pass": true
+      },
+      {
+        "case": "illegal:RESULT_RECEIVED->ROLLBACK_COMPLETE",
+        "pass": true
+      },
+      {
+        "case": "illegal:CLOSE->PRECHECK",
+        "pass": true
+      },
+      {
+        "case": "illegal:CLOSE->IDENTIFY",
+        "pass": true
+      },
+      {
+        "case": "illegal:CLOSE->OPEN",
+        "pass": true
+      },
+      {
+        "case": "illegal:CLOSE->HELLO",
+        "pass": true
+      },
+      {
+        "case": "illegal:CLOSE->READY",
+        "pass": true
+      },
+      {
+        "case": "illegal:CLOSE->WORK_SENT",
+        "pass": true
+      },
+      {
+        "case": "illegal:CLOSE->RESULT_PENDING",
+        "pass": true
+      },
+      {
+        "case": "illegal:CLOSE->RESULT_RECEIVED",
+        "pass": true
+      },
+      {
+        "case": "illegal:CLOSE->CLOSE",
+        "pass": true
+      },
+      {
+        "case": "illegal:CLOSE->ABORTING",
+        "pass": true
+      },
+      {
+        "case": "illegal:CLOSE->DISCONNECTED",
+        "pass": true
+      },
+      {
+        "case": "illegal:CLOSE->RECOVERING",
+        "pass": true
+      },
+      {
+        "case": "illegal:CLOSE->ROLLBACK_COMPLETE",
+        "pass": true
+      },
+      {
+        "case": "illegal:ABORTING->PRECHECK",
+        "pass": true
+      },
+      {
+        "case": "illegal:ABORTING->IDENTIFY",
+        "pass": true
+      },
+      {
+        "case": "illegal:ABORTING->OPEN",
+        "pass": true
+      },
+      {
+        "case": "illegal:ABORTING->HELLO",
+        "pass": true
+      },
+      {
+        "case": "illegal:ABORTING->READY",
+        "pass": true
+      },
+      {
+        "case": "illegal:ABORTING->WORK_SENT",
+        "pass": true
+      },
+      {
+        "case": "illegal:ABORTING->RESULT_PENDING",
+        "pass": true
+      },
+      {
+        "case": "illegal:ABORTING->RESULT_RECEIVED",
+        "pass": true
+      },
+      {
+        "case": "illegal:ABORTING->CLOSE",
+        "pass": true
+      },
+      {
+        "case": "illegal:ABORTING->ABORTING",
+        "pass": true
+      },
+      {
+        "case": "illegal:ABORTING->RECOVERING",
+        "pass": true
+      },
+      {
+        "case": "illegal:ABORTING->ROLLBACK_COMPLETE",
+        "pass": true
+      },
+      {
+        "case": "illegal:DISCONNECTED->PRECHECK",
+        "pass": true
+      },
+      {
+        "case": "illegal:DISCONNECTED->IDENTIFY",
+        "pass": true
+      },
+      {
+        "case": "illegal:DISCONNECTED->OPEN",
+        "pass": true
+      },
+      {
+        "case": "illegal:DISCONNECTED->HELLO",
+        "pass": true
+      },
+      {
+        "case": "illegal:DISCONNECTED->READY",
+        "pass": true
+      },
+      {
+        "case": "illegal:DISCONNECTED->WORK_SENT",
+        "pass": true
+      },
+      {
+        "case": "illegal:DISCONNECTED->RESULT_PENDING",
+        "pass": true
+      },
+      {
+        "case": "illegal:DISCONNECTED->RESULT_RECEIVED",
+        "pass": true
+      },
+      {
+        "case": "illegal:DISCONNECTED->CLOSE",
+        "pass": true
+      },
+      {
+        "case": "illegal:DISCONNECTED->ABORTING",
+        "pass": true
+      },
+      {
+        "case": "illegal:DISCONNECTED->DISCONNECTED",
+        "pass": true
+      },
+      {
+        "case": "illegal:DISCONNECTED->ROLLBACK_COMPLETE",
+        "pass": true
+      },
+      {
+        "case": "illegal:RECOVERING->PRECHECK",
+        "pass": true
+      },
+      {
+        "case": "illegal:RECOVERING->OPEN",
+        "pass": true
+      },
+      {
+        "case": "illegal:RECOVERING->HELLO",
+        "pass": true
+      },
+      {
+        "case": "illegal:RECOVERING->READY",
+        "pass": true
+      },
+      {
+        "case": "illegal:RECOVERING->WORK_SENT",
+        "pass": true
+      },
+      {
+        "case": "illegal:RECOVERING->RESULT_PENDING",
+        "pass": true
+      },
+      {
+        "case": "illegal:RECOVERING->RESULT_RECEIVED",
+        "pass": true
+      },
+      {
+        "case": "illegal:RECOVERING->CLOSE",
+        "pass": true
+      },
+      {
+        "case": "illegal:RECOVERING->ABORTING",
+        "pass": true
+      },
+      {
+        "case": "illegal:RECOVERING->DISCONNECTED",
+        "pass": true
+      },
+      {
+        "case": "illegal:RECOVERING->RECOVERING",
+        "pass": true
+      },
+      {
+        "case": "illegal:RECOVERING->ROLLBACK_COMPLETE",
+        "pass": true
+      },
+      {
+        "case": "illegal:ROLLBACK_REQUIRED->PRECHECK",
+        "pass": true
+      },
+      {
+        "case": "illegal:ROLLBACK_REQUIRED->IDENTIFY",
+        "pass": true
+      },
+      {
+        "case": "illegal:ROLLBACK_REQUIRED->OPEN",
+        "pass": true
+      },
+      {
+        "case": "illegal:ROLLBACK_REQUIRED->HELLO",
+        "pass": true
+      },
+      {
+        "case": "illegal:ROLLBACK_REQUIRED->READY",
+        "pass": true
+      },
+      {
+        "case": "illegal:ROLLBACK_REQUIRED->WORK_SENT",
+        "pass": true
+      },
+      {
+        "case": "illegal:ROLLBACK_REQUIRED->RESULT_PENDING",
+        "pass": true
+      },
+      {
+        "case": "illegal:ROLLBACK_REQUIRED->RESULT_RECEIVED",
+        "pass": true
+      },
+      {
+        "case": "illegal:ROLLBACK_REQUIRED->CLOSE",
+        "pass": true
+      },
+      {
+        "case": "illegal:ROLLBACK_REQUIRED->ABORTING",
+        "pass": true
+      },
+      {
+        "case": "illegal:ROLLBACK_REQUIRED->DISCONNECTED",
+        "pass": true
+      },
+      {
+        "case": "illegal:ROLLBACK_REQUIRED->RECOVERING",
+        "pass": true
+      },
+      {
+        "case": "illegal:ROLLBACK_REQUIRED->ROLLBACK_REQUIRED",
+        "pass": true
+      },
+      {
+        "case": "illegal:ROLLBACK_COMPLETE->PRECHECK",
+        "pass": true
+      },
+      {
+        "case": "illegal:ROLLBACK_COMPLETE->IDENTIFY",
+        "pass": true
+      },
+      {
+        "case": "illegal:ROLLBACK_COMPLETE->OPEN",
+        "pass": true
+      },
+      {
+        "case": "illegal:ROLLBACK_COMPLETE->HELLO",
+        "pass": true
+      },
+      {
+        "case": "illegal:ROLLBACK_COMPLETE->READY",
+        "pass": true
+      },
+      {
+        "case": "illegal:ROLLBACK_COMPLETE->WORK_SENT",
+        "pass": true
+      },
+      {
+        "case": "illegal:ROLLBACK_COMPLETE->RESULT_PENDING",
+        "pass": true
+      },
+      {
+        "case": "illegal:ROLLBACK_COMPLETE->RESULT_RECEIVED",
+        "pass": true
+      },
+      {
+        "case": "illegal:ROLLBACK_COMPLETE->ABORTING",
+        "pass": true
+      },
+      {
+        "case": "illegal:ROLLBACK_COMPLETE->DISCONNECTED",
+        "pass": true
+      },
+      {
+        "case": "illegal:ROLLBACK_COMPLETE->RECOVERING",
+        "pass": true
+      },
+      {
+        "case": "illegal:ROLLBACK_COMPLETE->ROLLBACK_REQUIRED",
+        "pass": true
+      },
+      {
+        "case": "illegal:ROLLBACK_COMPLETE->ROLLBACK_COMPLETE",
+        "pass": true
+      },
+      {
+        "case": "illegal:ROLLBACK_COMPLETE->QUARANTINED",
+        "pass": true
+      },
+      {
+        "case": "illegal:QUARANTINED->PRECHECK",
+        "pass": true
+      },
+      {
+        "case": "illegal:QUARANTINED->IDENTIFY",
+        "pass": true
+      },
+      {
+        "case": "illegal:QUARANTINED->OPEN",
+        "pass": true
+      },
+      {
+        "case": "illegal:QUARANTINED->HELLO",
+        "pass": true
+      },
+      {
+        "case": "illegal:QUARANTINED->READY",
+        "pass": true
+      },
+      {
+        "case": "illegal:QUARANTINED->WORK_SENT",
+        "pass": true
+      },
+      {
+        "case": "illegal:QUARANTINED->RESULT_PENDING",
+        "pass": true
+      },
+      {
+        "case": "illegal:QUARANTINED->RESULT_RECEIVED",
+        "pass": true
+      },
+      {
+        "case": "illegal:QUARANTINED->CLOSE",
+        "pass": true
+      },
+      {
+        "case": "illegal:QUARANTINED->ABORTING",
+        "pass": true
+      },
+      {
+        "case": "illegal:QUARANTINED->DISCONNECTED",
+        "pass": true
+      },
+      {
+        "case": "illegal:QUARANTINED->RECOVERING",
+        "pass": true
+      },
+      {
+        "case": "illegal:QUARANTINED->ROLLBACK_REQUIRED",
+        "pass": true
+      },
+      {
+        "case": "illegal:QUARANTINED->ROLLBACK_COMPLETE",
+        "pass": true
+      },
+      {
+        "case": "illegal:QUARANTINED->QUARANTINED",
+        "pass": true
+      },
+      {
+        "case": "illegal:FAILED_CLOSED->PRECHECK",
+        "pass": true
+      },
+      {
+        "case": "illegal:FAILED_CLOSED->IDENTIFY",
+        "pass": true
+      },
+      {
+        "case": "illegal:FAILED_CLOSED->OPEN",
+        "pass": true
+      },
+      {
+        "case": "illegal:FAILED_CLOSED->HELLO",
+        "pass": true
+      },
+      {
+        "case": "illegal:FAILED_CLOSED->READY",
+        "pass": true
+      },
+      {
+        "case": "illegal:FAILED_CLOSED->WORK_SENT",
+        "pass": true
+      },
+      {
+        "case": "illegal:FAILED_CLOSED->RESULT_PENDING",
+        "pass": true
+      },
+      {
+        "case": "illegal:FAILED_CLOSED->RESULT_RECEIVED",
+        "pass": true
+      },
+      {
+        "case": "illegal:FAILED_CLOSED->CLOSE",
+        "pass": true
+      },
+      {
+        "case": "illegal:FAILED_CLOSED->ABORTING",
+        "pass": true
+      },
+      {
+        "case": "illegal:FAILED_CLOSED->DISCONNECTED",
+        "pass": true
+      },
+      {
+        "case": "illegal:FAILED_CLOSED->RECOVERING",
+        "pass": true
+      },
+      {
+        "case": "illegal:FAILED_CLOSED->ROLLBACK_REQUIRED",
+        "pass": true
+      },
+      {
+        "case": "illegal:FAILED_CLOSED->ROLLBACK_COMPLETE",
+        "pass": true
+      },
+      {
+        "case": "illegal:FAILED_CLOSED->QUARANTINED",
+        "pass": true
+      },
+      {
+        "case": "illegal:FAILED_CLOSED->FAILED_CLOSED",
+        "pass": true
+      },
+      {
+        "case": "ambiguous_failure_never_ready",
+        "pass": true
+      }
+    ]
+  },
+  "continuity_tests": 15,
+  "continuity_tests_pass": 15,
+  "crash_reconciliation_tests": 5,
+  "crash_reconciliation_tests_pass": 5,
+  "fault_scenarios": [
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "disconnect"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182194,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "process_restart",
+        "disconnect"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182195,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "abort",
+        "process_restart",
+        "disconnect"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182196,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "duplicate_packet"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182197,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "image_mismatch",
+        "duplicate_packet"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182198,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "reconnect",
+        "image_mismatch",
+        "duplicate_packet"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182199,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "DEFINITELY_NOT_SENT",
+      "faults": [
+        "evidence_write_failure"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182200,
+      "terminal": "FAILED_CLOSED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "timeout",
+        "evidence_write_failure"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182201,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "stale_packet",
+        "timeout",
+        "evidence_write_failure"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182202,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "DEFINITELY_NOT_SENT",
+      "faults": [
+        "authorization_revocation"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182203,
+      "terminal": "FAILED_CLOSED"
+    },
+    {
+      "disposition": "DEFINITELY_NOT_SENT",
+      "faults": [
+        "delayed_packet",
+        "authorization_revocation"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182204,
+      "terminal": "FAILED_CLOSED"
+    },
+    {
+      "disposition": "DEFINITELY_NOT_SENT",
+      "faults": [
+        "identity_change",
+        "delayed_packet",
+        "authorization_revocation"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182205,
+      "terminal": "FAILED_CLOSED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "disconnect"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182206,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "process_restart",
+        "disconnect"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182207,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "abort",
+        "process_restart",
+        "disconnect"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182208,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "duplicate_packet"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182209,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "image_mismatch",
+        "duplicate_packet"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182210,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "reconnect",
+        "image_mismatch",
+        "duplicate_packet"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182211,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "DEFINITELY_NOT_SENT",
+      "faults": [
+        "evidence_write_failure"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182212,
+      "terminal": "FAILED_CLOSED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "timeout",
+        "evidence_write_failure"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182213,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "stale_packet",
+        "timeout",
+        "evidence_write_failure"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182214,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "DEFINITELY_NOT_SENT",
+      "faults": [
+        "authorization_revocation"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182215,
+      "terminal": "FAILED_CLOSED"
+    },
+    {
+      "disposition": "DEFINITELY_NOT_SENT",
+      "faults": [
+        "delayed_packet",
+        "authorization_revocation"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182216,
+      "terminal": "FAILED_CLOSED"
+    },
+    {
+      "disposition": "DEFINITELY_NOT_SENT",
+      "faults": [
+        "identity_change",
+        "delayed_packet",
+        "authorization_revocation"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182217,
+      "terminal": "FAILED_CLOSED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "disconnect"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182218,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "process_restart",
+        "disconnect"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182219,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "abort",
+        "process_restart",
+        "disconnect"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182220,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "duplicate_packet"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182221,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "image_mismatch",
+        "duplicate_packet"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182222,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "reconnect",
+        "image_mismatch",
+        "duplicate_packet"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182223,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "DEFINITELY_NOT_SENT",
+      "faults": [
+        "evidence_write_failure"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182224,
+      "terminal": "FAILED_CLOSED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "timeout",
+        "evidence_write_failure"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182225,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "stale_packet",
+        "timeout",
+        "evidence_write_failure"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182226,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "DEFINITELY_NOT_SENT",
+      "faults": [
+        "authorization_revocation"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182227,
+      "terminal": "FAILED_CLOSED"
+    },
+    {
+      "disposition": "DEFINITELY_NOT_SENT",
+      "faults": [
+        "delayed_packet",
+        "authorization_revocation"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182228,
+      "terminal": "FAILED_CLOSED"
+    },
+    {
+      "disposition": "DEFINITELY_NOT_SENT",
+      "faults": [
+        "identity_change",
+        "delayed_packet",
+        "authorization_revocation"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182229,
+      "terminal": "FAILED_CLOSED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "disconnect"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182230,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "process_restart",
+        "disconnect"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182231,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "abort",
+        "process_restart",
+        "disconnect"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182232,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "duplicate_packet"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182233,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "image_mismatch",
+        "duplicate_packet"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182234,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "reconnect",
+        "image_mismatch",
+        "duplicate_packet"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182235,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "DEFINITELY_NOT_SENT",
+      "faults": [
+        "evidence_write_failure"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182236,
+      "terminal": "FAILED_CLOSED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "timeout",
+        "evidence_write_failure"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182237,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "stale_packet",
+        "timeout",
+        "evidence_write_failure"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182238,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "DEFINITELY_NOT_SENT",
+      "faults": [
+        "authorization_revocation"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182239,
+      "terminal": "FAILED_CLOSED"
+    },
+    {
+      "disposition": "DEFINITELY_NOT_SENT",
+      "faults": [
+        "delayed_packet",
+        "authorization_revocation"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182240,
+      "terminal": "FAILED_CLOSED"
+    },
+    {
+      "disposition": "DEFINITELY_NOT_SENT",
+      "faults": [
+        "identity_change",
+        "delayed_packet",
+        "authorization_revocation"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182241,
+      "terminal": "FAILED_CLOSED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "disconnect"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182242,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "process_restart",
+        "disconnect"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182243,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "abort",
+        "process_restart",
+        "disconnect"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182244,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "duplicate_packet"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182245,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "image_mismatch",
+        "duplicate_packet"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182246,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "reconnect",
+        "image_mismatch",
+        "duplicate_packet"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182247,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "DEFINITELY_NOT_SENT",
+      "faults": [
+        "evidence_write_failure"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182248,
+      "terminal": "FAILED_CLOSED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "timeout",
+        "evidence_write_failure"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182249,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "stale_packet",
+        "timeout",
+        "evidence_write_failure"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182250,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "DEFINITELY_NOT_SENT",
+      "faults": [
+        "authorization_revocation"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182251,
+      "terminal": "FAILED_CLOSED"
+    },
+    {
+      "disposition": "DEFINITELY_NOT_SENT",
+      "faults": [
+        "delayed_packet",
+        "authorization_revocation"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182252,
+      "terminal": "FAILED_CLOSED"
+    },
+    {
+      "disposition": "DEFINITELY_NOT_SENT",
+      "faults": [
+        "identity_change",
+        "delayed_packet",
+        "authorization_revocation"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182253,
+      "terminal": "FAILED_CLOSED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "disconnect"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182254,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "process_restart",
+        "disconnect"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182255,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "abort",
+        "process_restart",
+        "disconnect"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182256,
+      "terminal": "QUARANTINED"
+    },
+    {
+      "disposition": "MAY_HAVE_BEEN_SENT",
+      "faults": [
+        "duplicate_packet"
+      ],
+      "physical_access": 0,
+      "returned_to_ready": false,
+      "safe": true,
+      "seed": 84182257,
+      "terminal": "QUARANTINED"
+    }
+  ],
+  "fault_scenarios_fail": 0,
+  "fault_scenarios_pass": 64,
+  "fault_scenarios_run": 64,
+  "hardware_access_count": 0,
+  "hello_attempts": 0,
+  "identity_tests": 8,
+  "identity_tests_pass": 8,
+  "program_attempts": 0,
+  "recovery_transitions_pass": 256,
+  "recovery_transitions_tested": 256,
+  "schema": "PHK2-TRANSACTION-SAFETY-QUALIFICATION-v1"
+}
