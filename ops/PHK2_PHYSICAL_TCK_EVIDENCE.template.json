@@ -1,0 +1,165 @@
+{
+  "schema": "PHK2-PHYSICAL-TCK-EVIDENCE-v1",
+  "status": "NOT_RUN",
+  "authorization": {
+    "required": true,
+    "authorization_reference": null,
+    "authorized_operator": null,
+    "validity_window_utc": null
+  },
+  "target_lock": {
+    "path": null,
+    "sha256": null,
+    "created_utc": null,
+    "expires_utc": null,
+    "adapter": {
+      "usb_path": null,
+      "ftdi_serial": null,
+      "vid": null,
+      "pid": null,
+      "interface": null,
+      "bridge_endpoint": null
+    },
+    "target": {
+      "board_id": null,
+      "idcode": null,
+      "dna": null,
+      "current_image_sha256": null,
+      "expected_chain_topology": null
+    }
+  },
+  "bridge": {
+    "server_host": null,
+    "pid": null,
+    "executable_path": null,
+    "running_executable_sha256": null,
+    "reviewed_settck_echo_only_sha256": "8c7230f0bf586e9297dc0e568bd19278aeeb7cff8dbb3dde150811f11393218a",
+    "xvc_port": null,
+    "command_line_evidence_sha256": null
+  },
+  "exclusive_access": {
+    "maintenance_lock_reference": null,
+    "operator_host": null,
+    "operator_source_ip": null,
+    "server_process_snapshot_path": null,
+    "server_process_snapshot_sha256": null,
+    "operator_process_snapshot_path": null,
+    "operator_process_snapshot_sha256": null,
+    "server_socket_snapshot_path": null,
+    "server_socket_snapshot_sha256": null,
+    "operator_socket_snapshot_path": null,
+    "operator_socket_snapshot_sha256": null,
+    "firewall_snapshot_path": null,
+    "firewall_snapshot_sha256": null,
+    "listener_owner_pid_matches_sqrl": false,
+    "competing_client_processes": null,
+    "established_sessions_before": null,
+    "operator_only_network_acl": false,
+    "one_non_reconnecting_operator_client": false,
+    "exclusive_peer_gate_pass": false
+  },
+  "scan": {
+    "protocol": "XVC shift only; settck omitted",
+    "instruction_name": "IDCODE",
+    "instruction_opcode_hex": "09",
+    "instruction_register_bits": 6,
+    "data_register_bits": 64,
+    "expected_idcode_from_target_lock": null,
+    "expected_chain_topology_from_target_docs": null,
+    "expected_tdo_hex": null,
+    "expected_tms_transition_sequence": [
+      "any_state_to_test_logic_reset (five TMS=1 edges)",
+      "test_logic_reset_to_run_test_idle (TMS=0)",
+      "run_test_idle_to_shift_ir via select_dr/select_ir/capture_ir",
+      "shift_ir six bits, final TMS=1 to exit1_ir",
+      "exit1_ir_to_update_ir_to_run_test_idle",
+      "run_test_idle_to_shift_dr via select_dr/capture_dr",
+      "shift_dr 64 bits, final TMS=1 to exit1_dr",
+      "exit1_dr_to_update_dr_to_run_test_idle"
+    ],
+    "tck_edge_budget": 87,
+    "user1_or_user2_selected": false,
+    "configuration_instruction_selected": false,
+    "programming_operation": false,
+    "automatic_retry_or_reconnect": false,
+    "tck_left_low_in_run_test_idle": null,
+    "scan_transcript_path": null,
+    "scan_transcript_sha256": null
+  },
+  "waveform": {
+    "raw_capture_path": null,
+    "raw_capture_sha256": null,
+    "instrument_make_model": null,
+    "instrument_calibration_reference": null,
+    "sample_rate_hz": null,
+    "bandwidth_hz": null,
+    "probe_point": null,
+    "ground_point": null,
+    "edge_count": null,
+    "MEASURED_TCK_HZ": null,
+    "MEASURED_HIGH_NS": {
+      "minimum": null,
+      "maximum": null,
+      "mean": null
+    },
+    "MEASURED_LOW_NS": {
+      "minimum": null,
+      "maximum": null,
+      "mean": null
+    },
+    "MEASURED_DUTY_CYCLE": {
+      "minimum_percent": null,
+      "maximum_percent": null,
+      "mean_percent": null
+    },
+    "JITTER_OBSERVED": {
+      "period_peak_to_peak_ns": null,
+      "period_rms_ns": null
+    },
+    "minimum_period_ns": null,
+    "maximum_period_ns": null
+  },
+  "routed_acceptance_envelope": {
+    "timing_report_path": null,
+    "timing_report_sha256": null,
+    "qualification_owner_approval_reference": null,
+    "analysis_point_hz_reported_by_requester": 50000000,
+    "analysis_point_artifact_verified": false,
+    "production_limit_hz": null,
+    "minimum_high_ns": null,
+    "minimum_low_ns": null,
+    "minimum_duty_cycle_percent": null,
+    "maximum_duty_cycle_percent": null,
+    "maximum_period_jitter_p2p_ns": null,
+    "maximum_period_jitter_rms_ns": null
+  },
+  "unchanged_state": {
+    "current_image_sha256_before": null,
+    "current_image_sha256_after": null,
+    "workload_snapshot_before_path": null,
+    "workload_snapshot_before_sha256": null,
+    "workload_snapshot_after_path": null,
+    "workload_snapshot_after_sha256": null,
+    "fpga_programming_required": false,
+    "user_instruction_required": false,
+    "workload_change_required": false
+  },
+  "disposition": {
+    "PHYSICAL_TCK_TEST_READY": false,
+    "FPGA_PROGRAMMING_REQUIRED": false,
+    "USER_INSTRUCTION_REQUIRED": false,
+    "WORKLOAD_CHANGE_REQUIRED": false,
+    "PEER_EXCLUSION_READY": false,
+    "SETTCK_RESPONSE_TRUSTED": false,
+    "MEASUREMENT_REQUIRED": true,
+    "PHYSICAL_AUTHORIZATION_REQUIRED": true,
+    "physical_tck_contract_pass": false,
+    "failure_or_abort_reason": null
+  },
+  "notes": [
+    "Template is not physical evidence and must remain NOT_RUN until separately authorized testing.",
+    "The XVC settck handler in the reviewed ELF echoes the request and does not configure MPSSE TCK.",
+    "A 50 MHz routed analysis point is not automatically a production TCK limit.",
+    "The exact current PHK2 adapter target lock and remote SQRL ELF identity are not present in this template or established by this worktree."
+  ]
+}
