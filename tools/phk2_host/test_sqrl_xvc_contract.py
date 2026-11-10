@@ -4,7 +4,8 @@ from __future__ import annotations
 import unittest
 
 from sqrl_xvc_contract import (
-    NOMINAL_MPSSE_BASE_HZ,
+    MPSSE_HIGH_SPEED_BASE_HZ,
+    NOMINAL_TCK_HZ,
     REVIEWED_ELF_BUILD_ID,
     REVIEWED_ELF_SHA256,
     XvcProtocolError,
@@ -47,9 +48,10 @@ class ReviewedSqrlXvcTests(unittest.TestCase):
     def test_settck_echo_does_not_change_effective_clock(self):
         for period_ns in (1, 1000, 10_000, 2**32 - 1):
             model_reviewed_settck(b"settck:" + period_ns.to_bytes(4, "little"))
-            self.assertEqual(reviewed_binary_nominal_tck_hz(), NOMINAL_MPSSE_BASE_HZ)
+            self.assertEqual(reviewed_binary_nominal_tck_hz(), NOMINAL_TCK_HZ)
 
     def test_generic_and_jcc4p_clock_branches_select_divisor_zero(self):
+        self.assertEqual(MPSSE_HIGH_SPEED_BASE_HZ, 60_000_000)
         self.assertEqual(reviewed_binary_nominal_tck_hz(), 30_000_000)
         self.assertEqual(reviewed_binary_nominal_tck_hz(jcc4p_descriptor=True), 30_000_000)
 

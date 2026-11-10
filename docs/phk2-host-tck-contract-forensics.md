@@ -23,6 +23,149 @@ contains `SQCoEStartXVC` and `_xvcThread`; debug symbols identify `sqrl_xvc.cpp`
 but the corresponding source file was not found. Thus source is unavailable;
 the conclusions below come from disassembly of this hash-pinned ELF.
 
+### Identity and provenance boundary
+
+The retained file is 398,768 bytes, ELF64 little-endian PIE for x86-64,
+BuildID `b0562d538761373e2f1025c8bc8d8188ff8a0c40`. It is not stripped and
+retains a symbol table and the source-file string `sqrl_xvc.cpp`; these are
+function/source-name symbols, not the implementation source or DWARF line
+tables. Dynamic `DT_NEEDED` libraries are `libncurses.so.5`, `libtinfo.so.5`,
+`libpthread.so.0`, `libstdc++.so.6`, `libm.so.6`, `libgcc_s.so.1`, and `libc.so.6`.
+FTDI D2XX and libusb routines are defined in the ELF, not external dynamic
+dependencies.
+
+The retained launcher `tools/phk1_one_fk_canary_remote.sh` names
+`$HOME/civiclight-testbench/bin/sqrl_bridge_rawjtag_coe`, sets XVC port 2542,
+and appends `-j <port>` for XVC runs. Its no-bitstream diagnostic records
+`[binary, -s, <serial>, -p, <UART-port>, -j, 2542, -f, <log>]`. Multiple
+retained FK33 release/canary copies have the same SHA-256 as the static-review
+ELF. This proves the filename/hash is a retained FK33 bridge artifact used by
+the scripts. The exact remote executable currently deployed on the testbench
+is **not** proven: the launcher's remote path was not acquired or hash-attested,
+and no SSH or service-host inspection was performed. No systemd unit was found
+in the reviewed evidence set. Treat pinned-ELF conclusions as conditional on
+that deployed-hash match.
+
+### Reproduction commands and XVC command logic
+
+These are local read-only inspection commands; none executes the ELF:
+
+```sh
+file "$ELF"; sha256sum "$ELF"
+readelf -h -d -n -s "$ELF"; nm -C "$ELF"; strings -a -t x "$ELF"
+objdump -d -C --start-address=0x282d0 --stop-address=0x28e10 "$ELF"
+objdump -d -C --start-address=0x1ed6b --stop-address=0x1ee75 "$ELF"
+```
+
+In `SQCoEStartXVC` (`0x282d0`), the first two command bytes dispatch on `ge`,
+`se`, or `sh` (`0x28636`–`0x2865d`). `getinfo` (`0x28a70`) consumes six more
+bytes, formats `xvcServer_v1.0:4096\n`, and writes that ASCII response.
+`settck` (`0x28c40`) consumes the remaining nine bytes, takes the four-byte
+field at request offset 7 as a native little-endian DWORD on this x86-64 ELF,
+and writes those same four bytes. The handler has no numeric comparison,
+clamp, rounding, or call into MPSSE clock configuration. Byte swapping is
+applied to the listener port, not the period field.
+
+For `shift`, it reads a 32-bit bit count, then `ceil(bits/8)` bytes of TMS and
+the same number of TDI bytes. It passes these as raw TMS/TDI shifts into
+`CoE_ShiftTMS` / `CoE_ShiftChain` and returns captured TDO bytes. The XVC
+server does not interpret FPGA USER instructions: clients select IR/DR
+instructions through raw JTAG scan bits. The handler rejects a negative signed
+bit count and checks its internal buffer bounds. `getinfo` advertises a fixed
+4096-byte maximum shift chunk, unrelated to TCK.
+
+### MPSSE rate setup and overrides
+
+`addDevice` calls `SQRLJtagCreate` with 30,000,000 for its generic branch
+(`0x16148`). A `JCC4P` descriptor selects 20,000,000 (`0x157a0`–`0x157c3`).
+Both enter `SQRLJtagGetDeviceCount` during FTDI initialization. At `0x1ed6d`
+the ELF computes `floor(30,000,000 / requested_clock) - 1`, rejects values
+above 16 bits, then queues bytes `0x97 0x8a 0x86 divisor_low divisor_high`
+and flushes them (`0x1ed9a`–`0x1ee15`). Both requests integer-divide to
+divisor zero.
+
+`0x8a` disables FTDI MPSSE divide-by-five mode; `0x97` disables adaptive
+clocking; `0x86` sets the TCK/SK divisor. In high-speed MPSSE mode the 60 MHz
+base is divided by two and by `(divisor+1)`, matching the code's 30 MHz
+calculation. The binary-configured nominal TCK is therefore 30,000,000 Hz for
+both branches. This confirms this ELF's configuration, not adapter-pin TCK or
+a physical maximum. The setup queues MPSSE bytes directly; `FT_SetDivisor` is
+not called by it. The binary contains other JTAG clock/shift routines, but the
+reviewed XVC `settck` handler calls none of them and does not enter this setup.
+
+CLI strings document `-r/-R <latency>` as the FTDI JTAG bus latency option
+(help text says default 4), and `-o/-O <latency>` for UART latency. The launcher
+may pass these, but no CLI option or retained config for TCK/divisor was found.
+Device descriptor classification selects the 30 MHz versus 20 MHz request,
+but integer rounding leaves divisor zero in both cases. Latency changes
+buffering/response timing, not the divisor. `-j <port>` enables XVC and picks
+the listener port.
+
+## Client ownership and interference
+
+The XVC routine creates a listener, accepts one peer, closes the listening
+socket, services that connected descriptor, closes it at session end, then
+loops to create/listen/accept again. It does not multiplex connected clients
+or replace a live session. A later peer may reconnect after disconnect. There
+is no evidence in the reconnect path that it resets the JTAG TAP or restores
+a known FPGA instruction. Any accepted peer can send raw `shift` commands and
+change TAP/IR/DR state, including USER1/USER2 selection and data shifts. On
+this ELF `settck` cannot change the divisor, but peer exclusion is still
+required to prevent JTAG interference and reconnect races.
+
+The lifecycle wrapper checks process, listener, port, and target binding. It
+does not proxy XVC commands or reserve the socket against another network
+peer. Process/port ownership is therefore not equivalent to exclusive XVC
+client ownership.
+
+## Derived offline contract
+
+| Field | Offline finding |
+| --- | --- |
+| `XVC_BINARY_PROVEN` | false for currently deployed binary; retained FK33 artifact identity and script use are proven, but remote hash is unproven |
+| `RETAINED_XVC_BINARY_PROVEN` | true: path, size, hash, ELF architecture, and BuildID recorded |
+| `SETTCK_IMPLEMENTED` | true: request parsed and four bytes returned |
+| `SETTCK_CHANGES_HARDWARE` | false in inspected ELF: no MPSSE/divisor call from handler |
+| `SETTCK_ECHO_ONLY` | true |
+| `SETTCK_REQUEST_AFFECTS_HARDWARE` | false |
+| `SETTCK_RESPONSE_MATCHES_REQUEST` | true |
+| `SETTCK_RESPONSE_MATCHES_EFFECTIVE_TCK` | false |
+| `MPSSE_TCK_CONFIGURATION_FOUND` | true: initialization queues `0x97 0x8a 0x86 00 00` for both observed descriptor branches |
+| `CONFIG_CALLED_AT_STARTUP` | true: device creation invokes setup during bridge initialization |
+| `CONFIG_CALLED_BY_SETTCK` | false |
+| `MPSSE_BASE_CLOCK_HZ` | 60 MHz high-speed FTDI base; 30 MHz after the MPSSE divide-by-two convention |
+| `MPSSE_DIVISOR` | 0 |
+| `EFFECTIVE_TCK_HZ` | 30,000,000 nominal for the reviewed ELF configuration |
+| `EFFECTIVE_TCK_HZ_PROVEN` | false as a physical pin rate; ELF configuration only is proven |
+| `THIRTY_MHZ_NOMINAL_CONFIRMED` | true for the hash-pinned ELF configuration |
+| `SIDECAR_CAN_VERIFY_TCK_FROM_XVC_RESPONSE` | false: response echoes requested period |
+| `SIDECAR_CAN_VERIFY_TCK_FROM_SOFTWARE_STATE` | false with current wrapper: it neither owns XVC commands nor reads the configured divisor |
+| `PHYSICAL_PIN_MEASUREMENT_REQUIRED` | true |
+| `PEER_CAN_CHANGE_TCK` | false via `settck` on this ELF |
+| `PEER_CAN_INTERFERE_WITH_JTAG` | true via raw `shift` |
+| `PEER_EXCLUSION_REQUIRED` | true |
+
+No live XVC exchange exists in retained logs, so request/response behavior is
+static-disassembly evidence only. The exact running binary and physical TCK
+remain unproven.
+
+## Minimum future physical measurement (not performed)
+
+At a later separately authorized qualification, first hash the executable
+bound to the selected endpoint and confirm it matches this reviewed ELF. Keep
+the FPGA image and miner workload unchanged. Probe adapter TCK/SK to adapter
+ground with an oscilloscope or logic analyzer. With exclusive peer access,
+issue one bounded, read-only IDCODE scan using the documented target
+chain/opcode, then leave the TAP in Run-Test/Idle. This selects IDCODE rather
+than USER1/USER2 and does not program or alter the image; confirm the chain's
+IDCODE instruction semantics from target documentation before the physical
+step. Capture idle plus the short TCK burst and record high/low periods,
+frequency, probe point, instrument/sample settings, and bridge hash. Optionally
+capture one `settck` echo to document the protocol mismatch, but do not treat
+it as a rate measurement. Verify at the host socket/firewall boundary that no
+other peer can reach or reconnect to the listener during measurement. This
+procedure was not executed in this offline audit.
+
 At `SQCoEStartXVC` address `0x28645`, the command prefix `se` selects the
 `settck` handler at `0x28c40`. It reads the remaining nine bytes of the
 11-byte XVC request (`ttck:` plus four value bytes), loads the 32-bit value,

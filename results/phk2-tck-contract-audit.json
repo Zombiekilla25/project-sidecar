@@ -1,5 +1,5 @@
 {
-  "schema": "phk2-host-tck-contract-audit-v2",
+  "schema": "phk2-host-tck-contract-audit-v3",
   "audit_mode": "offline static binary inspection and source/config/log search",
   "hardware_activity": {
     "usb_enumeration": 0,
@@ -59,7 +59,10 @@
   "separate_legacy_sidecar_direct_ftdi_backend": {
     "source": "tools/phk1_raw_bscan/mpsse_backend.cpp",
     "source_sha256": "5926bc62c24bfc5c204c1b2cc3c4fe541b78814fcf7b74b40ce85f49570f8da1",
-    "accepted_requested_hz": [100000, 1000000],
+    "accepted_requested_hz": [
+      100000,
+      1000000
+    ],
     "identity_runner_requested_hz": 100000,
     "hardware_clock_qualified": false,
     "applies_to_sqrl_xvc_or_phk2": false
@@ -97,5 +100,126 @@
     "prior_read_only_fk33_identity_configured_hz": 100000,
     "prior_identity_scan_proves_maximum": false,
     "PHK2_physical_tck_contract_proven": false
+  },
+  "deep_static_forensics": {
+    "elf": {
+      "path": "/home/rmann/Downloads/fk33-sqrl-bridge-static-review/sqrl_bridge_rawjtag_coe",
+      "size_bytes": 398768,
+      "sha256": "8c7230f0bf586e9297dc0e568bd19278aeeb7cff8dbb3dde150811f11393218a",
+      "architecture": "ELF64 little-endian x86-64 PIE",
+      "build_id_sha1": "b0562d538761373e2f1025c8bc8d8188ff8a0c40",
+      "stripped": false,
+      "symbol_table_present": true,
+      "dwarf_line_tables_present": false,
+      "debug_module_string": "sqrl_xvc.cpp",
+      "dynamic_libraries": [
+        "libncurses.so.5",
+        "libtinfo.so.5",
+        "libpthread.so.0",
+        "libstdc++.so.6",
+        "libm.so.6",
+        "libgcc_s.so.1",
+        "libc.so.6"
+      ],
+      "ftdi_d2xx_and_libusb_linkage": "implemented symbols found in ELF; not DT_NEEDED dynamic libraries"
+    },
+    "provenance": {
+      "retained_launcher": "tools/phk1_one_fk_canary_remote.sh",
+      "configured_remote_path": "$HOME/civiclight-testbench/bin/sqrl_bridge_rawjtag_coe",
+      "xvc_option": "-j <port>",
+      "xvc_port": 2542,
+      "same_hash_fk33_retained_copies": 7,
+      "running_testbench_hash_attested": false,
+      "remote_service_file_inspected": false,
+      "ssh_performed": false,
+      "conclusion": "retained FK33 bridge artifact and launcher usage proven; deployed remote executable identity conditional/unproven"
+    },
+    "xvc_handlers": {
+      "dispatch_function": "SQCoEStartXVC",
+      "dispatch_address": "0x28636-0x2865d",
+      "getinfo_handler": "0x28a70",
+      "getinfo_response": "ASCII xvcServer_v1.0:4096\\n",
+      "getinfo_max_shift_bytes": 4096,
+      "settck_handler": "0x28c40",
+      "settck_request_bytes": 11,
+      "settck_value_offset": 7,
+      "settck_value_storage": "uint32 copied as native little-endian on x86-64",
+      "settck_validation": "none observed (no numeric compare/clamp/rounding)",
+      "settck_response": "same four bytes echoed",
+      "settck_calls_mpsse_clock_configuration": false,
+      "shift": "read uint32 bit count, ceil(bits/8) TMS and TDI bit vectors; raw SQRL TMS/chain shifts; return captured TDO bytes",
+      "shift_negative_bitcount_rejected": true,
+      "shift_internal_buffer_bounds_checked": true,
+      "shift_semantic_ir_user_decode": false
+    },
+    "mpsse_clock_forensics": {
+      "configuration_function": "SQRLJtagGetDeviceCount",
+      "called_from": "SQRLJtagCreate called in addDevice during device setup",
+      "setup_address": "0x1ed6d-0x1ee15",
+      "generic_requested_clock_hz": 30000000,
+      "jcc4p_descriptor_requested_clock_hz": 20000000,
+      "divisor_formula": "floor(30000000 / requested_clock_hz) - 1",
+      "generic_divisor": 0,
+      "jcc4p_divisor": 0,
+      "mpsse_command_bytes_hex": "97 8a 86 00 00",
+      "divide_by_5_enabled": false,
+      "adaptive_clocking_enabled": false,
+      "mpsse_base_clock_hz": 60000000,
+      "effective_nominal_tck_hz": 30000000,
+      "nominal_configuration_proven_for_reviewed_hash": true,
+      "adapter_pin_rate_measured": false,
+      "FT_SetDivisor_used_by_clock_setup": false,
+      "other_rate_override_found": false,
+      "latency_options": "-r/-R JTAG latency and -o/-O UART latency; no TCK/divisor option found"
+    },
+    "peer_behavior": {
+      "one_client_at_a_time": true,
+      "listener_closed_while_client_serviced": true,
+      "later_reconnect_permitted": true,
+      "second_client_replaces_active_client": false,
+      "reconnect_resets_or_restores_jtag_state_proven": false,
+      "peer_changes_tck_via_settck": false,
+      "peer_changes_tap_or_ir_dr_via_shift": true,
+      "peer_exclusion_required": true
+    },
+    "derived_contract": {
+      "XVC_BINARY_PROVEN": false,
+      "SETTCK_IMPLEMENTED": true,
+      "SETTCK_CHANGES_HARDWARE": false,
+      "SETTCK_ECHO_ONLY": true,
+      "MPSSE_TCK_CONFIGURATION_FOUND": true,
+      "MPSSE_BASE_CLOCK_HZ": 60000000,
+      "MPSSE_DIVISOR": 0,
+      "EFFECTIVE_TCK_HZ": 30000000,
+      "EFFECTIVE_TCK_HZ_PROVEN": false,
+      "THIRTY_MHZ_NOMINAL_CONFIRMED": true,
+      "SIDECAR_CAN_VERIFY_TCK_FROM_XVC_RESPONSE": false,
+      "SIDECAR_CAN_VERIFY_TCK_FROM_SOFTWARE_STATE": false,
+      "PHYSICAL_PIN_MEASUREMENT_REQUIRED": true,
+      "PEER_CAN_CHANGE_TCK": false,
+      "PEER_CAN_INTERFERE_WITH_JTAG": true,
+      "PEER_EXCLUSION_REQUIRED": true,
+      "RETAINED_XVC_BINARY_PROVEN": true,
+      "SETTCK_REQUEST_AFFECTS_HARDWARE": false,
+      "SETTCK_RESPONSE_MATCHES_REQUEST": true,
+      "SETTCK_RESPONSE_MATCHES_EFFECTIVE_TCK": false,
+      "CONFIG_CALLED_AT_STARTUP": true,
+      "CONFIG_CALLED_BY_SETTCK": false,
+      "PEER_CAN_REPLACE_CURRENT_CLIENT": false,
+      "PEER_CAN_SHARE_SIMULTANEOUS_SESSION": false,
+      "PEER_CAN_RECONNECT_AFTER_DISCONNECT": true,
+      "XVC_BINARY_PROVEN_NOTE": "False means the exact currently deployed remote binary hash is unproven; the retained FK33 artifact and its use by the launcher are documented."
+    },
+    "minimum_future_physical_measurement": {
+      "performed": false,
+      "precondition": "later separately authorized, exact executable hash verified, endpoint idle and exclusive peer access",
+      "probe": "adapter TCK/SK output to adapter ground",
+      "capture": "adapter TCK/SK to ground; idle plus a bounded documented read-only IDCODE scan; record high/low periods, frequency, probe point, instrument/sample settings, and binary hash",
+      "avoid": "FPGA programming, bitstream change, mining change, USER instruction change; do not treat settck echo as rate measurement",
+      "caveat": "ordinary XVC shift carries scan semantics; use reviewed adapter-side clock-only or TAP-preserving no-op pattern",
+      "procedure": "verify the target IDCODE instruction from its design documentation; perform one short read-only IDCODE scan under exclusive peer access; return TAP to Run-Test/Idle",
+      "preserve": "FPGA image and miner workload; select IDCODE, not USER1/USER2; no programming or image change",
+      "settck_echo": "optional capture for protocol evidence only; not rate readback"
+    }
   }
 }

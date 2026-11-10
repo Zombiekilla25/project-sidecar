@@ -1,0 +1,36 @@
+{
+  "path": "/home/rmann/Downloads/fk33-sqrl-bridge-static-review/sqrl_bridge_rawjtag_coe",
+  "size_bytes": 398768,
+  "sha256": "8c7230f0bf586e9297dc0e568bd19278aeeb7cff8dbb3dde150811f11393218a",
+  "expected_sha256_matches": true,
+  "file": "/home/rmann/Downloads/fk33-sqrl-bridge-static-review/sqrl_bridge_rawjtag_coe: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, BuildID[sha1]=b0562d538761373e2f1025c8bc8d8188ff8a0c40, not stripped",
+  "machine": "Advanced Micro Devices X86-64",
+  "class": "ELF64",
+  "build_id": "b0562d538761373e2f1025c8bc8d8188ff8a0c40",
+  "stripped": false,
+  "debug_symbols_present": true,
+  "dwarf_sections_present": false,
+  "dynamic_libraries": [
+    "libncurses.so.5",
+    "libtinfo.so.5",
+    "libpthread.so.0",
+    "libstdc++.so.6",
+    "libm.so.6",
+    "libgcc_s.so.1",
+    "libc.so.6"
+  ],
+  "static_checks": {
+    "xvc_getinfo_settck_shift_dispatch_found": true,
+    "settck_reads_9_bytes_after_2_byte_dispatch": true,
+    "settck_copies_u32_at_request_offset_7_and_writes_4_bytes": true,
+    "settck_touches_mpsse_clock_state": false,
+    "settck_direct_call_targets": [
+      "perror@plt",
+      "read@plt",
+      "write@plt"
+    ],
+    "mpsse_rate_formula_30mhz_over_requested_minus_one": true,
+    "mpsse_sequence_97_8a_86_divisor": true,
+    "xvc_getinfo_banner_found": true
+  }
+}

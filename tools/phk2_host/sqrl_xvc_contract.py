@@ -12,7 +12,9 @@ REVIEWED_ELF_SHA256 = "8c7230f0bf586e9297dc0e568bd19278aeeb7cff8dbb3dde150811f11
 REVIEWED_ELF_BUILD_ID = "b0562d538761373e2f1025c8bc8d8188ff8a0c40"
 SETTCK_COMMAND = b"settck:"
 SETTCK_VALUE_BYTES = 4
-NOMINAL_MPSSE_BASE_HZ = 30_000_000
+MPSSE_HIGH_SPEED_BASE_HZ = 60_000_000
+MPSSE_OUTPUT_DIVIDER = 2
+NOMINAL_TCK_HZ = MPSSE_HIGH_SPEED_BASE_HZ // MPSSE_OUTPUT_DIVIDER
 
 
 class XvcProtocolError(ValueError):
@@ -56,8 +58,8 @@ def reviewed_binary_nominal_tck_hz(*, jcc4p_descriptor: bool = False) -> int:
     then subtracts one. Both paths therefore select divisor zero (nominal
     30 MHz). This is binary configuration evidence, not pin measurement.
     """
-    requested = 20_000_000 if jcc4p_descriptor else NOMINAL_MPSSE_BASE_HZ
-    divisor = NOMINAL_MPSSE_BASE_HZ // requested - 1
+    requested = 20_000_000 if jcc4p_descriptor else NOMINAL_TCK_HZ
+    divisor = (MPSSE_HIGH_SPEED_BASE_HZ // MPSSE_OUTPUT_DIVIDER) // requested - 1
     if divisor != 0:
         raise AssertionError("reviewed bridge clock model changed")
-    return NOMINAL_MPSSE_BASE_HZ // (divisor + 1)
+    return MPSSE_HIGH_SPEED_BASE_HZ // (MPSSE_OUTPUT_DIVIDER * (divisor + 1))
