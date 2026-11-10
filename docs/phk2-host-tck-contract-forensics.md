@@ -1,34 +1,114 @@
-# PHK2 host TCK contract audit
+# SQRL/XVC TCK contract forensics
 
-**Result: the PHK2 host TCK contract is not proven.** The available host worktree has no physical BSCAN, USB, or XVC transport implementation. `tools/phk2_host/board_transport.py` intentionally exposes only the software emulator; `physical_adapter_boundary.py` defines a transport interface but does not discover or open endpoints. The image/CDC qualification records mark the 1 MHz BSCAN clock as an unqualified analysis assumption.
+## Result
 
-## Findings
+The locally retained SQRL bridge release binary has a parseable XVC `settck`
+command, but the handler only echoes the requested period. It does not apply
+that value to the FTDI MPSSE clock. The reviewed binary separately configures
+the MPSSE divisor to zero, which is a **nominal 30 MHz setting** in its
+30 MHz-divisor model. That is a static binary finding; it is not a measured
+pin rate and does not prove that the executable currently installed on the
+testbench has the same hash. Therefore the PHK2 physical TCK contract remains
+unproven.
 
-| Question | Finding |
+## Exact implementation inspected
+
+The local static-review artifact is
+`/home/rmann/Downloads/fk33-sqrl-bridge-static-review/sqrl_bridge_rawjtag_coe`,
+SHA256 `8c7230f0bf586e9297dc0e568bd19278aeeb7cff8dbb3dde150811f11393218a`,
+ELF BuildID `b0562d538761373e2f1025c8bc8d8188ff8a0c40`. Sidecar launch/recovery
+scripts identify the executable as `sqrl_bridge_rawjtag_coe` and launch its XVC
+listener with `-j` (the retained one-card scripts use port 2542). The binary
+contains `SQCoEStartXVC` and `_xvcThread`; debug symbols identify `sqrl_xvc.cpp`,
+but the corresponding source file was not found. Thus source is unavailable;
+the conclusions below come from disassembly of this hash-pinned ELF.
+
+At `SQCoEStartXVC` address `0x28645`, the command prefix `se` selects the
+`settck` handler at `0x28c40`. It reads the remaining nine bytes of the
+11-byte XVC request (`ttck:` plus four value bytes), loads the 32-bit value,
+and writes those same four bytes back. The handler does not call the MPSSE
+clock setup or store the value into the device/session clock configuration.
+The XVC value convention is a period in nanoseconds. The examined handler
+copies it as an opaque host little-endian 32-bit word. It performs no clamp or
+rounding and echoes even zero or `0xffffffff`; that is parser behavior, not a
+claim those values are meaningful XVC periods. The four-byte response is an
+echo, not trustworthy effective-rate readback.
+
+The separate FTDI setup in `SQRLJtagGetDeviceCount` around `0x1ed6d` computes
+`divisor = 30,000,000 / requested_clock - 1`, then emits MPSSE commands `0x97,
+0x8a, 0x86, divisor_lo, divisor_hi`. `addDevice` passes 30,000,000 in its
+generic branch (`0x16148`). A descriptor containing `JCC4P` selects 20,000,000
+(`0x157a0`–`0x157c3`). Both integer calculations select divisor zero, so this
+binary configures a nominal 30 MHz MPSSE TCK in either branch. `0x97` and
+`0x8a` select the high-speed MPSSE clock base used by this calculation.
+Consequently, `settck` does not control that configured rate. No returned
+`settck` value reports the effective rate.
+
+## Answers
+
+| Field | Finding |
 | --- | --- |
-| Fixed or client-controlled? | PHK2: unknown because its physical host adapter is absent. In the legacy direct FTDI/MPSSE backend, callers pass a requested rate to `synchronize_and_configure`; the identity runner fixes this call to 100,000 Hz. |
-| XVC `settck` implemented? | Unknown. Sidecar contains SQRL launch/port-ownership wrappers and opaque bridge references, but not the SQRL bridge source or an XVC request/response trace. Do not assume either implementation or absence. |
-| Accepted/returned XVC period? | Not established. No local source or retained response establishes a `settck` value. |
-| Current PHK2 default? | Unknown. No physical PHK2 transport exists in the host worktree. Legacy identity-only FTDI runner requests 100,000 Hz. |
-| Maximum PHK2 host rate? | Unknown. The separate legacy FTDI backend accepts requested values from 100,000 through 1,000,000 Hz, but that is not a PHK2 limit and is not a measured pin-rate qualification. |
-| Minimum PHK2 period? | Unknown. The legacy backend's 1 MHz requested upper bound corresponds to a nominal 1,000 ns period in its 30 MHz MPSSE model. |
-| Is 1 MHz enforced for PHK2? | No. The 1 MHz value is an offline timing assumption, not a proven PHK2 host or adapter ceiling. |
-| Can Sidecar enforce a limit? | Yes, if the eventual adapter is owned by the guarded Sidecar path and exposes an independently verified effective rate. Preflight now requires proof-backed policy and rate-observation objects before endpoint discovery; it fails closed by default. The passing preflight case in the existing regression uses synthetic-only policy data. |
-| Can an external client bypass it? | Not excluded. The legacy scripts can start a SQRL XVC listener, and the bridge implementation is unavailable for audit. Until a proxy/server boundary is proven to enforce the same policy, an external client may bypass a Sidecar-only check. |
+| `XVC_IMPLEMENTATION` | `sqrl_bridge_rawjtag_coe`, local static-review ELF SHA above; SQRL bridge with `SQCoEStartXVC` / `_xvcThread` |
+| `XVC_IMPLEMENTATION_SOURCE_AVAILABLE` | `false` (ELF symbols/disassembly available, implementation source absent) |
+| `SETTCK_IMPLEMENTED` | `true` (request parser and four-byte echo exist) |
+| Request / response | ASCII `settck:` + 4-byte period; response is the same 4 bytes |
+| Value meaning | XVC convention: period; units ns. In the handler it is copied as opaque bytes. |
+| Clamp / rounding | None in the handler; no effective clock update is performed. |
+| Minimum requestable period | No minimum validation; parser echoes any uint32, including zero. A semantic positive-period minimum is not established by this binary. |
+| TCK source | FTDI MPSSE initialization, fixed divisor-zero configuration in the reviewed binary |
+| Nominal configured TCK | 30,000,000 Hz, derived from binary divisor setup; not pin-measured |
+| Server-enforced upper bound | No `settck` upper-bound check. The fixed divisor-zero setup is not an XVC request limit. |
+| `TCK_CONTRACT_PROVEN` | `false` for physical PHK2 use: live executable identity is not freshly attested, `settck` echo is not rate readback, and pin rate is unmeasured. |
 
-The retained successful FK33 BSCAN record is a read-only IDCODE/DNA identity scan configured at 100 kHz; it did not run PHK2 work and does not establish a maximum. The direct MPSSE source computes a divisor from the requested rate and sends the FTDI MPSSE clock command. It does not read back or independently measure the resulting pin rate. Therefore its 1 MHz software request ceiling is narrower evidence than a measured hardware TCK maximum.
+There are no retained local `settck` request/response transactions. The
+retained scripts and lifecycle guard bind process, listener, port, and target,
+but do not inspect XVC command payloads. The reviewed XVC loop closes its
+listening socket after `accept` and recreates it after the client session ends;
+it serves one connected client at a time, then permits a later client. On
+this exact binary a later peer cannot change the MPSSE TCK using `settck`, but
+can issue JTAG `shift` operations after reconnect. Therefore peer/client
+exclusion remains mandatory for safe JTAG ownership.
 
-## Required later physical/adapter query
+The XVC `shift` command is a raw scan operation translated into SQRL chain/TMS
+shifts. It does not assign semantic meaning to FPGA instructions such as
+USER1 or USER2; the client selects those through the ordinary JTAG IR scan.
+The binary contains no `settck` transaction history. Its `getinfo` response
+and listener log strings do not report a clock rate.
 
-Before any PHK2 physical invocation, identify the exact transport implementation and version bound to the selected endpoint. Inspect the SQRL/XVC implementation/configuration or obtain its documented `settck` behavior; issue a non-work `settck` query only under a separately authorized physical qualification procedure, record both requested and returned period, then generate a bounded clock pattern and measure TCK at the adapter pins. If the server does not report an effective period or the pin rate cannot be verified, the PHK2 adapter must refuse. The same max-rate check must sit at the endpoint boundary so a separate XVC client cannot bypass it.
+## Sidecar enforcement point
 
-## Offline enforcement added
+Current Sidecar wrappers are not an XVC protocol proxy and cannot lock the
+clock setting at the command boundary. They also cannot trust `settck` echo as
+verification. The precise safe enforcement point is the sole transport
+endpoint owned by a Sidecar adapter/proxy: it must bind the reviewed server
+binary hash and target, reject or validate `settck` requests, independently
+verify the effective rate (or require pin measurement where the adapter has
+no trustworthy readback), and prevent any second client from reaching the
+server for the session. A process/port check alone is insufficient. Any peer
+with network access to the listener can reconnect after disconnect and issue
+JTAG commands, even though this reviewed handler's `settck` is a no-op.
 
-`tools/phk2_host/tck_contract.py` accepts only a policy with provenance, transport binding, a known maximum, and a verified effective rate. It rejects missing values, values above policy, changed rate after authorization, changed rate after reconnect, and failed verification. Its unit-test maximum is synthetic and explicitly does not define PHK2's limit. The physical preflight gate `tck_contract_valid` defaults false and must be populated only by a future proof-backed adapter.
+Sidecar can send the XVC `settck` request, but this SQRL handler only echoes
+it. Sidecar cannot establish the effective rate from that response or prevent
+a later client from accessing the listener with the current lifecycle wrapper.
+It can enforce a contract only after it owns the endpoint boundary and has an
+independent rate observation. A peer cannot change TCK via `settck` on this
+binary, but the peer must still be excluded from the shared JTAG endpoint.
 
-No physical query, USB access, JTAG/XVC connection, or FPGA operation was performed for this audit.
+## Offline model and tests
 
-A source/history search of the available Project Sidecar trees found no `settck` implementation or XVC clock-setting response trace. The Sidecar XVC lifecycle wrapper verifies the bridge process, listener, port, and target binding, but it does not inspect or constrain clock-setting requests. This confirms that the wrapper alone cannot establish an external-client rate ceiling.
+`tools/phk2_host/sqrl_xvc_contract.py` models only the reviewed handler's
+request shape and echo, pinned to the ELF hash above. Its tests verify the
+four-byte echo, no clamping, malformed request refusal, and that requested
+periods do not alter the modeled fixed MPSSE clock. They do not open a socket,
+execute the bridge, access hardware, or qualify TCK.
 
+## Required physical check
 
-The updated host qualification passed 19/19 fail-closed checks and the existing 100,000-event mock stress with zero unexpected failures. TCK boundary tests use a synthetic 1 MHz ceiling solely to test below/at/above behavior; they do not qualify that value for PHK2.
+Before PHK2 physical use, freshly attest the executable hash bound to the
+selected endpoint. Under a separately authorized bounded adapter test,
+capture the `settck` exchange, then issue a known bounded JTAG clock pattern
+and measure TCK at the adapter pins. Confirm no other client can reach or
+reconnect to the listener during the transaction. Until then, no PHK2 numeric
+TCK limit is qualified and the prior 1 MHz analysis value remains an
+unverified assumption.

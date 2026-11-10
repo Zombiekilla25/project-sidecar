@@ -1,102 +1,101 @@
 {
-  "schema": "phk2-host-tck-contract-audit-v1",
-  "tck_contract_proven": false,
-  "phk2": {
-    "source": "No physical BSCAN/XVC transport implementation in isolated PHK2 host worktree",
-    "client_controlled": "UNKNOWN",
-    "xvc_settck_implemented": "UNKNOWN",
-    "default_hz": null,
-    "max_hz": null,
-    "min_period_ns": null,
-    "one_mhz_assumption_valid": false,
-    "host_can_enforce_limit_if_transport_owned_and_rate_verified": true,
-    "external_bypass_possible_or_not_excluded": true,
-    "physical_query_still_required": true
-  },
-  "legacy_sidecar_ftdi_reference": {
-    "source": "tools/phk1_raw_bscan/mpsse_backend.cpp",
-    "source_sha256": "5926bc62c24bfc5c204c1b2cc3c4fe541b78814fcf7b74b40ce85f49570f8da1",
-    "accepted_requested_hz": [
-      100000,
-      1000000
-    ],
-    "nominal_period_at_upper_bound_ns": 1000,
-    "caller_default_identity_hz": 100000,
-    "pin_rate_independently_verified": false,
-    "applies_to_phk2": false
-  },
-  "evidence": [
-    {
-      "artifact": "ops/RAW_BSCAN_OFFLINE_QUALIFICATION.json",
-      "sha256": "2769456534b473a566d8abaa3286159218b600c486767eca50f5863418646c1e",
-      "finding": "legacy requested range 100 kHz..1 MHz; hardware_clock_qualified=false"
-    },
-    {
-      "artifact": "PHK1 read-only identity result (retained evidence)",
-      "sha256": "fc171de04cbde5b13579eacdb1596f9e36ca05687da164162eaf209a596fdbb3",
-      "finding": "one read-only IDCODE/DNA identity run configured 100 kHz; not PHK2 qualification"
-    },
-    {
-      "artifact": "PHK1 duplex qualification result (retained evidence)",
-      "sha256": "c098b55f8c9ba1f84993b92b8c0cabddf530250f11693adcd8def70eb2477523",
-      "finding": "simulation effective 1 MHz; live configuration 100 kHz; discrepancy retained"
-    },
-    {
-      "artifact": "PHK2 BSCAN clock model licensed analysis (retained result)",
-      "finding": "1 MHz / 1000 ns is labeled unqualified assumption; actual PHK2 host timing unproven"
-    },
-    {
-      "artifact": "PHK2 physical_adapter_boundary.py",
-      "sha256": "3676ce9da3cd98a22e02e947f7af785414bab455e1d4561b8b6c4051c9414ae1",
-      "finding": "interface only; no endpoint discovery or physical transport implementation"
-    },
-    {
-      "artifact": "PHK2 BSCAN clock-model licensed qualification summary (offline analysis)",
-      "sha256": "d355d5f71472de8b99749bea4cce1783215af8da7c36a8c0ab63a9914b0f3b89",
-      "finding": "explicitly labels 1 MHz as unqualified assumption; hardware PHK2 TCK not proven"
-    },
-    {
-      "artifact": "PHK2 BSCAN clock-model input identity (offline analysis)",
-      "sha256": "eb68ceb18f1c7178e84b0c93b41749dddbe82b1af1cf7265a000c95fe8b94c95",
-      "finding": "TCK period 1000 ns/high 500 ns are analysis assumptions only"
-    },
-    {
-      "artifact": "Sidecar SQRL XVC lifecycle wrappers (source inspection)",
-      "finding": "start/check/stop listener and port/target process binding; no settck proxy or rate enforcement visible; underlying SQRL implementation unavailable"
-    }
-  ],
-  "offline_policy": {
-    "implemented": true,
-    "production_max_hz": null,
-    "unknown_policy_refuses": true,
-    "requires_verified_effective_rate": true,
-    "synthetic_unit_test_boundary_hz": 1000000,
-    "synthetic_value_is_not_a_phk2_limit": true,
-    "physical_adapter_preflight_requires_verified_policy_and_observation": true,
-    "physical_adapter_preflight_missing_rate_refuses_before_endpoint_discovery": true,
-    "policy_module_sha256": "92e6b8fb4341764f479b3fd853bd3dfa5534e1f65700ff5590139df671ae0d99",
-    "preflight_source_sha256": "19881de725f7ce98d2889d2a1039c845987a686a2c614c7586036d710f363611",
-    "test_source_sha256": "b1e2ebf748580e08bc7f58e90bf9b581df4f040d190c508c5ed904d4e334ee7b",
-    "host_harness_fail_closed_tests": "19/19 PASS",
-    "host_harness_stress_events": 100000,
-    "host_harness_unexpected_failures": 0,
-    "hardware_access_count": 0,
-    "program_attempts": 0,
-    "hello_attempts": 0,
-    "live_transaction_count": 0
-  },
+  "schema": "phk2-host-tck-contract-audit-v2",
+  "audit_mode": "offline static binary inspection and source/config/log search",
   "hardware_activity": {
+    "usb_enumeration": 0,
     "usb_open_count": 0,
     "jtag_access": 0,
-    "xvc_connection_count": 0,
+    "xvc_connections": 0,
     "fpga_program_attempts": 0
   },
-  "prior_successful_hardware_record": {
-    "kind": "FK33 read-only IDCODE/DNA identity scan",
-    "configured_clock_hz": 100000,
-    "result": "PASS",
-    "phk2_transaction": false,
-    "maximum_rate_evidence": false,
-    "artifact_sha256": "fc171de04cbde5b13579eacdb1596f9e36ca05687da164162eaf209a596fdbb3"
+  "implementation": {
+    "name": "sqrl_bridge_rawjtag_coe",
+    "source_available": false,
+    "source_module_from_debug_symbols": "sqrl_xvc.cpp",
+    "static_review_elf": "/home/rmann/Downloads/fk33-sqrl-bridge-static-review/sqrl_bridge_rawjtag_coe",
+    "sha256": "8c7230f0bf586e9297dc0e568bd19278aeeb7cff8dbb3dde150811f11393218a",
+    "build_id_sha1": "b0562d538761373e2f1025c8bc8d8188ff8a0c40",
+    "source_evidence": [
+      "Sidecar scripts invoke sqrl_bridge_rawjtag_coe with -j <port> to enable XVC",
+      "ELF exports SQCoEStartXVC and _xvcThread and retains debug module name sqrl_xvc.cpp",
+      "No corresponding SQRL XVC C/C++ implementation source found locally",
+      "Current testbench binary hash not freshly checked; no SSH performed"
+    ],
+    "xvc_port_example_from_retained_scripts": 2542,
+    "settck_handler_function": "SQCoEStartXVC",
+    "settck_dispatch_address": "0x28645",
+    "settck_handler_address": "0x28c40",
+    "handler_effect": "read 9 bytes after initial 2-byte command prefix, copy value DWORD, write identical 4 bytes; no clock configuration update"
+  },
+  "settck": {
+    "implemented": true,
+    "request_format": "ASCII 'settck:' followed by uint32 little-endian period field",
+    "response_format": "the same 4 period bytes echoed unchanged",
+    "value_semantics": "XVC period in nanoseconds by protocol convention; opaque uint32 copy in this handler",
+    "readback_available": true,
+    "readback_trustworthy_as_effective_rate": false,
+    "clamped": false,
+    "rounded": false,
+    "minimum_validated_period_ns": null,
+    "parser_echoes_zero": true,
+    "parser_echoes_uint32_max": true,
+    "prior_settck_transactions_found": 0,
+    "changes_mpsse_rate": false
+  },
+  "clock_configuration": {
+    "rate_source": "FTDI MPSSE initialization in SQRL bridge binary",
+    "calculation": "divisor = floor(30000000 / requested_clock) - 1; command bytes include 0x97, 0x8a, 0x86, divisor low/high",
+    "setup_address": "0x1ed6d",
+    "generic_requested_clock_hz": 30000000,
+    "jcc4p_requested_clock_hz": 20000000,
+    "generic_divisor": 0,
+    "jcc4p_divisor": 0,
+    "nominal_configured_tck_hz": 30000000,
+    "nominal_configured_tck_proven_for_reviewed_elf": true,
+    "server_enforces_settck_upper_tck_bound": false,
+    "physical_pin_rate_measured": false,
+    "testbench_live_binary_hash_attested": false
+  },
+  "separate_legacy_sidecar_direct_ftdi_backend": {
+    "source": "tools/phk1_raw_bscan/mpsse_backend.cpp",
+    "source_sha256": "5926bc62c24bfc5c204c1b2cc3c4fe541b78814fcf7b74b40ce85f49570f8da1",
+    "accepted_requested_hz": [100000, 1000000],
+    "identity_runner_requested_hz": 100000,
+    "hardware_clock_qualified": false,
+    "applies_to_sqrl_xvc_or_phk2": false
+  },
+  "answers": {
+    "tck_client_controlled_by_xvc_settck": false,
+    "tck_default_hz_for_reviewed_binary_nominal": 30000000,
+    "tck_max_hz_for_reviewed_binary_nominal": 30000000,
+    "tck_max_hz_proven_as_configuration_not_physical_limit": true,
+    "sidecar_current_stack_can_lock_tck_at_xvc_command_boundary": false,
+    "sidecar_could_enforce_if_sole_owner_proxy_and_independent_rate_verification": true,
+    "peer_can_change_tck_via_settck_on_reviewed_binary": false,
+    "peer_can_reconnect_and_issue_jtag_commands": true,
+    "xvc_shift_is_raw_scan_data_not_user1_user2_semantics": true,
+    "user1_user2_are_client_selected_jtag_ir_values": true,
+    "sidecar_request_period_capability": "The protocol lets a client send a period value, but this handler only echoes it and does not apply it",
+    "retained_settck_transaction_logs_found": 0,
+    "peer_exclusion_required": true,
+    "tck_contract_proven_for_phk2_physical_use": false,
+    "physical_pin_measurement_required": true,
+    "one_mhz_assumption_valid": false,
+    "external_bypass_possible": true,
+    "minimum_physical_tck_test": "Freshly attest the selected endpoint's SQRL ELF hash; capture one authorized settck exchange; issue a bounded known JTAG clock pattern; measure TCK at adapter pins; verify exclusive client access across disconnect/reconnect."
+  },
+  "offline_model": {
+    "module": "tools/phk2_host/sqrl_xvc_contract.py",
+    "model_scope": "pinned-binary behavior only; never opens sockets or transport",
+    "tests": "tools/phk2_host/test_sqrl_xvc_contract.py",
+    "sqrl_xvc_test_count": 8,
+    "existing_tck_policy_test_count": 10,
+    "combined_test_result": "18/18 PASS"
+  },
+  "historical_context": {
+    "one_mhz_assumption_valid": false,
+    "prior_read_only_fk33_identity_configured_hz": 100000,
+    "prior_identity_scan_proves_maximum": false,
+    "PHK2_physical_tck_contract_proven": false
   }
 }
