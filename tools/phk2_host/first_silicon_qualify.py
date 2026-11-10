@@ -9,6 +9,7 @@ from first_silicon_cli import main as cli_main
 import first_silicon_cli
 from physical_adapter_boundary import (AdapterRefusal,EndpointIdentity,ExpectedIdentity,
     GuardedPhysicalSession,QualificationGates,prepare_physical_session,make_hello_request)
+from tck_contract import TckObservation,TckPolicy
 from oracle import predict
 from runtime import Descriptor,fixture_descriptor,fixture_path,sha
 
@@ -86,33 +87,51 @@ class MockPhysicalTransport:
 def physical_boundary_tests(tmp):
     checks=[]; identity=ExpectedIdentity('a'*64,'b'*64)
     endpoint=EndpointIdentity(identity.target_identity_sha256,identity.candidate_image_sha256,'fixture-selected-endpoint')
-    good=QualificationGates(True,True,True,True,True,True,True,True,True)
+    good=QualificationGates(True,True,True,True,True,True,True,True,True,True)
+    synthetic_policy=TckPolicy(True,1_000_000,'fixture-transport','a'*64)
+    synthetic_observation=TckObservation(100_000,100_000,True,'fixture-transport')
+    def prepare(gates, discovery, transport_factory, timeout_ms=2000, with_tck=True):
+        options={'tck_policy':synthetic_policy,'tck_observation':synthetic_observation} if with_tck else {}
+        return prepare_physical_session(gates,identity,discovery,transport_factory,timeout_ms=timeout_ms,**options)
     opened=[]
     def factory(_):
         t=MockPhysicalTransport();opened.append(t);return t
+    # An otherwise complete legacy gate set without a verified TCK contract
+    # refuses before endpoint discovery or transport construction.
+    no_tck=QualificationGates(True,True,True,True,True,True,True,True,True)
+    d=MockSelectedEndpoint(endpoint)
+    try:prepare(no_tck,d,factory,with_tck=False);raise AssertionError('missing TCK contract accepted')
+    except AdapterRefusal:pass
+    checks.append(d.calls==0 and not opened)
+    # Even a set gate bit cannot replace missing policy provenance/readback.
+    claimed_tck=QualificationGates(True,True,True,True,True,True,True,True,True,True)
+    d=MockSelectedEndpoint(endpoint)
+    try:prepare(claimed_tck,d,factory,with_tck=False);raise AssertionError('unproven TCK evidence accepted')
+    except AdapterRefusal:pass
+    checks.append(d.calls==0 and not opened)
     # Missing selected endpoint: no transport open, transaction or hardware access.
     discovery=MockSelectedEndpoint(None)
-    try:prepare_physical_session(good,identity,discovery,factory);raise AssertionError('missing endpoint accepted')
+    try:prepare(good,discovery,factory);raise AssertionError('missing endpoint accepted')
     except AdapterRefusal:pass
     checks.append(discovery.calls==1 and not opened)
     # Unqualified image and missing authorization fail before endpoint discovery.
-    for gates in (QualificationGates(True,True,False,True,True,True,True,True,True),
-                  QualificationGates(True,False,True,True,True,True,True,True,True)):
+    for gates in (QualificationGates(True,True,False,True,True,True,True,True,True,True),
+                  QualificationGates(True,False,True,True,True,True,True,True,True,True)):
         d=MockSelectedEndpoint(endpoint)
-        try:prepare_physical_session(gates,identity,d,factory);raise AssertionError('missing gate accepted')
+        try:prepare(gates,d,factory);raise AssertionError('missing gate accepted')
         except AdapterRefusal:pass
         checks.append(d.calls==0 and not opened)
     # Wrong physical identity or declared protocol/capability never opens transport.
     wrong=EndpointIdentity('c'*64,identity.candidate_image_sha256,'fixture-wrong-target');d=MockSelectedEndpoint(wrong)
-    try:prepare_physical_session(good,identity,d,factory);raise AssertionError('wrong identity accepted')
+    try:prepare(good,d,factory);raise AssertionError('wrong identity accepted')
     except AdapterRefusal:pass
     checks.append(d.calls==1 and not opened)
     wrong_proto=EndpointIdentity(identity.target_identity_sha256,identity.candidate_image_sha256,'fixture-wrong-protocol',(2,0,3,112,64,112,0x3f));d=MockSelectedEndpoint(wrong_proto)
-    try:prepare_physical_session(good,identity,d,factory);raise AssertionError('wrong protocol accepted')
+    try:prepare(good,d,factory);raise AssertionError('wrong protocol accepted')
     except AdapterRefusal:pass
     checks.append(d.calls==1 and not opened)
     # Valid mocked endpoint: exactly one HELLO, explicit timeout, no retry.
-    d=MockSelectedEndpoint(endpoint);transport=MockPhysicalTransport();session=prepare_physical_session(good,identity,d,lambda _:transport,timeout_ms=1234)
+    d=MockSelectedEndpoint(endpoint);transport=MockPhysicalTransport();session=prepare(good,d,lambda _:transport,timeout_ms=1234)
     caps=session.hello_once();checks.append(caps.profile_id==3 and session.hello_attempts==1 and transport.mock_calls==1 and transport.timeouts==[1234] and transport.physical_access_count==0)
     try:session.hello_once();raise AssertionError('duplicate HELLO accepted')
     except AdapterRefusal:pass

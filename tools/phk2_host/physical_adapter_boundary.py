@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 from board_protocol import ERROR, RESPONSE, HELLO_RESPONSE, Frame, Opcode, ProtocolError, request
 from first_silicon_harness import decode_hello_payload
+from tck_contract import TckObservation, TckPolicy, TckContractRefusal, validate_tck
 
 class AdapterRefusal(RuntimeError):
     pass
@@ -24,6 +25,10 @@ class QualificationGates:
     rollback_ready: bool = False
     evidence_ready: bool = False
     peer_excluded: bool = False
+    # Must only be set by a proof-backed adapter policy after it verifies the
+    # effective rate. PHK2 currently has no such adapter/contract, so default
+    # preflight fails closed.
+    tck_contract_valid: bool = False
 
     def missing(self) -> tuple[str, ...]:
         return tuple(name for name, value in self.__dict__.items() if value is not True)
@@ -79,10 +84,14 @@ def validate_capabilities(raw_payload: bytes, expected: HelloCapabilities = EXPE
     return got
 
 def validate_preflight(gates: QualificationGates, expected: ExpectedIdentity,
-                       endpoint: EndpointIdentity | None) -> EndpointIdentity:
+                       endpoint: EndpointIdentity | None, *,
+                       tck_policy: TckPolicy | None = None,
+                       tck_observation: TckObservation | None = None,
+                       authorized_tck_hz: int | None = None) -> EndpointIdentity:
     missing = gates.missing()
     if missing:
         raise AdapterRefusal("qualification gates missing: " + ",".join(missing))
+    _validate_tck_gate(tck_policy, tck_observation, authorized_tck_hz)
     if endpoint is None:
         raise AdapterRefusal("no explicitly selected PHK2 endpoint")
     if (endpoint.target_identity_sha256 != expected.target_identity_sha256 or
@@ -97,9 +106,21 @@ def validate_preflight(gates: QualificationGates, expected: ExpectedIdentity,
         raise AdapterRefusal("endpoint protocol/capability contract mismatch")
     return endpoint
 
+def _validate_tck_gate(policy: TckPolicy | None, observation: TckObservation | None,
+                       authorized_hz: int | None) -> None:
+    if policy is None or observation is None:
+        raise AdapterRefusal("proof-backed TCK policy and verified rate are required")
+    try:
+        validate_tck(policy, observation, authorized_hz=authorized_hz)
+    except TckContractRefusal as exc:
+        raise AdapterRefusal(f"TCK contract refused: {exc}") from exc
+
 def prepare_physical_session(gates: QualificationGates, expected: ExpectedIdentity,
                              discovery: SelectedEndpointDiscovery, transport_factory,
-                             timeout_ms: int = 2000) -> "GuardedPhysicalSession":
+                             timeout_ms: int = 2000, *,
+                             tck_policy: TckPolicy | None = None,
+                             tck_observation: TckObservation | None = None,
+                             authorized_tck_hz: int | None = None) -> "GuardedPhysicalSession":
     """Resolve only a previously selected endpoint, then open after all gates.
 
     No discovery implementation is included. Gate failures happen before even
@@ -108,8 +129,12 @@ def prepare_physical_session(gates: QualificationGates, expected: ExpectedIdenti
     """
     missing = gates.missing()
     if missing: raise AdapterRefusal("qualification gates missing: " + ",".join(missing))
+    _validate_tck_gate(tck_policy, tck_observation, authorized_tck_hz)
     endpoint = discovery.selected_endpoint()
-    endpoint = validate_preflight(gates, expected, endpoint)
+    endpoint = validate_preflight(gates, expected, endpoint,
+                                  tck_policy=tck_policy,
+                                  tck_observation=tck_observation,
+                                  authorized_tck_hz=authorized_tck_hz)
     transport = transport_factory(endpoint)
     return GuardedPhysicalSession(transport, endpoint, timeout_ms)
 
