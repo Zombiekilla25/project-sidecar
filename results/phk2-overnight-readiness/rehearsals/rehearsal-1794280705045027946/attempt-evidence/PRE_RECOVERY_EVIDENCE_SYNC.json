@@ -1,0 +1,21 @@
+{
+  "all_open_evidence_fsynced": true,
+  "classification": "PASS",
+  "details": {
+    "counters": {
+      "hello_attempts": 1,
+      "load_descriptor_count": 1,
+      "peer_bytes_sent": 0,
+      "peer_program_count": 0,
+      "program_attempts": 0,
+      "result_read_commands": 1,
+      "retries": 0,
+      "start_count": 1,
+      "target_bytes_sent": 0,
+      "target_program_count": 0,
+      "transaction_count": 1
+    },
+    "raw_result_bytes": 32
+  },
+  "utc_ns": 1794280708403799862
+}

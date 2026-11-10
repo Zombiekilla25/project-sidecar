@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PYTHON="${PHK2_PYTHON:-${ROOT}/.venv/bin/python}"
+export PYTHONPATH="${ROOT}/tools/phk2_host${PYTHONPATH:+:${PYTHONPATH}}"
+exec "${PYTHON}" -m canary_precheck "$@"

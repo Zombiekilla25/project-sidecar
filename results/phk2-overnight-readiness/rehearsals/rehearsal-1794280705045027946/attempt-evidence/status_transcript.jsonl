@@ -1,0 +1,4 @@
+{"decoded":{"descriptor_bytes":112,"features":63,"major":1,"max_batch":64,"minor":0,"profile_id":3,"result_bytes":112},"phase":"HELLO","raw_response_payload_hex":"010003007000400070003f000000"}
+{"generation":8,"job_key_sha256":"35bddb641de3647180d4b0fa23aae3896fd5886282d5297d90658002f14aaf16","phase":"LOAD_DESCRIPTOR_ACCEPTED"}
+{"error_code":0,"flags":2,"generation":8,"input_occupancy":24,"phase":"WORK_STATUS","poll":1,"range_id":5,"raw_status_hex":"08000000000000000500030218000100010000000100e801","result_count":1,"result_occupancy":1,"state":"DONE"}
+{"flags":2,"phase":"FINAL_STATUS","raw_status_hex":"08000000000000000500030218000100010000000100e801","result_count":1,"state":"DONE"}

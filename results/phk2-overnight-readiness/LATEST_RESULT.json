@@ -1,0 +1,1633 @@
+{
+  "BLOCKERS_TO_FIRST_SILICON": [
+    "No real routed PHK2 image has passed the mandatory image-intake qualification gates.",
+    "A physical PHK2 transport/endpoint adapter and durable identity mapping are not implemented or qualified; live path remains disabled.",
+    "PHK2-specific rollback/recovery readiness and semantic continuity have only mock interfaces here and are not physically qualified.",
+    "A fresh single-use authorization for the configured one-card scope has not been issued."
+  ],
+  "CANARY_GATE_TESTS": "20/20",
+  "CANARY_PRECHECK_READY": true,
+  "FAIL_CLOSED_TESTS": "17/17",
+  "FAULT_SCENARIOS_FAIL": 0,
+  "FAULT_SCENARIOS_PASS": 51,
+  "FAULT_SCENARIOS_RUN": 51,
+  "FULL_OFFLINE_REHEARSAL_PASS": true,
+  "HARDWARE_ACCESS_COUNT": 0,
+  "HELLO_ATTEMPTS": 0,
+  "HOST_HARNESS_READY": true,
+  "IMAGE_INTAKE_NEGATIVE_TESTS": 22,
+  "IMAGE_INTAKE_NEGATIVE_TESTS_PASS": 22,
+  "IMAGE_INTAKE_READY": true,
+  "IMAGE_MANIFEST_READY": true,
+  "LIVE_PATH_AUTHORIZED": false,
+  "PHYSICAL_ADAPTER_INTERFACE_READY": true,
+  "PHYSICAL_IMAGE_QUALIFIED": false,
+  "PHYSICAL_PROTOCOL_QUALIFIED": false,
+  "PROGRAM_ATTEMPTS": 0,
+  "base_commit": "97773443b47be478c819cdb5ebe74989a9b50796",
+  "blockers_to_first_silicon": [
+    "No real routed PHK2 image has passed the mandatory image-intake qualification gates.",
+    "A physical PHK2 transport/endpoint adapter and durable identity mapping are not implemented or qualified; live path remains disabled.",
+    "PHK2-specific rollback/recovery readiness and semantic continuity have only mock interfaces here and are not physically qualified.",
+    "A fresh single-use authorization for the configured one-card scope has not been issued."
+  ],
+  "canary_precheck": {
+    "all_pass": true,
+    "canary_gate_tests": 20,
+    "canary_gate_tests_pass": 20,
+    "cases": [
+      {
+        "case": "all_gates_present_simulated",
+        "pass": true
+      },
+      {
+        "case": "missing_or_wrong_IMAGE_QUALIFIED",
+        "missing_gates": [
+          "IMAGE_QUALIFIED"
+        ],
+        "pass": true
+      },
+      {
+        "case": "missing_or_wrong_HOST_HARNESS_READY",
+        "missing_gates": [
+          "HOST_HARNESS_READY"
+        ],
+        "pass": true
+      },
+      {
+        "case": "missing_or_wrong_PHYSICAL_ADAPTER_INTERFACE_READY",
+        "missing_gates": [
+          "PHYSICAL_ADAPTER_INTERFACE_READY"
+        ],
+        "pass": true
+      },
+      {
+        "case": "missing_or_wrong_EXPLICIT_HARDWARE_AUTHORIZATION",
+        "missing_gates": [
+          "EXPLICIT_HARDWARE_AUTHORIZATION"
+        ],
+        "pass": true
+      },
+      {
+        "case": "missing_or_wrong_ONE_CARD_SCOPE",
+        "missing_gates": [
+          "ONE_CARD_SCOPE"
+        ],
+        "pass": true
+      },
+      {
+        "case": "missing_or_wrong_EXPECTED_CARD_ID_MATCH",
+        "missing_gates": [
+          "ONE_CARD_SCOPE",
+          "EXPECTED_CARD_ID_MATCH"
+        ],
+        "pass": true
+      },
+      {
+        "case": "missing_or_wrong_PEER_EXCLUSION",
+        "missing_gates": [
+          "PEER_EXCLUSION"
+        ],
+        "pass": true
+      },
+      {
+        "case": "missing_or_wrong_ROLLBACK_READY",
+        "missing_gates": [
+          "ROLLBACK_READY"
+        ],
+        "pass": true
+      },
+      {
+        "case": "missing_or_wrong_RECOVERY_READY",
+        "missing_gates": [
+          "RECOVERY_READY"
+        ],
+        "pass": true
+      },
+      {
+        "case": "missing_or_wrong_PROTOCOL_VERSION_MATCH",
+        "missing_gates": [
+          "PROTOCOL_VERSION_MATCH"
+        ],
+        "pass": true
+      },
+      {
+        "case": "missing_or_wrong_EVIDENCE_READY",
+        "missing_gates": [
+          "EVIDENCE_READY"
+        ],
+        "pass": true
+      },
+      {
+        "case": "authorization_valid",
+        "pass": true
+      },
+      {
+        "case": "authorization_absent",
+        "pass": true
+      },
+      {
+        "case": "authorization_removed",
+        "pass": true
+      },
+      {
+        "case": "authorization_wrong_image",
+        "pass": true
+      },
+      {
+        "case": "authorization_wrong_target",
+        "pass": true
+      },
+      {
+        "case": "authorization_expired",
+        "pass": true
+      },
+      {
+        "case": "default_command_is_dry_run",
+        "pass": true
+      },
+      {
+        "case": "live_invocation_refused",
+        "pass": true
+      }
+    ],
+    "expected_card_id_configured": "FK0957",
+    "gate_names": [
+      "IMAGE_QUALIFIED",
+      "HOST_HARNESS_READY",
+      "PHYSICAL_ADAPTER_INTERFACE_READY",
+      "EXPLICIT_HARDWARE_AUTHORIZATION",
+      "ONE_CARD_SCOPE",
+      "EXPECTED_CARD_ID_MATCH",
+      "PEER_EXCLUSION",
+      "ROLLBACK_READY",
+      "RECOVERY_READY",
+      "PROTOCOL_VERSION_MATCH",
+      "EVIDENCE_READY"
+    ],
+    "physical_operation_permitted": false
+  },
+  "canary_precheck_ready": true,
+  "each_gate_fails_closed": true,
+  "fail_closed_tests": 17,
+  "fault_campaign": {
+    "resume_log": "results/phk2-overnight-readiness/fault-campaign.jsonl",
+    "scenarios": [
+      {
+        "counts": {
+          "hello_attempts": 1,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "timeout"
+        ],
+        "missing_gates": [],
+        "opened_mock_only": true,
+        "recovery": "CLOSE_ONLY_NO_PROGRAM",
+        "safe": true,
+        "scenario_id": "v2-single:timeout",
+        "seed": 88271429435392,
+        "terminal": "HELLO_FAILURE_NO_RETRY"
+      },
+      {
+        "counts": {
+          "hello_attempts": 1,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 1
+        },
+        "faults": [
+          "delayed_hello"
+        ],
+        "missing_gates": [],
+        "opened_mock_only": true,
+        "recovery": "MOCK_CLOSE",
+        "safe": true,
+        "scenario_id": "v2-single:delayed_hello",
+        "seed": 88271429435393,
+        "terminal": "MOCK_TRANSACTION_ACCEPTED"
+      },
+      {
+        "counts": {
+          "hello_attempts": 1,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "malformed_hello"
+        ],
+        "missing_gates": [],
+        "opened_mock_only": true,
+        "recovery": "CLOSE_ONLY_NO_PROGRAM",
+        "safe": true,
+        "scenario_id": "v2-single:malformed_hello",
+        "seed": 88271429435394,
+        "terminal": "HELLO_FAILURE_NO_RETRY"
+      },
+      {
+        "counts": {
+          "hello_attempts": 1,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "partial_reply"
+        ],
+        "missing_gates": [],
+        "opened_mock_only": true,
+        "recovery": "CLOSE_ONLY_NO_PROGRAM",
+        "safe": true,
+        "scenario_id": "v2-single:partial_reply",
+        "seed": 88271429435395,
+        "terminal": "HELLO_FAILURE_NO_RETRY"
+      },
+      {
+        "counts": {
+          "hello_attempts": 1,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "truncated_reply"
+        ],
+        "missing_gates": [],
+        "opened_mock_only": true,
+        "recovery": "CLOSE_ONLY_NO_PROGRAM",
+        "safe": true,
+        "scenario_id": "v2-single:truncated_reply",
+        "seed": 88271429435396,
+        "terminal": "HELLO_FAILURE_NO_RETRY"
+      },
+      {
+        "counts": {
+          "hello_attempts": 1,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "duplicated_reply"
+        ],
+        "missing_gates": [],
+        "opened_mock_only": true,
+        "recovery": "CLOSE_ONLY_NO_PROGRAM",
+        "safe": true,
+        "scenario_id": "v2-single:duplicated_reply",
+        "seed": 88271429435397,
+        "terminal": "HELLO_FAILURE_NO_RETRY"
+      },
+      {
+        "counts": {
+          "hello_attempts": 1,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "stale_reply"
+        ],
+        "missing_gates": [],
+        "opened_mock_only": true,
+        "recovery": "CLOSE_ONLY_NO_PROGRAM",
+        "safe": true,
+        "scenario_id": "v2-single:stale_reply",
+        "seed": 88271429435398,
+        "terminal": "HELLO_FAILURE_NO_RETRY"
+      },
+      {
+        "counts": {
+          "hello_attempts": 1,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "result_before_hello_completion"
+        ],
+        "missing_gates": [],
+        "opened_mock_only": true,
+        "recovery": "CLOSE_ONLY_NO_PROGRAM",
+        "safe": true,
+        "scenario_id": "v2-single:result_before_hello_completion",
+        "seed": 88271429435399,
+        "terminal": "RESULT_REFUSED_BEFORE_HELLO"
+      },
+      {
+        "counts": {
+          "hello_attempts": 1,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 1
+        },
+        "faults": [
+          "duplicate_result"
+        ],
+        "missing_gates": [],
+        "opened_mock_only": true,
+        "recovery": "MOCK_ABORT_CLOSE",
+        "safe": true,
+        "scenario_id": "v2-single:duplicate_result",
+        "seed": 88271429435400,
+        "terminal": "MOCK_TRANSACTION_FAIL_CLOSED"
+      },
+      {
+        "counts": {
+          "hello_attempts": 1,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 1
+        },
+        "faults": [
+          "reordered_result"
+        ],
+        "missing_gates": [],
+        "opened_mock_only": true,
+        "recovery": "MOCK_ABORT_CLOSE",
+        "safe": true,
+        "scenario_id": "v2-single:reordered_result",
+        "seed": 88271429435401,
+        "terminal": "MOCK_TRANSACTION_FAIL_CLOSED"
+      },
+      {
+        "counts": {
+          "hello_attempts": 1,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 1
+        },
+        "faults": [
+          "stale_session_result"
+        ],
+        "missing_gates": [],
+        "opened_mock_only": true,
+        "recovery": "MOCK_ABORT_CLOSE",
+        "safe": true,
+        "scenario_id": "v2-single:stale_session_result",
+        "seed": 88271429435402,
+        "terminal": "MOCK_TRANSACTION_FAIL_CLOSED"
+      },
+      {
+        "counts": {
+          "hello_attempts": 1,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "endpoint_disconnect"
+        ],
+        "missing_gates": [],
+        "opened_mock_only": true,
+        "recovery": "CLOSE_ONLY_NO_PROGRAM",
+        "safe": true,
+        "scenario_id": "v2-single:endpoint_disconnect",
+        "seed": 88271429435403,
+        "terminal": "HELLO_FAILURE_NO_RETRY"
+      },
+      {
+        "counts": {
+          "hello_attempts": 1,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "reconnect"
+        ],
+        "missing_gates": [],
+        "opened_mock_only": true,
+        "recovery": "CLOSE_ONLY_NO_PROGRAM",
+        "safe": true,
+        "scenario_id": "v2-single:reconnect",
+        "seed": 88271429435404,
+        "terminal": "HELLO_FAILURE_NO_RETRY"
+      },
+      {
+        "counts": {
+          "hello_attempts": 0,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "peer_collision"
+        ],
+        "missing_gates": [
+          "PEER_EXCLUSION"
+        ],
+        "opened_mock_only": false,
+        "recovery": "NOT_NEEDED",
+        "safe": true,
+        "scenario_id": "v2-single:peer_collision",
+        "seed": 88271429435405,
+        "terminal": "PREFLIGHT_REFUSAL"
+      },
+      {
+        "counts": {
+          "hello_attempts": 1,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 1
+        },
+        "faults": [
+          "abort_during_transaction"
+        ],
+        "missing_gates": [],
+        "opened_mock_only": true,
+        "recovery": "MOCK_ABORT_CLOSE",
+        "safe": true,
+        "scenario_id": "v2-single:abort_during_transaction",
+        "seed": 88271429435406,
+        "terminal": "MOCK_TRANSACTION_FAIL_CLOSED"
+      },
+      {
+        "counts": {
+          "hello_attempts": 1,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "host_termination"
+        ],
+        "missing_gates": [],
+        "opened_mock_only": true,
+        "recovery": "CLOSE_ONLY_NO_PROGRAM",
+        "safe": true,
+        "scenario_id": "v2-single:host_termination",
+        "seed": 88271429435407,
+        "terminal": "HELLO_FAILURE_NO_RETRY"
+      },
+      {
+        "counts": {
+          "hello_attempts": 1,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "adapter_termination"
+        ],
+        "missing_gates": [],
+        "opened_mock_only": true,
+        "recovery": "CLOSE_ONLY_NO_PROGRAM",
+        "safe": true,
+        "scenario_id": "v2-single:adapter_termination",
+        "seed": 88271429435408,
+        "terminal": "HELLO_FAILURE_NO_RETRY"
+      },
+      {
+        "counts": {
+          "hello_attempts": 0,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "evidence_write_failure"
+        ],
+        "missing_gates": [
+          "EVIDENCE_READY"
+        ],
+        "opened_mock_only": false,
+        "recovery": "NOT_NEEDED",
+        "safe": true,
+        "scenario_id": "v2-single:evidence_write_failure",
+        "seed": 88271429435409,
+        "terminal": "PREFLIGHT_REFUSAL"
+      },
+      {
+        "counts": {
+          "hello_attempts": 0,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "corrupted_evidence"
+        ],
+        "missing_gates": [
+          "EVIDENCE_READY"
+        ],
+        "opened_mock_only": false,
+        "recovery": "NOT_NEEDED",
+        "safe": true,
+        "scenario_id": "v2-single:corrupted_evidence",
+        "seed": 88271429435410,
+        "terminal": "PREFLIGHT_REFUSAL"
+      },
+      {
+        "counts": {
+          "hello_attempts": 0,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "image_qualification_revoked_before_invocation"
+        ],
+        "missing_gates": [
+          "IMAGE_QUALIFIED"
+        ],
+        "opened_mock_only": false,
+        "recovery": "NOT_NEEDED",
+        "safe": true,
+        "scenario_id": "v2-single:image_qualification_revoked_before_invocation",
+        "seed": 88271429435411,
+        "terminal": "PREFLIGHT_REFUSAL"
+      },
+      {
+        "counts": {
+          "hello_attempts": 0,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "authorization_absent"
+        ],
+        "missing_gates": [
+          "EXPLICIT_HARDWARE_AUTHORIZATION"
+        ],
+        "opened_mock_only": false,
+        "recovery": "NOT_NEEDED",
+        "safe": true,
+        "scenario_id": "v2-single:authorization_absent",
+        "seed": 88271429435412,
+        "terminal": "PREFLIGHT_REFUSAL"
+      },
+      {
+        "counts": {
+          "hello_attempts": 0,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "authorization_removed_before_invocation"
+        ],
+        "missing_gates": [
+          "EXPLICIT_HARDWARE_AUTHORIZATION"
+        ],
+        "opened_mock_only": false,
+        "recovery": "NOT_NEEDED",
+        "safe": true,
+        "scenario_id": "v2-single:authorization_removed_before_invocation",
+        "seed": 88271429435413,
+        "terminal": "PREFLIGHT_REFUSAL"
+      },
+      {
+        "counts": {
+          "hello_attempts": 0,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "identity_mismatch"
+        ],
+        "missing_gates": [
+          "ONE_CARD_SCOPE",
+          "EXPECTED_CARD_ID_MATCH"
+        ],
+        "opened_mock_only": false,
+        "recovery": "NOT_NEEDED",
+        "safe": true,
+        "scenario_id": "v2-single:identity_mismatch",
+        "seed": 88271429435414,
+        "terminal": "PREFLIGHT_REFUSAL"
+      },
+      {
+        "counts": {
+          "hello_attempts": 0,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "protocol_mismatch"
+        ],
+        "missing_gates": [
+          "PROTOCOL_VERSION_MATCH"
+        ],
+        "opened_mock_only": false,
+        "recovery": "NOT_NEEDED",
+        "safe": true,
+        "scenario_id": "v2-single:protocol_mismatch",
+        "seed": 88271429435415,
+        "terminal": "PREFLIGHT_REFUSAL"
+      },
+      {
+        "counts": {
+          "hello_attempts": 1,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 1
+        },
+        "faults": [
+          "unexpected_status"
+        ],
+        "missing_gates": [],
+        "opened_mock_only": true,
+        "recovery": "MOCK_ABORT_CLOSE",
+        "safe": true,
+        "scenario_id": "v2-single:unexpected_status",
+        "seed": 88271429435416,
+        "terminal": "MOCK_TRANSACTION_FAIL_CLOSED"
+      },
+      {
+        "counts": {
+          "hello_attempts": 1,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 1
+        },
+        "faults": [
+          "work_rejection"
+        ],
+        "missing_gates": [],
+        "opened_mock_only": true,
+        "recovery": "MOCK_ABORT_CLOSE",
+        "safe": true,
+        "scenario_id": "v2-single:work_rejection",
+        "seed": 88271429435417,
+        "terminal": "MOCK_TRANSACTION_FAIL_CLOSED"
+      },
+      {
+        "counts": {
+          "hello_attempts": 1,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 1
+        },
+        "faults": [
+          "result_decoder_failure"
+        ],
+        "missing_gates": [],
+        "opened_mock_only": true,
+        "recovery": "MOCK_ABORT_CLOSE",
+        "safe": true,
+        "scenario_id": "v2-single:result_decoder_failure",
+        "seed": 88271429435418,
+        "terminal": "MOCK_TRANSACTION_FAIL_CLOSED"
+      },
+      {
+        "counts": {
+          "hello_attempts": 1,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "host_termination",
+          "result_decoder_failure"
+        ],
+        "missing_gates": [],
+        "opened_mock_only": true,
+        "recovery": "CLOSE_ONLY_NO_PROGRAM",
+        "safe": true,
+        "scenario_id": "v2-combo:00",
+        "seed": 1884001294,
+        "terminal": "HELLO_FAILURE_NO_RETRY"
+      },
+      {
+        "counts": {
+          "hello_attempts": 0,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "delayed_hello",
+          "evidence_write_failure",
+          "work_rejection"
+        ],
+        "missing_gates": [
+          "EVIDENCE_READY"
+        ],
+        "opened_mock_only": false,
+        "recovery": "NOT_NEEDED",
+        "safe": true,
+        "scenario_id": "v2-combo:01",
+        "seed": 1336855221,
+        "terminal": "PREFLIGHT_REFUSAL"
+      },
+      {
+        "counts": {
+          "hello_attempts": 0,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "authorization_removed_before_invocation",
+          "reordered_result",
+          "result_decoder_failure",
+          "unexpected_status"
+        ],
+        "missing_gates": [
+          "EXPLICIT_HARDWARE_AUTHORIZATION"
+        ],
+        "opened_mock_only": false,
+        "recovery": "NOT_NEEDED",
+        "safe": true,
+        "scenario_id": "v2-combo:02",
+        "seed": 1758559985,
+        "terminal": "PREFLIGHT_REFUSAL"
+      },
+      {
+        "counts": {
+          "hello_attempts": 1,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "duplicated_reply",
+          "truncated_reply"
+        ],
+        "missing_gates": [],
+        "opened_mock_only": true,
+        "recovery": "CLOSE_ONLY_NO_PROGRAM",
+        "safe": true,
+        "scenario_id": "v2-combo:03",
+        "seed": 820854747,
+        "terminal": "HELLO_FAILURE_NO_RETRY"
+      },
+      {
+        "counts": {
+          "hello_attempts": 0,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "authorization_absent",
+          "peer_collision",
+          "stale_reply"
+        ],
+        "missing_gates": [
+          "EXPLICIT_HARDWARE_AUTHORIZATION",
+          "PEER_EXCLUSION"
+        ],
+        "opened_mock_only": false,
+        "recovery": "NOT_NEEDED",
+        "safe": true,
+        "scenario_id": "v2-combo:04",
+        "seed": 2133982283,
+        "terminal": "PREFLIGHT_REFUSAL"
+      },
+      {
+        "counts": {
+          "hello_attempts": 1,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "abort_during_transaction",
+          "duplicated_reply",
+          "result_before_hello_completion",
+          "stale_session_result"
+        ],
+        "missing_gates": [],
+        "opened_mock_only": true,
+        "recovery": "CLOSE_ONLY_NO_PROGRAM",
+        "safe": true,
+        "scenario_id": "v2-combo:05",
+        "seed": 749718441,
+        "terminal": "HELLO_FAILURE_NO_RETRY"
+      },
+      {
+        "counts": {
+          "hello_attempts": 1,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "stale_reply",
+          "unexpected_status"
+        ],
+        "missing_gates": [],
+        "opened_mock_only": true,
+        "recovery": "CLOSE_ONLY_NO_PROGRAM",
+        "safe": true,
+        "scenario_id": "v2-combo:06",
+        "seed": 866613399,
+        "terminal": "HELLO_FAILURE_NO_RETRY"
+      },
+      {
+        "counts": {
+          "hello_attempts": 0,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "abort_during_transaction",
+          "evidence_write_failure",
+          "timeout"
+        ],
+        "missing_gates": [
+          "EVIDENCE_READY"
+        ],
+        "opened_mock_only": false,
+        "recovery": "NOT_NEEDED",
+        "safe": true,
+        "scenario_id": "v2-combo:07",
+        "seed": 754652755,
+        "terminal": "PREFLIGHT_REFUSAL"
+      },
+      {
+        "counts": {
+          "hello_attempts": 0,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "corrupted_evidence",
+          "evidence_write_failure",
+          "stale_reply",
+          "work_rejection"
+        ],
+        "missing_gates": [
+          "EVIDENCE_READY"
+        ],
+        "opened_mock_only": false,
+        "recovery": "NOT_NEEDED",
+        "safe": true,
+        "scenario_id": "v2-combo:08",
+        "seed": 860713727,
+        "terminal": "PREFLIGHT_REFUSAL"
+      },
+      {
+        "counts": {
+          "hello_attempts": 1,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "stale_reply",
+          "stale_session_result"
+        ],
+        "missing_gates": [],
+        "opened_mock_only": true,
+        "recovery": "CLOSE_ONLY_NO_PROGRAM",
+        "safe": true,
+        "scenario_id": "v2-combo:09",
+        "seed": 693878976,
+        "terminal": "HELLO_FAILURE_NO_RETRY"
+      },
+      {
+        "counts": {
+          "hello_attempts": 0,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "image_qualification_revoked_before_invocation",
+          "malformed_hello",
+          "partial_reply"
+        ],
+        "missing_gates": [
+          "IMAGE_QUALIFIED"
+        ],
+        "opened_mock_only": false,
+        "recovery": "NOT_NEEDED",
+        "safe": true,
+        "scenario_id": "v2-combo:10",
+        "seed": 986328904,
+        "terminal": "PREFLIGHT_REFUSAL"
+      },
+      {
+        "counts": {
+          "hello_attempts": 0,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "authorization_removed_before_invocation",
+          "host_termination",
+          "stale_session_result",
+          "unexpected_status"
+        ],
+        "missing_gates": [
+          "EXPLICIT_HARDWARE_AUTHORIZATION"
+        ],
+        "opened_mock_only": false,
+        "recovery": "NOT_NEEDED",
+        "safe": true,
+        "scenario_id": "v2-combo:11",
+        "seed": 1281319534,
+        "terminal": "PREFLIGHT_REFUSAL"
+      },
+      {
+        "counts": {
+          "hello_attempts": 1,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "abort_during_transaction",
+          "result_before_hello_completion"
+        ],
+        "missing_gates": [],
+        "opened_mock_only": true,
+        "recovery": "CLOSE_ONLY_NO_PROGRAM",
+        "safe": true,
+        "scenario_id": "v2-combo:12",
+        "seed": 1043198683,
+        "terminal": "RESULT_REFUSED_BEFORE_HELLO"
+      },
+      {
+        "counts": {
+          "hello_attempts": 0,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "protocol_mismatch",
+          "timeout",
+          "truncated_reply"
+        ],
+        "missing_gates": [
+          "PROTOCOL_VERSION_MATCH"
+        ],
+        "opened_mock_only": false,
+        "recovery": "NOT_NEEDED",
+        "safe": true,
+        "scenario_id": "v2-combo:13",
+        "seed": 489358692,
+        "terminal": "PREFLIGHT_REFUSAL"
+      },
+      {
+        "counts": {
+          "hello_attempts": 0,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "authorization_absent",
+          "partial_reply",
+          "peer_collision",
+          "unexpected_status"
+        ],
+        "missing_gates": [
+          "EXPLICIT_HARDWARE_AUTHORIZATION",
+          "PEER_EXCLUSION"
+        ],
+        "opened_mock_only": false,
+        "recovery": "NOT_NEEDED",
+        "safe": true,
+        "scenario_id": "v2-combo:14",
+        "seed": 808703351,
+        "terminal": "PREFLIGHT_REFUSAL"
+      },
+      {
+        "counts": {
+          "hello_attempts": 0,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "corrupted_evidence",
+          "reordered_result"
+        ],
+        "missing_gates": [
+          "EVIDENCE_READY"
+        ],
+        "opened_mock_only": false,
+        "recovery": "NOT_NEEDED",
+        "safe": true,
+        "scenario_id": "v2-combo:15",
+        "seed": 106008427,
+        "terminal": "PREFLIGHT_REFUSAL"
+      },
+      {
+        "counts": {
+          "hello_attempts": 0,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "authorization_removed_before_invocation",
+          "result_decoder_failure",
+          "unexpected_status"
+        ],
+        "missing_gates": [
+          "EXPLICIT_HARDWARE_AUTHORIZATION"
+        ],
+        "opened_mock_only": false,
+        "recovery": "NOT_NEEDED",
+        "safe": true,
+        "scenario_id": "v2-combo:16",
+        "seed": 2087955888,
+        "terminal": "PREFLIGHT_REFUSAL"
+      },
+      {
+        "counts": {
+          "hello_attempts": 1,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "duplicated_reply",
+          "malformed_hello",
+          "stale_reply",
+          "unexpected_status"
+        ],
+        "missing_gates": [],
+        "opened_mock_only": true,
+        "recovery": "CLOSE_ONLY_NO_PROGRAM",
+        "safe": true,
+        "scenario_id": "v2-combo:17",
+        "seed": 5101930,
+        "terminal": "HELLO_FAILURE_NO_RETRY"
+      },
+      {
+        "counts": {
+          "hello_attempts": 1,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 1
+        },
+        "faults": [
+          "result_decoder_failure",
+          "stale_session_result"
+        ],
+        "missing_gates": [],
+        "opened_mock_only": true,
+        "recovery": "MOCK_ABORT_CLOSE",
+        "safe": true,
+        "scenario_id": "v2-combo:18",
+        "seed": 1854336203,
+        "terminal": "MOCK_TRANSACTION_FAIL_CLOSED"
+      },
+      {
+        "counts": {
+          "hello_attempts": 0,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "authorization_absent",
+          "authorization_removed_before_invocation",
+          "reconnect"
+        ],
+        "missing_gates": [
+          "EXPLICIT_HARDWARE_AUTHORIZATION"
+        ],
+        "opened_mock_only": false,
+        "recovery": "NOT_NEEDED",
+        "safe": true,
+        "scenario_id": "v2-combo:19",
+        "seed": 30166725,
+        "terminal": "PREFLIGHT_REFUSAL"
+      },
+      {
+        "counts": {
+          "hello_attempts": 0,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "delayed_hello",
+          "evidence_write_failure",
+          "protocol_mismatch",
+          "stale_reply"
+        ],
+        "missing_gates": [
+          "PROTOCOL_VERSION_MATCH",
+          "EVIDENCE_READY"
+        ],
+        "opened_mock_only": false,
+        "recovery": "NOT_NEEDED",
+        "safe": true,
+        "scenario_id": "v2-combo:20",
+        "seed": 443431604,
+        "terminal": "PREFLIGHT_REFUSAL"
+      },
+      {
+        "counts": {
+          "hello_attempts": 0,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "authorization_absent",
+          "malformed_hello"
+        ],
+        "missing_gates": [
+          "EXPLICIT_HARDWARE_AUTHORIZATION"
+        ],
+        "opened_mock_only": false,
+        "recovery": "NOT_NEEDED",
+        "safe": true,
+        "scenario_id": "v2-combo:21",
+        "seed": 52400858,
+        "terminal": "PREFLIGHT_REFUSAL"
+      },
+      {
+        "counts": {
+          "hello_attempts": 0,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "host_termination",
+          "peer_collision",
+          "truncated_reply"
+        ],
+        "missing_gates": [
+          "PEER_EXCLUSION"
+        ],
+        "opened_mock_only": false,
+        "recovery": "NOT_NEEDED",
+        "safe": true,
+        "scenario_id": "v2-combo:22",
+        "seed": 599358831,
+        "terminal": "PREFLIGHT_REFUSAL"
+      },
+      {
+        "counts": {
+          "hello_attempts": 0,
+          "peer_programs": 0,
+          "physical_access": 0,
+          "program_attempts": 0,
+          "reconnects": 0,
+          "retries": 0,
+          "transactions": 0
+        },
+        "faults": [
+          "delayed_hello",
+          "duplicate_result",
+          "endpoint_disconnect",
+          "protocol_mismatch"
+        ],
+        "missing_gates": [
+          "PROTOCOL_VERSION_MATCH"
+        ],
+        "opened_mock_only": false,
+        "recovery": "NOT_NEEDED",
+        "safe": true,
+        "scenario_id": "v2-combo:23",
+        "seed": 8345359,
+        "terminal": "PREFLIGHT_REFUSAL"
+      }
+    ],
+    "scenarios_fail": 0,
+    "scenarios_pass": 51,
+    "scenarios_run": 51
+  },
+  "fault_scenarios_fail": 0,
+  "fault_scenarios_pass": 51,
+  "fault_scenarios_run": 51,
+  "full_offline_rehearsal": {
+    "canonical_result_exact": "PASS",
+    "classification": "PASS",
+    "clean_mock_close": true,
+    "cpu_crosscheck": "PASS",
+    "durable_mock_evidence_root": "results/phk2-overnight-readiness/rehearsals/rehearsal-1794280705045027946/attempt-evidence",
+    "evidence_bundle_complete": true,
+    "intake_qualification_checks_pass": true,
+    "mock_hello_attempts": 1,
+    "mock_transaction_count": 1,
+    "pass": true,
+    "physical_access_count": 0,
+    "physical_image_qualified": false,
+    "raw_result_exact": "PASS",
+    "simulated_gate_pass": true,
+    "unqualified_fixture_refused": true
+  },
+  "full_offline_rehearsal_pass": true,
+  "hardware_access_count": 0,
+  "hello_attempts": 0,
+  "host_harness_qualification": {
+    "BASE_COMMIT": "1978750ef21471076d463d99166f3ab011269d14",
+    "BATCH64_CANONICAL_RESULT_EXACT": "PASS",
+    "BATCH64_CPU_CROSSCHECK": "PASS",
+    "BATCH64_RAW_RESULT_EXACT": "PASS",
+    "BATCH64_SESSION_TESTS": "4/4",
+    "COMMAND_GENERATOR_TESTS": "3/3",
+    "DESCRIPTOR_ENCODER_EXACT": "PASS",
+    "DESCRIPTOR_ENCODER_TESTS": "14/14",
+    "DROPPED_RESULTS": 0,
+    "DUPLICATE_RESULTS": 0,
+    "ERROR_DECODER_TESTS": "4/4",
+    "EVIDENCE_BUNDLE_TESTS": "5/5",
+    "FAIL_CLOSED_CASES": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "FAIL_CLOSED_TESTS": "17/17",
+    "FAULT_CASES": [
+      "bad_hello",
+      "hello_timeout",
+      "truncated_descriptor",
+      "bad_frame_crc",
+      "rejected_descriptor",
+      "status_error",
+      "fifo_backpressure",
+      "short_result",
+      "extra_result",
+      "duplicate_result",
+      "result_timeout",
+      "wrong_result_count",
+      "raw_mismatch",
+      "canonical_mismatch",
+      "disconnect"
+    ],
+    "FAULT_MATRIX_TESTS": "15/15",
+    "FIRST_SILICON_HOST_READY": true,
+    "FPGA_PROGRAM_ATTEMPTS": 0,
+    "FROZEN_FIXTURE_INDEX_TESTS": "3/3",
+    "HARDWARE_ACCESS": 0,
+    "HELLO_ATTEMPTS": 0,
+    "HELLO_DECODER_TESTS": "4/4",
+    "HOST_RUNTIME_REFERENCE_COMMIT": "6ec5e5ac959c169df3e706377e7287f9c55b3392",
+    "HOST_STRESS_EVENTS": 100000,
+    "LIVE_TRANSACTION_COUNT": 0,
+    "PEER_SAFETY_TESTS": "1/1",
+    "PHYSICAL_PROTOCOL_QUALIFIED": false,
+    "RECOVERY_INTERFACE_TESTS": "1/1",
+    "RESULTS_RAW_CANONICAL_CPU": "PASS",
+    "RESULT_DECODER_TESTS": "4/4",
+    "SINGLE_CANONICAL_RESULT_EXACT": "PASS",
+    "SINGLE_CPU_CROSSCHECK": "PASS",
+    "SINGLE_RAW_RESULT_EXACT": "PASS",
+    "SINGLE_WORK_SESSION_TESTS": "4/4",
+    "STALE_RESULT_ACCEPTS": 0,
+    "STATUS_DECODER_TESTS": "3/3",
+    "TARGET_PROGRAM_BUDGET_TESTS": "1/1",
+    "UNEXPECTED_FAILURES": 0,
+    "scope_note": "Host/mock readiness only. Current project records still mark the physical board response endpoint/protocol unqualified; this result authorizes no hardware action."
+  },
+  "host_harness_ready": true,
+  "image_intake": {
+    "all_pass": true,
+    "cases": [
+      {
+        "case": "all_gates_pass_synthetic_never_physical",
+        "pass": true
+      },
+      {
+        "case": "missing_source_commit",
+        "pass": true,
+        "reasons": [
+          "manifest field missing: source.commit_sha"
+        ]
+      },
+      {
+        "case": "wrong_source_commit",
+        "pass": true,
+        "reasons": [
+          "source commit differs from trusted expected commit"
+        ]
+      },
+      {
+        "case": "tree_hash_mismatch",
+        "pass": true,
+        "reasons": [
+          "source tree hash mismatch"
+        ]
+      },
+      {
+        "case": "bitstream_hash_mismatch",
+        "pass": true,
+        "reasons": [
+          "artifact hash mismatch/missing: index 3"
+        ]
+      },
+      {
+        "case": "checkpoint_hash_mismatch",
+        "pass": true,
+        "reasons": [
+          "artifact hash mismatch/missing: index 1"
+        ]
+      },
+      {
+        "case": "wrong_fpga_part",
+        "pass": true,
+        "reasons": [
+          "wrong FPGA part"
+        ]
+      },
+      {
+        "case": "wrong_protocol",
+        "pass": true,
+        "reasons": [
+          "wrong protocol version"
+        ]
+      },
+      {
+        "case": "missing_cdc_report",
+        "pass": true,
+        "reasons": [
+          "required qualification report missing: reports/cdc.json"
+        ]
+      },
+      {
+        "case": "cdc_fail",
+        "pass": true,
+        "reasons": [
+          "qualification status is not PASS: CDC='FAIL'"
+        ]
+      },
+      {
+        "case": "unknown_status_never_passes",
+        "pass": true,
+        "reasons": [
+          "qualification status is not PASS: route='UNKNOWN'"
+        ]
+      },
+      {
+        "case": "unsafe_cdc_nonzero",
+        "pass": true,
+        "reasons": [
+          "unsafe CDC count must be zero"
+        ]
+      },
+      {
+        "case": "clock_interaction_fail",
+        "pass": true,
+        "reasons": [
+          "qualification status is not PASS: clock interaction='FAIL'"
+        ]
+      },
+      {
+        "case": "timing_fail",
+        "pass": true,
+        "reasons": [
+          "timing WNS is negative or missing"
+        ]
+      },
+      {
+        "case": "drc_fail",
+        "pass": true,
+        "reasons": [
+          "qualification status is not PASS: DRC='FAIL'"
+        ]
+      },
+      {
+        "case": "unconstrained_endpoints",
+        "pass": true,
+        "reasons": [
+          "unconstrained endpoint count must be zero"
+        ]
+      },
+      {
+        "case": "missing_independent_qualification",
+        "pass": true,
+        "reasons": [
+          "required qualification report missing: reports/independent-qualification.json"
+        ]
+      },
+      {
+        "case": "qualification_commit_mismatch",
+        "pass": true,
+        "reasons": [
+          "qualification commit differs from trusted commit"
+        ]
+      },
+      {
+        "case": "evidence_altered_after_manifest",
+        "pass": true,
+        "reasons": [
+          "evidence file missing/altered: reports/cdc.json"
+        ]
+      },
+      {
+        "case": "incomplete_manifest",
+        "pass": true,
+        "reasons": [
+          "manifest field missing: metrics"
+        ]
+      },
+      {
+        "case": "stale_manifest",
+        "pass": true,
+        "reasons": [
+          "manifest is stale"
+        ]
+      },
+      {
+        "case": "wrong_board_compatibility",
+        "pass": true,
+        "reasons": [
+          "wrong board/adapter compatibility ID"
+        ]
+      },
+      {
+        "case": "manifest_changed_after_creation",
+        "pass": true,
+        "reasons": [
+          "external expected manifest SHA missing or mismatched"
+        ]
+      }
+    ],
+    "image_intake_negative_tests": 22,
+    "image_intake_negative_tests_pass": 22,
+    "physical_image_qualified": false,
+    "positive_synthetic_gate_checks_pass": true,
+    "synthetic_cli_never_qualifies": true
+  },
+  "image_intake_ready": true,
+  "image_manifest_ready": true,
+  "live_path_authorized": false,
+  "physical_adapter_boundary_tests": {
+    "passed": 17,
+    "total": 17
+  },
+  "physical_adapter_interface_ready": true,
+  "physical_image_qualified": false,
+  "physical_protocol_qualified": false,
+  "program_attempts": 0,
+  "ready": true,
+  "schema": "PHK2-OVERNIGHT-HOST-READINESS-v1",
+  "scope_note": "Readiness values describe host-side/interface and synthetic offline qualification only; no physical image is qualified."
+}

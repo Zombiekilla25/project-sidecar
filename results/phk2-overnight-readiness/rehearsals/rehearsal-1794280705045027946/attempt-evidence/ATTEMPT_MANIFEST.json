@@ -1,0 +1,21 @@
+{
+  "attempt_id": "c0b29fa0-53ad-4027-823a-e793b67cbb79",
+  "candidate_bitstream_sha256": null,
+  "candidate_manifest_sha256": "1ce0d1b0b7f4c0ada4c61c168ee9375687da00b0aa6b11c93802c48955905c65",
+  "configured_target_card_id": "FK0957",
+  "descriptor_bytes": 112,
+  "descriptor_sha256": "5f1d1113ce423475583c2100c088215d8984e61bd48fbbe25b9b365487db25c0",
+  "host_executable_sha256": null,
+  "host_harness_source_sha256": "595771a8832f718025954a69a0b27f98d6291da520011762a5ba7ddc701a0066",
+  "measurement_class": "MOCK",
+  "mode": "SYNTHETIC_FULL_FLOW",
+  "oracle_sha256": "02a10d28bd1d3f8ba054ac0397e00f26093dd16f842addff4b6cbbc91fbd8ae2",
+  "physical_access_count": 0,
+  "physical_image_qualified": false,
+  "range": {
+    "count": 1,
+    "range_id": 5,
+    "start": 0
+  },
+  "synthetic_fixture": true
+}

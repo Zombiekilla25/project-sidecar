@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "PHK2-PHYSICAL-IMAGE-MANIFEST-v1",
+  "title": "PHK2 physical image qualification manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "synthetic_fixture", "source", "design", "artifacts", "protocol", "compatibility", "qualification", "metrics", "cdc", "independent_qualification", "created_utc", "evidence"],
+  "properties": {
+    "schema": {"const": "PHK2-PHYSICAL-IMAGE-MANIFEST-v1"},
+    "synthetic_fixture": {"type": "boolean"},
+    "source": {"type": "object", "additionalProperties": false, "required": ["commit_sha", "tree_path", "tree_sha256"], "properties": {"commit_sha": {"$ref": "#/$defs/sha1"}, "tree_path": {"type": "string", "minLength": 1}, "tree_sha256": {"$ref": "#/$defs/sha256"}}},
+    "design": {"type": "object", "additionalProperties": false, "required": ["rtl_top", "fpga_part", "vivado_version", "target_clock_mhz"], "properties": {"rtl_top": {"type": "string", "minLength": 1}, "fpga_part": {"type": "string", "minLength": 1}, "vivado_version": {"type": "string", "minLength": 1}, "target_clock_mhz": {"type": "number", "exclusiveMinimum": 0}}},
+    "artifacts": {"type": "object", "additionalProperties": false, "required": ["constraints", "synthesis_checkpoint", "routed_checkpoint", "bitstream", "debug_probe_ltx"], "properties": {"constraints": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/artifact"}}, "synthesis_checkpoint": {"$ref": "#/$defs/artifact"}, "routed_checkpoint": {"$ref": "#/$defs/artifact"}, "bitstream": {"$ref": "#/$defs/artifact"}, "debug_probe_ltx": {"oneOf": [{"$ref": "#/$defs/artifact"}, {"type": "null"}]}}},
+    "protocol": {"type": "object", "additionalProperties": false, "required": ["protocol_version", "descriptor_version"], "properties": {"protocol_version": {"type": "integer", "minimum": 1}, "descriptor_version": {"type": "integer", "minimum": 1}}},
+    "compatibility": {"type": "object", "additionalProperties": false, "required": ["board_adapter_compatibility_id"], "properties": {"board_adapter_compatibility_id": {"type": "string", "minLength": 1}}},
+    "qualification": {"type": "object", "additionalProperties": false, "required": ["synthesis", "implementation", "route", "drc", "cdc", "clock_interaction", "hold_timing"], "properties": {"synthesis": {"$ref": "#/$defs/status"}, "implementation": {"$ref": "#/$defs/status"}, "route": {"$ref": "#/$defs/status"}, "drc": {"$ref": "#/$defs/status"}, "cdc": {"$ref": "#/$defs/status"}, "clock_interaction": {"$ref": "#/$defs/status"}, "hold_timing": {"$ref": "#/$defs/status"}}},
+    "metrics": {"type": "object", "additionalProperties": false, "required": ["wns_ns", "tns_ns", "unsafe_cdc_count", "unconstrained_endpoint_count"], "properties": {"wns_ns": {"type": "number"}, "tns_ns": {"type": "number"}, "unsafe_cdc_count": {"type": "integer", "minimum": 0}, "unconstrained_endpoint_count": {"type": "integer", "minimum": 0}}},
+    "cdc": {"type": "object", "additionalProperties": false, "required": ["gray_pointer_qualification", "reset_qualification"], "properties": {"gray_pointer_qualification": {"$ref": "#/$defs/status"}, "reset_qualification": {"$ref": "#/$defs/status"}}},
+    "independent_qualification": {"type": "object", "additionalProperties": false, "required": ["result", "commit_sha", "harness_sha256"], "properties": {"result": {"$ref": "#/$defs/status"}, "commit_sha": {"$ref": "#/$defs/sha1"}, "harness_sha256": {"$ref": "#/$defs/sha256"}}},
+    "created_utc": {"type": "string", "format": "date-time"},
+    "evidence": {"type": "object", "additionalProperties": false, "required": ["directory", "manifest_path", "manifest_sha256"], "properties": {"directory": {"type": "string", "minLength": 1}, "manifest_path": {"type": "string", "minLength": 1}, "manifest_sha256": {"$ref": "#/$defs/sha256"}}}
+  },
+  "$defs": {
+    "sha1": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "status": {"enum": ["PASS", "FAIL", "NOT_RUN", "UNKNOWN"]},
+    "artifact": {"type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/sha256"}}}
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "canonical_result_exact": "PASS",
+  "classification": "PASS",
+  "cpu_crosscheck": "PASS",
+  "hello_attempts": 1,
+  "physical_image_qualified": false,
+  "raw_result_exact": "PASS",
+  "transaction_count": 1
+}
