@@ -120,138 +120,21 @@ def prepare_physical_session(gates: QualificationGates, expected: ExpectedIdenti
                              timeout_ms: int = 2000, *,
                              tck_policy: TckPolicy | None = None,
                              tck_observation: TckObservation | None = None,
-                             authorized_tck_hz: int | None = None,
-                             transport_capability=None) -> "GuardedPhysicalSession":
-    """Resolve only a previously selected endpoint, then open after all gates.
-
-    No discovery implementation is included. Gate failures happen before even
-    asking the provider for its selected endpoint; identity/capability failures
-    happen before the transport factory is called.
-    """
+                             authorized_tck_hz: int | None = None) -> Any:
+    """Legacy board-protocol seam; deliberately cannot open physical transport."""
     missing = gates.missing()
     if missing: raise AdapterRefusal("qualification gates missing: " + ",".join(missing))
     _validate_tck_gate(tck_policy, tck_observation, authorized_tck_hz)
-    # Legacy boolean gates cannot authorize opening a physical transport.
-    # The opaque permit is issued only after the closure master gate has
-    # verified immutable qualification, signed authorization, peer/card
-    # proofs, rollback and a durable PRE_TRANSPORT journal entry.
-    from phk2_physical_close_guard import TransportCapability, capability_audit_metadata, open_transport_after_gate
-    if type(transport_capability) is not TransportCapability:
-        raise AdapterRefusal("opaque master pre-transport capability required")
-    endpoint = discovery.selected_endpoint()
-    endpoint = validate_preflight(gates, expected, endpoint,
-                                  tck_policy=tck_policy,
-                                  tck_observation=tck_observation,
-                                  authorized_tck_hz=authorized_tck_hz)
-    try:
-        claims = capability_audit_metadata(transport_capability)
-        if (endpoint.target_identity_sha256 != claims["endpoint_target_identity_sha256"] or
-                endpoint.candidate_image_sha256 != claims["candidate_image_sha256"]):
-            raise AdapterRefusal("selected endpoint/card or image differs from capability binding")
-        transport = open_transport_after_gate(
-            transport_capability,
-            session_nonce=claims["session_nonce"],
-            endpoint_target_identity_sha256=endpoint.target_identity_sha256,
-            candidate_image_sha256=endpoint.candidate_image_sha256)
-    except Exception as exc:
-        raise AdapterRefusal(f"transport opening refused by master pre-transport gate: {exc}") from exc
-    return GuardedPhysicalSession(transport, endpoint, timeout_ms,
-                                  transport_capability=transport_capability)
+    # The reviewed closure executor is returned directly by
+    # master_pretransport_gate. This compatibility function has no factory,
+    # permit, or executor-construction path.
+    raise AdapterRefusal("transport/session construction is owned exclusively by master_pretransport_gate")
 
 def make_hello_request(sequence: int = 0) -> bytes:
     """Exact existing board-protocol HELLO request (empty payload)."""
     return request(Opcode.HELLO, sequence, b"")
 
 class GuardedPhysicalSession:
-    """Per-session guard for a separately supplied, already-open transport.
-
-    Construction is only reachable after pure preflight passes. Any timeout,
-    malformed/partial response, or disconnect poisons the session. No retry or
-    reconnect is attempted. This wrapper does not discover or open endpoints.
-    """
-    def __init__(self, transport: PhysicalTransport, endpoint: EndpointIdentity,
-                 timeout_ms: int = 2000, *, transport_capability=None):
-        if timeout_ms <= 0: raise ValueError("timeout_ms must be positive")
-        from phk2_physical_close_guard import TransportCapability, _CAPABILITY_REGISTRY, capability_audit_metadata
-        if type(transport_capability) is not TransportCapability:
-            raise AdapterRefusal("transport session requires the opaque master gate capability")
-        record = _CAPABILITY_REGISTRY.get(transport_capability)
-        if (record is None or not record.opened or record.invalidated or
-                record.transport_object is not transport):
-            raise AdapterRefusal("transport session capability was not issued/opened by master gate")
-        claims = capability_audit_metadata(transport_capability)
-        if (claims["endpoint_target_identity_sha256"] != endpoint.target_identity_sha256 or
-                claims["candidate_image_sha256"] != endpoint.candidate_image_sha256):
-            raise AdapterRefusal("transport session endpoint differs from capability binding")
-        self._transport = transport; self.endpoint = endpoint; self.timeout_ms = timeout_ms
-        self._transport_capability = transport_capability
-        self._closed = False; self._hello_attempts = 0; self._sequence = 0
-        self._abort_attempts = 0; self._seen_result_slots: set[tuple[int, int, int]] = set(); self._transaction_identity = None
-
-    @property
-    def hello_attempts(self): return self._hello_attempts
-    @property
-    def abort_attempts(self): return self._abort_attempts
-    @property
-    def closed(self): return self._closed
-
-    def _exchange(self, raw: bytes) -> Frame:
-        if self._closed: raise AdapterRefusal("stale/closed physical session")
-        try:
-            from phk2_physical_close_guard import assert_transport_capability_live
-            assert_transport_capability_live(self._transport_capability)
-            returned = self._transport.transact(raw, self.timeout_ms)
-            frame = Frame.decode(returned)  # exact length, framing, reserved bits, CRC
-            req = Frame.decode(raw)
-            if frame.opcode != (req.opcode | 0x80) or frame.sequence != req.sequence or not frame.flags & RESPONSE:
-                raise AdapterRefusal("response opcode/sequence/flags mismatch")
-            if frame.flags & ERROR:
-                raise AdapterRefusal("device returned protocol error")
-            return frame
-        except Exception:
-            # A timeout, partial response, malformed frame, or disconnect makes
-            # delivery state ambiguous; never replay this logical command.
-            self.close()
-            raise
-
-    def hello_once(self) -> HelloCapabilities:
-        if self._hello_attempts != 0: raise AdapterRefusal("HELLO budget exhausted")
-        self._hello_attempts = 1
-        frame = self._exchange(make_hello_request(self._sequence)); self._sequence += 1
-        if frame.opcode != (int(Opcode.HELLO) | 0x80):
-            self.close(); raise AdapterRefusal("not a HELLO response")
-        try: return validate_capabilities(frame.payload)
-        except Exception:
-            self.close(); raise
-
-    def accept_result_slot(self, generation: int, range_id: int, slot: int) -> None:
-        if self._transaction_identity != (generation, range_id): raise AdapterRefusal("stale result transaction identity")
-        key = (generation, range_id, slot)
-        if key in self._seen_result_slots: raise AdapterRefusal("duplicate result slot")
-        self._seen_result_slots.add(key)
-
-    def bind_transaction(self, generation: int, range_id: int) -> None:
-        if self._closed: raise AdapterRefusal("stale/closed physical session")
-        if self._transaction_identity is not None: raise AdapterRefusal("transaction already bound")
-        self._transaction_identity=(generation,range_id)
-
-    def abort_once(self, encoded_abort_request: bytes) -> bytes:
-        if self._transaction_identity is None: raise AdapterRefusal("ABORT requires an active transaction")
-        if self._abort_attempts: raise AdapterRefusal("ABORT budget exhausted")
-        req=Frame.decode(encoded_abort_request)
-        if req.opcode != int(Opcode.ABORT): raise AdapterRefusal("abort_once requires frozen ABORT opcode")
-        self._abort_attempts = 1
-        from phk2_physical_close_guard import invalidate_transport_capability
-        try:
-            response = self._exchange(encoded_abort_request)
-        finally:
-            invalidate_transport_capability(self._transport_capability, "abort attempted")
-        return response.payload
-
-    def close(self) -> None:
-        if not self._closed:
-            self._closed = True
-            from phk2_physical_close_guard import invalidate_transport_capability
-            invalidate_transport_capability(self._transport_capability, "session closed")
-            try: self._transport.close()
-            except Exception: pass
+    """Disabled legacy constructor; the master gate returns a sealed executor."""
+    def __init__(self, *_args, **_kwargs):
+        raise AdapterRefusal("direct physical-session construction is disabled")

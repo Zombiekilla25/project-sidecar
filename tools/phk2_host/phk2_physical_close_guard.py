@@ -21,8 +21,6 @@ import statistics
 import subprocess
 import time
 from typing import Any, Callable
-from types import MappingProxyType
-import weakref
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
@@ -717,58 +715,6 @@ class PreTransportJournal:
         return self.previous
 
 
-class TransportCapability:
-    """Non-serializable, process-local execution capability.
-
-    Normal construction is intentionally disabled. Authority is the object's
-    identity in `_CAPABILITY_REGISTRY`, not its fields or serialized claims.
-    """
-    __slots__ = ("__weakref__",)
-
-    def __init__(self, *_args, **_kwargs):
-        raise Refusal("transport capabilities are issued only by the master gate")
-
-    def __reduce_ex__(self, _protocol):
-        raise TypeError("transport capabilities cannot be serialized")
-
-
-@dataclass
-class _CapabilityRecord:
-    claims: MappingProxyType
-    journal: PreTransportJournal
-    revalidate: Callable[[], dict[str, str]]
-    transport_factory: Callable[[str, str], Any]
-    consumed: bool = False
-    opened: bool = False
-    invalidated: bool = False
-    transport_object: Any = None
-
-
-_CAPABILITY_REGISTRY: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
-
-
-def capability_audit_metadata(capability: TransportCapability) -> dict[str, Any]:
-    """Return inert audit claims. This dict never conveys execution authority."""
-    if type(capability) is not TransportCapability:
-        raise Refusal("unissued transport capability has no audit metadata")
-    record = _CAPABILITY_REGISTRY.get(capability)
-    if record is None:
-        raise Refusal("unissued transport capability has no audit metadata")
-    return dict(record.claims)
-
-
-def invalidate_transport_capability(capability: TransportCapability, reason: str) -> None:
-    if type(capability) is not TransportCapability:
-        return
-    record = _CAPABILITY_REGISTRY.get(capability)
-    if record is not None:
-        record.invalidated = True
-        try:
-            record.journal.append("CAPABILITY_INVALIDATED", {"reason": str(reason)[:256]})
-        except Exception:
-            record.invalidated = True
-
-
 def _peer_runtime_digest(payload: dict[str, Any]) -> str:
     return _sha(_canonical({key: payload.get(key) for key in (
         "server", "listener", "existing_foreign_clients", "competing_xvc_jtag_processes",
@@ -812,6 +758,32 @@ def transport_factory_identity_sha256(factory: Callable[..., Any]) -> str:
     return callable_identity_sha256(factory, "transport opener")
 
 
+def _create_physical_transport(_target_identity_sha256: str,
+                               _candidate_image_sha256: str) -> Any:
+    """Private transport seam; no physical backend is installed in this tree."""
+    raise Refusal("reviewed physical capture/transport backend is not installed")
+
+
+def _execute_case_a_capture(transport: Any) -> dict[str, Any]:
+    capture = getattr(transport, "capture_case_a", None)
+    if not callable(capture):
+        raise Refusal("physical capture backend does not implement Case A")
+    result = capture()
+    if not isinstance(result, dict):
+        raise Refusal("Case A backend result is malformed")
+    return result
+
+
+def _execute_case_b_capture(transport: Any) -> dict[str, Any]:
+    capture = getattr(transport, "capture_case_b", None)
+    if not callable(capture):
+        raise Refusal("physical capture backend does not implement Case B")
+    result = capture()
+    if not isinstance(result, dict):
+        raise Refusal("Case B backend result is malformed")
+    return result
+
+
 class TrustedKeyStore(dict):
     """Parsed signer keys whose containing store matched the software pin."""
     def __init__(self, *args, verified_sha256: str, **kwargs):
@@ -827,12 +799,11 @@ def master_pretransport_gate(*, repo: str | Path, closure_manifest: dict[str, An
                              signed_rollback_attestation: dict[str, Any],
                              signed_capture_backend_attestation: dict[str, Any],
                              rollback_expectation: dict[str, Any], capture_backend_expectation: dict[str, Any],
-                             transport_factory: Callable[[str, str], Any],
                              tck_envelope_qualified: bool, journal_path: str | Path,
                              session_nonce: str, qualification_hash: str,
                              bridge_sha256: str, endpoint_target_identity_sha256: str,
                              candidate_image_sha256: str,
-                             state_revalidator: Callable[[], dict[str, str]]) -> TransportCapability:
+                             state_revalidator: Callable[[], dict[str, str]]) -> Any:
     if (not isinstance(trusted_keys, TrustedKeyStore) or PINNED_TRUST_STORE_SHA256 is None or
             trusted_keys.verified_sha256 != PINNED_TRUST_STORE_SHA256):
         raise Refusal("no operator-approved cryptographic trust root is pinned for physical authorization")
@@ -881,7 +852,9 @@ def master_pretransport_gate(*, repo: str | Path, closure_manifest: dict[str, An
     capture_payload = validate_readiness_attestation(signed_capture_backend_attestation, trusted_keys,
                                     role="capture_backend", schema="PHK2-CAPTURE-BACKEND-READY-v1",
                                     expected=capture_backend_expectation)
-    factory_identity = transport_factory_identity_sha256(transport_factory)
+    # The gate selects the private, source-pinned opener. Callers cannot pass
+    # or receive a factory that can be recombined with audit metadata.
+    factory_identity = transport_factory_identity_sha256(_create_physical_transport)
     if factory_identity != capture_payload.get("transport_factory_sha256"):
         raise Refusal("transport opener does not match signed capture-backend implementation identity")
     revalidator_identity = callable_identity_sha256(state_revalidator, "live-state revalidator")
@@ -894,7 +867,7 @@ def master_pretransport_gate(*, repo: str | Path, closure_manifest: dict[str, An
                                        "authorization_id": auth["authorization_id"],
                                        "card_id": card["OBSERVED_CARD_ID"],
                                        "case_ids": list(CASE_IDS)})
-    claims = MappingProxyType({
+    claims = {
         "session_nonce": session_nonce,
         "source_commit": binding.source_commit,
         "source_tree_hash": binding.source_tree_hash,
@@ -915,26 +888,18 @@ def master_pretransport_gate(*, repo: str | Path, closure_manifest: dict[str, An
         "evidence_journal_sha256": journal_hash,
         "endpoint_target_identity_sha256": endpoint_target_identity_sha256,
         "candidate_image_sha256": candidate_image_sha256,
-    })
+    }
     expected_runtime = {
-        "session_nonce": session_nonce,
-        "source_commit": binding.source_commit,
-        "source_tree_hash": binding.source_tree_hash,
+        # These are the mutable external observations. Immutable source,
+        # route, authorization, and journal identities are independently
+        # revalidated below and are not delegated to the observation callback.
         "routed_dcp_sha256": binding.routed_dcp_sha256,
-        "qualification_record_sha256": qualification_hash,
-        "case_ids": ",".join(CASE_IDS),
-        "bridge_sha256": bridge_sha256,
-        "expected_card_id": card["OBSERVED_CARD_ID"],
-        "expected_adapter_id": card["OBSERVED_ADAPTER_ID"],
         "card_identity_sha256": claims["card_identity_sha256"],
-        "peer_proof_sha256": peer_hash,
         "peer_state_sha256": claims["peer_state_sha256"],
-        "authorization_artifact_sha256": claims["authorization_artifact_sha256"],
         "authorization_status_sha256": auth_status_digest,
         "capture_backend_identity_sha256": claims["capture_backend_identity_sha256"],
         "transport_factory_sha256": factory_identity,
         "state_revalidator_sha256": revalidator_identity,
-        "evidence_journal_sha256": journal_hash,
         "endpoint_target_identity_sha256": endpoint_target_identity_sha256,
         "candidate_image_sha256": candidate_image_sha256,
     }
@@ -971,114 +936,209 @@ def master_pretransport_gate(*, repo: str | Path, closure_manifest: dict[str, An
             raise Refusal("authorization status identity changed after capability issuance")
         return {key: value for key, value in live.items() if key != "authorization_status_wrapper"}
 
-    cap = object.__new__(TransportCapability)
-    _CAPABILITY_REGISTRY[cap] = _CapabilityRecord(claims, journal, revalidate_all, transport_factory)
-    try:
-        _check_runtime_claims(_CAPABILITY_REGISTRY[cap], expected_runtime)
-    except Exception:
-        _CAPABILITY_REGISTRY[cap].invalidated = True
-        raise
-    return cap
-
-
-def _check_runtime_claims(record: _CapabilityRecord, expected: dict[str, str] | None = None) -> None:
-    if record.invalidated or record.journal.fd is None:
-        raise Refusal("transport capability is invalidated or evidence journal is unavailable")
-    actual = record.revalidate()
-    if not isinstance(actual, dict):
-        raise Refusal("capability state revalidator did not return identity claims")
-    claims = expected or {
-        key: ",".join(value) if key == "case_ids" else value
-        for key, value in record.claims.items()
-        if key != "peer_proof_sha256"
-    }
-    for key, value in claims.items():
-        got = actual.get(key)
-        if key == "case_ids" and isinstance(got, (tuple, list)):
-            got = ",".join(got)
-        if got != value:
-            raise Refusal(f"transport capability state changed: {key}")
-    if transport_factory_identity_sha256(record.transport_factory) != record.claims["transport_factory_sha256"]:
-        raise Refusal("authorized transport implementation changed after capability issuance")
-    try:
-        fd_stat = os.fstat(record.journal.fd)
-        path_stat = record.journal.path.stat(follow_symlinks=False)
-    except OSError as exc:
-        raise Refusal("evidence journal is no longer available") from exc
-    if (fd_stat.st_dev != path_stat.st_dev or fd_stat.st_ino != path_stat.st_ino or
-            path_stat.st_nlink != 1 or path_stat.st_uid != os.getuid() or
-            path_stat.st_mode & 0o077 or not record.journal.path.is_file()):
-        raise Refusal("evidence journal identity/permissions changed")
-    journal_state = verify_journal_chain(record.journal.path.read_bytes())
-    if (journal_state["last_entry_sha256"] != record.journal.previous or
-            journal_state["entry_count"] != record.journal.sequence or
-            journal_state["first_entry_sha256"] != record.journal.initial_entry_sha256):
-        raise Refusal("evidence journal contents changed or fsync/append state diverged")
-
-
-def open_transport_after_gate(capability: TransportCapability | None, *,
-                              session_nonce: str,
-                              endpoint_target_identity_sha256: str,
-                              candidate_image_sha256: str) -> Any:
-    """Only transport opening seam; requires the exact issued object once."""
-    if type(capability) is not TransportCapability:
-        raise Refusal("transport capability was not issued by the master gate")
-    record = _CAPABILITY_REGISTRY.get(capability)
-    if record is None:
-        raise Refusal("transport capability was not issued by the master gate")
-    if record.consumed or record.opened or record.invalidated:
-        raise Refusal("transport capability is stale, consumed, or invalidated")
-    if (session_nonce != record.claims["session_nonce"] or
-            endpoint_target_identity_sha256 != record.claims["endpoint_target_identity_sha256"] or
-            candidate_image_sha256 != record.claims["candidate_image_sha256"]):
-        record.invalidated = True
-        raise Refusal("transport capability belongs to another nonce, card, or artifact")
-    record.consumed = True
-    try:
-        _check_runtime_claims(record)
-        if transport_factory_identity_sha256(record.transport_factory) != record.claims["transport_factory_sha256"]:
-            raise Refusal("authorized transport implementation changed after capability issuance")
-        # Durable journal append occurs before invoking transport code.
-        record.journal.append("TRANSPORT_OPEN_REQUESTED", {
-            "session_nonce": record.claims["session_nonce"],
-            "evidence_journal_sha256": record.claims["evidence_journal_sha256"]})
-        # Recheck mutable peer/card/authorization/journal state after the
-        # durable intent record and immediately before calling the opener.
-        _check_runtime_claims(record)
-    except Exception:
-        record.invalidated = True
-        raise
-    try:
-        transport = record.transport_factory(endpoint_target_identity_sha256,
-                                             candidate_image_sha256)
-    except Exception:
-        record.invalidated = True
-        raise
-    record.transport_object = transport
-    record.opened = True
-    try:
-        record.journal.append("TRANSPORT_OPENED", {"session_nonce": record.claims["session_nonce"]})
-    except Exception:
+    def check_journal() -> None:
+        if journal.fd is None:
+            raise Refusal("evidence journal is unavailable")
         try:
-            transport.close()
-        finally:
-            record.opened = False
-            record.invalidated = True
-        raise
-    return transport
+            fd_stat = os.fstat(journal.fd)
+            path_stat = journal.path.stat(follow_symlinks=False)
+        except OSError as exc:
+            raise Refusal("evidence journal is no longer available") from exc
+        if (fd_stat.st_dev != path_stat.st_dev or fd_stat.st_ino != path_stat.st_ino or
+                path_stat.st_nlink != 1 or path_stat.st_uid != os.getuid() or
+                path_stat.st_mode & 0o077 or not journal.path.is_file()):
+            raise Refusal("evidence journal identity/permissions changed")
+        journal_state = verify_journal_chain(journal.path.read_bytes())
+        if (journal_state["last_entry_sha256"] != journal.previous or
+                journal_state["entry_count"] != journal.sequence or
+                journal_state["first_entry_sha256"] != journal.initial_entry_sha256):
+            raise Refusal("evidence journal contents changed or fsync/append state diverged")
 
+    seal = object()
 
-def assert_transport_capability_live(capability: TransportCapability) -> None:
-    if type(capability) is not TransportCapability:
-        raise Refusal("transport capability is absent or forged")
-    record = _CAPABILITY_REGISTRY.get(capability)
-    if record is None or not record.opened or record.invalidated:
-        raise Refusal("transport capability is stale, closed, or invalidated")
-    try:
-        _check_runtime_claims(record)
-    except Exception:
-        record.invalidated = True
-        raise
+    class GatedPhysicalExecutor:
+        """Locally defined sealed executor; no importable authority record exists."""
+        __slots__ = ("__transport", "__journal", "__claims", "__revalidate",
+                     "__expected_runtime", "__state", "__case_a_wrapper",
+                     "__case_a_complete", "__case_b_complete")
+
+        def __init__(self, issuer: object):
+            if issuer is not seal:
+                raise Refusal("executor construction is private to the master gate")
+            self.__transport = None
+            self.__journal = journal
+            self.__claims = dict(claims)
+            self.__revalidate = revalidate_all
+            self.__expected_runtime = dict(expected_runtime)
+            self.__state = "PRETRANSPORT"
+            self.__case_a_wrapper = None
+            self.__case_a_complete = False
+            self.__case_b_complete = False
+
+        def __reduce_ex__(self, _protocol: int):
+            raise TypeError("live physical executors cannot be serialized")
+
+        def __copy__(self):
+            raise TypeError("live physical executors cannot be copied")
+
+        def __deepcopy__(self, _memo):
+            raise TypeError("live physical executors cannot be copied")
+
+        @property
+        def state(self) -> str:
+            return self.__state
+
+        def audit_metadata(self) -> dict[str, Any]:
+            return {**self.__claims, "state": self.__state}
+
+        def __check_live(self, allowed: tuple[str, ...]) -> None:
+            if self.__state not in allowed or self.__transport is None:
+                raise Refusal(f"executor state {self.__state} does not allow this operation")
+            try:
+                actual = self.__revalidate()
+                if not isinstance(actual, dict):
+                    raise Refusal("executor revalidator did not return identity claims")
+                for key, value in self.__expected_runtime.items():
+                    if actual.get(key) != value:
+                        raise Refusal(f"executor state changed: {key}")
+                check_journal()
+            except Exception as exc:
+                self.__state = "ABORTED"
+                try:
+                    self.__journal.append("EXECUTOR_INVALIDATED", {"reason": type(exc).__name__})
+                except Exception:
+                    pass
+                try:
+                    self.__transport.close()
+                except Exception:
+                    pass
+                if isinstance(exc, Refusal):
+                    raise
+                raise Refusal("executor live-state check failed") from exc
+
+        def __open_from_master(self, issuer: object) -> None:
+            if issuer is not seal or self.__state != "PRETRANSPORT":
+                raise Refusal("only the master gate may open this executor")
+            try:
+                actual = self.__revalidate()
+                for key, value in self.__expected_runtime.items():
+                    if actual.get(key) != value:
+                        raise Refusal(f"pretransport state changed: {key}")
+                check_journal()
+                self.__journal.append("TRANSPORT_OPEN_REQUESTED", {
+                    "session_nonce": self.__claims["session_nonce"],
+                    "evidence_journal_sha256": self.__claims["evidence_journal_sha256"]})
+                check_journal()
+                if transport_factory_identity_sha256(_create_physical_transport) != self.__claims["transport_factory_sha256"]:
+                    raise Refusal("private transport opener changed after review")
+                transport = _create_physical_transport(
+                    self.__claims["endpoint_target_identity_sha256"],
+                    self.__claims["candidate_image_sha256"])
+                if transport is None or not callable(getattr(transport, "close", None)):
+                    raise Refusal("private transport opener returned an invalid transport")
+                self.__transport = transport
+                self.__journal.append("TRANSPORT_OPENED", {"session_nonce": self.__claims["session_nonce"]})
+                self.__state = "OPEN"
+            except Exception:
+                self.__state = "ABORTED"
+                if self.__transport is not None:
+                    try:
+                        self.__transport.close()
+                    except Exception:
+                        pass
+                try:
+                    self.__journal.append("TRANSPORT_OPEN_FAILED", {"session_nonce": self.__claims["session_nonce"]})
+                except Exception:
+                    pass
+                raise
+
+        def run_case_a(self) -> dict[str, Any]:
+            self.__check_live(("OPEN",))
+            self.__state = "CASE_A"
+            try:
+                wrapper = _execute_case_a_capture(self.__transport)
+                payload, raw = validate_signed_capture(
+                    wrapper, trusted_keys, expected_role="capture", expected_case_id=CASE_A_ID,
+                    expected_record_sha256=qualification_hash)
+                waveform = parse_waveform_csv(raw, payload.get("summary"))
+                limits = binding.tck_envelope.get("physical_waveform_limits")
+                if not isinstance(limits, dict):
+                    raise Refusal("v5.1 physical TCK envelope is not qualified")
+                for field, key in (
+                    ("MEASURED_TCK_HZ", "minimum_tck_hz"),
+                    ("MEASURED_TCK_HZ", "maximum_tck_hz"),
+                    ("MEASURED_HIGH_NS", "minimum_high_ns"),
+                    ("MEASURED_HIGH_NS", "maximum_high_ns"),
+                    ("MEASURED_LOW_NS", "minimum_low_ns"),
+                    ("MEASURED_LOW_NS", "maximum_low_ns"),
+                    ("MEASURED_DUTY_CYCLE", "minimum_duty_cycle_percent"),
+                    ("MEASURED_DUTY_CYCLE", "maximum_duty_cycle_percent"),
+                    ("JITTER_MIN_NS", "minimum_jitter_ns"),
+                    ("JITTER_MAX_NS", "maximum_jitter_ns")):
+                    limit = limits.get(key)
+                    if not isinstance(limit, (int, float)) or not math.isfinite(limit):
+                        raise Refusal(f"qualified physical TCK envelope lacks {key}")
+                    if key.startswith("minimum_") and waveform[field] < limit:
+                        raise Refusal(f"Case A waveform below qualified {key}")
+                    if key.startswith("maximum_") and waveform[field] > limit:
+                        raise Refusal(f"Case A waveform above qualified {key}")
+                self.__case_a_wrapper = wrapper
+                self.__case_a_complete = True
+                self.__journal.append("CASE_A_CAPTURED", {
+                    "case_id": CASE_A_ID, "capture_sha256": _sha(raw),
+                    "waveform": waveform})
+                return waveform
+            except Exception:
+                self.abort()
+                raise
+
+        def run_case_b(self) -> dict[str, Any]:
+            self.__check_live(("CASE_A",))
+            if not self.__case_a_complete:
+                raise Refusal("Case B requires successful Case A completion")
+            self.__state = "CASE_B"
+            try:
+                wrapper = _execute_case_b_capture(self.__transport)
+                result = validate_physical_capture_package(
+                    trusted_keys=trusted_keys, waveform_wrapper=self.__case_a_wrapper,
+                    tap_wrapper=wrapper, binding=binding, expected_idcode=binding.expected_idcode)
+                self.__case_b_complete = True
+                self.__journal.append("CASE_B_CAPTURED", {
+                    "case_id": CASE_B_ID,
+                    "tap_capture_sha256": result["tap_capture_sha256"],
+                    "tap": result["tap"]})
+                return result
+            except Exception:
+                self.abort()
+                raise
+
+        def close(self) -> None:
+            if self.__state in ("CLOSED", "ABORTED"):
+                raise Refusal(f"executor is already {self.__state.lower()}")
+            transport = self.__transport
+            self.__state = "CLOSED"
+            try:
+                self.__journal.append("FINAL_IDLE_CLOSE", {
+                    "case_a_complete": self.__case_a_complete,
+                    "case_b_complete": self.__case_b_complete})
+            finally:
+                if transport is not None:
+                    transport.close()
+
+        def abort(self) -> None:
+            if self.__state in ("CLOSED", "ABORTED"):
+                raise Refusal(f"executor is already {self.__state.lower()}")
+            transport = self.__transport
+            self.__state = "ABORTED"
+            try:
+                self.__journal.append("ABORTED", {"session_nonce": self.__claims["session_nonce"]})
+            finally:
+                if transport is not None:
+                    transport.close()
+
+    executor = GatedPhysicalExecutor(seal)
+    getattr(executor, f"_{GatedPhysicalExecutor.__name__}__open_from_master")(seal)
+    return executor
 
 
 def load_trust_store(path: str | Path) -> dict[str, dict[str, Any]]:

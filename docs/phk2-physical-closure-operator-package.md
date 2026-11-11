@@ -59,30 +59,32 @@ master_pretransport_gate
   -> signed immutable qualification, artifact, bridge, peer/card, authorization,
      rollback and capture-backend checks
   -> create + fsync PRE_TRANSPORT journal record
-  -> issue opaque process-local TransportCapability
-  -> PhysicalAdapterBoundary.prepare_physical_session
-  -> open_transport_after_gate (the only transport-opening seam)
-  -> signed-backend-bound opener stored in the private capability registry
-  -> GuardedPhysicalSession (requires that same issued and opened capability)
+  -> privately construct a process-local sealed executor
+  -> open the exact bound transport inside the gate before returning it
+  -> return only the executor, which owns that exact transport instance
 ```
 
-`TransportCapability` has disabled normal construction and serialization.
-Execution authority is the exact object identity registered by the master
-gate in a process-local weak registry; audit metadata is inert and cannot be
-deserialized into authority. The gate binds the nonce, v5.1 source/tree/route
-hashes, qualification record, ordered case IDs, bridge and card identities,
-peer proof/state digests, authorization and revocation state, signed backend
-and opener/revalidator code identities, and journal identity. Opening consumes
-the capability once. Every session exchange rechecks immutable artifacts,
-authorization, peer/card/runtime claims, journal integrity, and opener code
-identity; abort, close, state change, or journal failure invalidates the
-capability. Reconnect requires a new complete gate and journal.
+There is no capability record type and no module-global authority registry.
+The master gate defines the executor class locally, closes over a one-time
+issuer object, initializes and fsyncs the journal, then privately opens the
+transport before returning the executor. Callers receive neither a permit
+that can be recombined nor a transport factory. Audit metadata is serializable
+but carries no execution authority. Copying and serialization of the live
+executor are refused. Its state advances through OPEN, CASE_A, CASE_B, and
+CLOSED, or to ABORTED on an invalidation. Case B requires completed Case A;
+close/abort and failed live-state or journal checks prevent replay or reconnect.
+Each operation rechecks immutable artifacts, authorization, peer/card/runtime
+claims, journal integrity, and the capture-opener identity.
 
 Before this fix, the independent audit's forgeable-permit route and the legacy
-CLI plugin hook were ungated openings. After this fix, the only code seam that
-can invoke the bound opener is `open_transport_after_gate`, and it refuses
-without the exact registry-issued capability. No live opener is installed in
-this worktree, so the synthetic gate tests exercise only mock factories.
+CLI plugin hook were reported ungated. The supported transport-opening route
+is now the master gate's private executor construction path. The only module
+opener in this checkout refuses because no reviewed physical capture backend
+is installed; legacy session construction and CLI live routes also refuse.
+Ordinary imported callers are the threat model. Arbitrary Python code
+execution, memory introspection, or runtime patching inside this interpreter
+is outside that boundary. Synthetic gate tests patch the private refusal seam
+and use mock transports only; no physical backend or live path is enabled.
 
 ## Parsers and evidence provenance
 

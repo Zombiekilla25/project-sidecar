@@ -78,13 +78,19 @@ class TestTransportFactory:
         return FakeTransport(self.counter,self.abort_response)
 
 
-def issue_capability(repo: Path, journal_path: Path, *, abort_response=False):
-    """Exercise the actual gate with synthetic proof providers and no I/O."""
+def issue_executor(repo: Path, journal_path: Path, *, abort_response=False):
+    """Exercise the master gate with synthetic proof providers and no I/O."""
     binding = SimpleNamespace(
         source_commit=V51_SOURCE_COMMIT, source_tree_hash=V51_SOURCE_TREE_HASH,
         routed_dcp_sha256=V51_ROUTED_DCP_SHA256,
         qualification_record_sha256=V51_QUALIFICATION_RECORD_SHA256,
         qualified_physical_envelope_available=True,
+        tck_envelope={"physical_waveform_limits": {
+            "minimum_tck_hz": 49_000_000, "maximum_tck_hz": 51_000_000,
+            "minimum_high_ns": 9.0, "maximum_high_ns": 11.0,
+            "minimum_low_ns": 9.0, "maximum_low_ns": 11.0,
+            "minimum_duty_cycle_percent": 45.0, "maximum_duty_cycle_percent": 55.0,
+            "minimum_jitter_ns": 0.0, "maximum_jitter_ns": 1.0}},
         expected_card_id="153300000957", expected_adapter_id="153300000957A",
         expected_idcode="04b69093")
     now = datetime.now(timezone.utc).isoformat()
@@ -112,36 +118,45 @@ def issue_capability(repo: Path, journal_path: Path, *, abort_response=False):
     auth_status_payload = {"schema": "PHK2-AUTHORIZATION-STATUS-v1", "status": "ACTIVE",
         "authorization_id": "auth-1", "authorization_sha256": _sha(_canonical(auth_wrapper))}
     rollback_expectation = {"rollback_manifest_sha256": ROLLBACK_SHA256}
-    transport_factory = TestTransportFactory(abort_response)
+    transport = TestTransportFactory(abort_response)
+    def fake_open(_target_identity, _image_sha):
+        transport.calls += 1
+        return FakeTransport(transport.counter, abort_response)
+    factory_identity = transport_factory_identity_sha256(fake_open)
     capture_expectation = {"backend_id": "fixture-backend", "backend_sha256": "b" * 64,
-                           "backend_version": "test", "capture_device_id": "fixture-scope",
-                           "transport_factory_sha256": transport_factory_identity_sha256(transport_factory)}
+        "backend_version": "test", "capture_device_id": "fixture-scope",
+        "transport_factory_sha256": factory_identity}
     capture_payload = {**capture_expectation, "status": "READY", "synthetic_fixture": False}
     rollback_payload = {**rollback_expectation, "status": "READY", "synthetic_fixture": False}
-    peer_wrapper = {"schema": "test"}
-    card_wrapper = {"schema": "test"}
+    peer_wrapper = {"schema": "test"}; card_wrapper = {"schema": "test"}
     manifest = {"qualification_record_sha256": V51_QUALIFICATION_RECORD_SHA256}
     runtime = {}
-
     def live_state(): return {**runtime, "authorization_status_wrapper": {"fixture": "active"}}
-    capture_expectation["state_revalidator_sha256"] = guard.callable_identity_sha256(
-        live_state, "live-state revalidator")
-    capture_payload["state_revalidator_sha256"] = capture_expectation["state_revalidator_sha256"]
+    revalidator_digest = guard.callable_identity_sha256(live_state, "live-state revalidator")
+    capture_expectation["state_revalidator_sha256"] = revalidator_digest
+    capture_payload["state_revalidator_sha256"] = revalidator_digest
+    status_digest = _sha(_canonical({key: auth_status_payload[key] for key in (
+        "schema", "status", "authorization_id", "authorization_sha256")}))
+    runtime.update({
+        "routed_dcp_sha256": binding.routed_dcp_sha256,
+        "card_identity_sha256": guard._card_runtime_digest(card_payload),
+        "peer_state_sha256": guard._peer_runtime_digest(peer_payload),
+        "authorization_status_sha256": status_digest,
+        "capture_backend_identity_sha256": guard._backend_runtime_digest(capture_payload),
+        "transport_factory_sha256": factory_identity,
+        "state_revalidator_sha256": revalidator_digest,
+        "endpoint_target_identity_sha256": "e" * 64,
+        "candidate_image_sha256": "f" * 64})
     def verified_doc(_wrapper, _keys, role, **_kw):
         return peer_payload if role == "peer" else card_payload
     def readiness(_wrapper, _keys, *, role, **_kw):
         return rollback_payload if role == "rollback" else capture_payload
     def verify_auth(*_args, **_kwargs): return auth_payload
-    real_check = guard._check_runtime_claims
-    def seed_runtime(record, expected=None):
-        if expected is not None:
-            runtime.clear(); runtime.update(expected)
-        return real_check(record, expected)
-
     td_obj = tempfile.TemporaryDirectory()
     actual_journal = Path(td_obj.name) / journal_path.name
     patches = ExitStack()
     patches.enter_context(mock.patch.object(guard, "PINNED_TRUST_STORE_SHA256", "fixture-pinned"))
+    patches.enter_context(mock.patch.object(guard, "transport_factory_identity_sha256", return_value=factory_identity))
     patches.enter_context(mock.patch.object(guard, "verify_immutable_v51", return_value=binding))
     patches.enter_context(mock.patch.object(guard, "validate_case_manifest"))
     patches.enter_context(mock.patch.object(guard, "verify_signed_document", side_effect=verified_doc))
@@ -151,8 +166,8 @@ def issue_capability(repo: Path, journal_path: Path, *, abort_response=False):
     patches.enter_context(mock.patch.object(guard, "validate_readiness_attestation", side_effect=readiness))
     patches.enter_context(mock.patch.object(guard, "validate_signed_authorization", side_effect=verify_auth))
     patches.enter_context(mock.patch.object(guard, "validate_authorization_status", return_value=auth_status_payload))
-    patches.enter_context(mock.patch.object(guard, "_check_runtime_claims", side_effect=seed_runtime))
-    cap = guard.master_pretransport_gate(
+    patches.enter_context(mock.patch.object(guard, "_create_physical_transport", side_effect=fake_open))
+    executor = guard.master_pretransport_gate(
         repo=repo, closure_manifest=manifest, signed_authorization=auth_wrapper,
         signed_authorization_status={"fixture": "active"},
         trusted_keys=guard.TrustedKeyStore({}, verified_sha256="fixture-pinned"),
@@ -160,13 +175,12 @@ def issue_capability(repo: Path, journal_path: Path, *, abort_response=False):
         signed_card_identity=card_wrapper, card_expectation=card_expectation,
         signed_rollback_attestation={}, signed_capture_backend_attestation={},
         rollback_expectation=rollback_expectation, capture_backend_expectation=capture_expectation,
-        transport_factory=transport_factory,
         tck_envelope_qualified=True, journal_path=actual_journal,
         session_nonce="session-1", qualification_hash=V51_QUALIFICATION_RECORD_SHA256,
         bridge_sha256=PINNED_REVIEWED_BRIDGE_SHA256,
         endpoint_target_identity_sha256="e" * 64, candidate_image_sha256="f" * 64,
         state_revalidator=live_state)
-    return cap, runtime, actual_journal, binding, td_obj, patches, transport_factory
+    return executor, runtime, actual_journal, binding, td_obj, patches, transport
 
 
 class PhysicalCloseGuardTests(unittest.TestCase):
@@ -324,115 +338,115 @@ class PhysicalCloseGuardTests(unittest.TestCase):
         self.assertFalse(self.binding.qualified_physical_envelope_available)
 
     def _issue(self, **kwargs):
-        return issue_capability(self.repo, Path("phk2-journal.jsonl"), **kwargs)
+        return issue_executor(self.repo, Path("phk2-journal.jsonl"), **kwargs)
 
-    @staticmethod
-    def _open(cap, runtime, *, nonce="session-1", target="e" * 64, image="f" * 64, calls=None):
-        calls = calls if calls is not None else []
-        result = open_transport_after_gate(cap,
-            session_nonce=nonce, endpoint_target_identity_sha256=target,
-            candidate_image_sha256=image)
-        calls.append("opened")
-        return result, calls
-
-    def test_09_forged_deserialized_and_direct_factory_attempts_refuse(self):
-        cap, _runtime, _path, _binding, tmp, patches, factory = self._issue()
-        self.addCleanup(patches.close); self.addCleanup(tmp.cleanup)
-        calls = []
-        with self.assertRaises(Refusal): TransportCapability()
-        forged = object.__new__(TransportCapability)
-        with self.assertRaises(Refusal):
-            open_transport_after_gate(forged,
-                session_nonce="session-1", endpoint_target_identity_sha256="e" * 64,
-                candidate_image_sha256="f" * 64)
-        serialized = json.loads(json.dumps(capability_audit_metadata(cap)))
-        with self.assertRaises(Refusal):
-            open_transport_after_gate(serialized,
-                session_nonce="session-1", endpoint_target_identity_sha256="e" * 64,
-                candidate_image_sha256="f" * 64)
-        with self.assertRaises(TypeError): __import__("copy").copy(cap)
-        with self.assertRaises(Refusal):
-            open_transport_after_gate(None,
-                session_nonce="session-1", endpoint_target_identity_sha256="e" * 64,
-                candidate_image_sha256="f" * 64)
+    def test_09_old_authority_types_and_transport_seams_are_absent(self):
+        self.assertFalse(hasattr(guard, "TransportCapability"))
+        self.assertFalse(hasattr(guard, "_CapabilityRecord"))
+        self.assertFalse(hasattr(guard, "_CAPABILITY_REGISTRY"))
+        self.assertFalse(hasattr(guard, "open_transport_after_gate"))
+        self.assertFalse(hasattr(guard, "register_capability"))
+        self.assertFalse(hasattr(guard, "_issue_capability"))
         with self.assertRaises(TypeError):
-            open_transport_after_gate(cap, transport_factory=factory,
-                session_nonce="session-1", endpoint_target_identity_sha256="e" * 64,
-                candidate_image_sha256="f" * 64)
+            guard.master_pretransport_gate(transport_factory=lambda *_: self.fail("factory reached"))
         with self.assertRaises(RuntimeError): PhysicalBscanTransport()
-        self.assertEqual(calls, [])
-        self.assertEqual(factory.calls, 0)
 
-    def test_10_only_master_issued_capability_opens_once_and_is_session_bound(self):
-        cap, runtime, _path, _binding, tmp, patches, factory = self._issue()
+    def test_10_registry_forgery_and_audit_metadata_are_inert(self):
+        executor, _runtime, _path, _binding, tmp, patches, factory = self._issue()
         self.addCleanup(patches.close); self.addCleanup(tmp.cleanup)
-        claims = capability_audit_metadata(cap)
-        opened, calls = self._open(cap, runtime)
-        self.assertEqual(calls, ["opened"])
+        forged = object()
+        guard._CAPABILITY_REGISTRY = {forged: {"issued": True, "session_nonce": "session-1"}}
+        self.assertFalse(hasattr(forged, "open_transport"))
+        self.assertEqual(executor.state, "OPEN")
+        metadata = json.loads(json.dumps(executor.audit_metadata()))
+        self.assertEqual(metadata["session_nonce"], "session-1")
+        self.assertFalse(hasattr(metadata, "run_case_a"))
         self.assertEqual(factory.calls, 1)
-        endpoint = EndpointIdentity("e" * 64, "f" * 64, "selected")
-        session = GuardedPhysicalSession(opened, endpoint, transport_capability=cap)
-        with self.assertRaises(Refusal): self._open(cap, runtime)
-        session.close()
-        self.assertEqual(claims["case_ids"], (CASE_A_ID, CASE_B_ID))
-        self.assertTrue(opened.closed)
+        del guard._CAPABILITY_REGISTRY
 
-    def test_11_wrong_nonce_card_or_artifact_invalidates_before_factory(self):
-        for kwargs in ({"nonce": "copied-nonce"}, {"target": "0" * 64}, {"image": "0" * 64}):
-            cap, _runtime, _path, _binding, tmp, patches, factory = self._issue()
-            calls = []
-            with self.assertRaises(Refusal): self._open(cap, {}, calls=calls, **kwargs)
-            self.assertEqual(calls, [])
-            self.assertEqual(factory.calls, 0)
-            patches.close(); tmp.cleanup()
+    def test_11_executor_construction_copy_pickle_and_cross_session_forgery_refuse(self):
+        import copy, pickle
+        executor, _runtime, _path, _binding, tmp, patches, _factory = self._issue()
+        self.addCleanup(patches.close); self.addCleanup(tmp.cleanup)
+        with self.assertRaises(Refusal): type(executor)(object())
+        for operation in (copy.copy, copy.deepcopy, pickle.dumps):
+            with self.assertRaises((TypeError, Refusal)): operation(executor)
+        metadata = executor.audit_metadata()
+        with self.assertRaises((TypeError, Refusal)):
+            type(executor)(metadata)
+        second, _runtime2, _path2, _binding2, tmp2, patches2, _factory2 = self._issue()
+        self.addCleanup(patches2.close); self.addCleanup(tmp2.cleanup)
+        self.assertIsNot(executor, second)
+        self.assertEqual(executor.state, "OPEN")
+        self.assertEqual(second.state, "OPEN")
 
-    def test_12_peer_card_route_authorization_and_backend_changes_stale_capability(self):
-        mutations = ("peer_state_sha256", "card_identity_sha256", "routed_dcp_sha256",
-                     "authorization_artifact_sha256", "capture_backend_identity_sha256",
-                     "state_revalidator_sha256", "transport_factory_sha256")
-        for field in mutations:
-            cap, runtime, _path, _binding, tmp, patches, factory = self._issue()
+    def test_12_gate_opens_exactly_once_and_executor_has_no_factory_or_open_method(self):
+        executor, _runtime, path, _binding, tmp, patches, factory = self._issue()
+        self.addCleanup(patches.close); self.addCleanup(tmp.cleanup)
+        self.assertEqual(factory.calls, 1)
+        self.assertEqual(executor.state, "OPEN")
+        self.assertFalse(hasattr(executor, "open_transport"))
+        self.assertFalse(hasattr(executor, "transport_factory"))
+        self.assertEqual(json.loads(path.read_text().splitlines()[0])["event"], "PRE_TRANSPORT")
+        self.assertEqual(json.loads(path.read_text().splitlines()[1])["event"], "TRANSPORT_OPEN_REQUESTED")
+
+    def test_13_peer_card_route_authorization_and_backend_changes_abort_before_capture(self):
+        for field in ("peer_state_sha256", "card_identity_sha256", "routed_dcp_sha256",
+                      "authorization_status_sha256", "capture_backend_identity_sha256",
+                      "state_revalidator_sha256", "transport_factory_sha256"):
+            executor, runtime, _path, _binding, tmp, patches, factory = self._issue()
             runtime[field] = "0" * 64
-            calls = []
-            with self.assertRaises(Refusal): self._open(cap, runtime, calls=calls)
-            self.assertEqual(calls, [])
-            self.assertEqual(factory.calls, 0)
+            with self.assertRaises(Refusal): executor.run_case_a()
+            self.assertEqual(executor.state, "ABORTED")
+            self.assertEqual(factory.calls, 1)
             patches.close(); tmp.cleanup()
 
-    def test_13_authorization_expiry_or_revocation_invalidates_capability(self):
-        cap, runtime, _path, _binding, tmp, patches, factory = self._issue()
+    def test_14_journal_failure_prevents_capture_and_invalidates_executor(self):
+        executor, _runtime, path, _binding, tmp, patches, factory = self._issue()
         self.addCleanup(patches.close); self.addCleanup(tmp.cleanup)
-        runtime["authorization_status_sha256"] = "0" * 64
-        calls = []
-        with self.assertRaises(Refusal): self._open(cap, runtime, calls=calls)
-        self.assertEqual(calls, [])
-        self.assertEqual(factory.calls, 0)
+        path.unlink()
+        with self.assertRaises(Refusal): executor.run_case_a()
+        self.assertEqual(executor.state, "ABORTED")
+        self.assertEqual(factory.calls, 1)
 
-        cap, _runtime, _path, _binding, tmp, patches, factory = self._issue()
+    def test_15_case_order_state_close_abort_and_replay_are_fail_closed(self):
+        executor, _runtime, _path, _binding, tmp, patches, factory = self._issue()
         self.addCleanup(patches.close); self.addCleanup(tmp.cleanup)
-        patches.enter_context(mock.patch.object(guard, "validate_signed_authorization",
-                                                side_effect=Refusal("authorization expired/revoked")))
-        calls = []
-        with self.assertRaises(Refusal): self._open(cap, {}, calls=calls)
-        self.assertEqual(calls, [])
+        with self.assertRaises(Refusal): executor.run_case_b()
+        with mock.patch.object(guard, "_execute_case_a_capture", return_value={"capture": b"wave"}), \
+             mock.patch.object(guard, "validate_signed_capture", return_value=({"summary": {}}, b"wave")), \
+             mock.patch.object(guard, "parse_waveform_csv", return_value={
+                 "MEASURED_TCK_HZ": 50_000_000, "MEASURED_HIGH_NS": 10.0,
+                 "MEASURED_LOW_NS": 10.0, "MEASURED_DUTY_CYCLE": 50.0,
+                 "JITTER_MIN_NS": 0.0, "JITTER_MAX_NS": 0.1,
+                 "MEASURED_PERIOD_NS": 20.0, "SAMPLE_COUNT": 100}):
+            executor.run_case_a()
+        self.assertEqual(executor.state, "CASE_A")
+        with mock.patch.object(guard, "_execute_case_b_capture", return_value={"capture": b"tap"}), \
+             mock.patch.object(guard, "validate_physical_capture_package", return_value={
+                 "tap_capture_sha256": "a" * 64, "tap": {"final_state": "RUN_TEST_IDLE"}}):
+            executor.run_case_b()
+        self.assertEqual(executor.state, "CASE_B")
+        executor.close()
+        self.assertEqual(executor.state, "CLOSED")
+        with self.assertRaises(Refusal): executor.run_case_a()
+        with self.assertRaises(Refusal): executor.run_case_b()
+        with self.assertRaises(Refusal): executor.close()
+        self.assertEqual(factory.calls, 1)
 
-    def test_14_journal_failure_invalidates_capability_before_transport(self):
-        cap, _runtime, _path, _binding, tmp, patches, factory = self._issue()
-        self.addCleanup(patches.close); self.addCleanup(tmp.cleanup)
-        record = guard._CAPABILITY_REGISTRY[cap]
-        os.close(record.journal.fd); record.journal.fd = None
-        calls = []
-        with self.assertRaises(Refusal): self._open(cap, {}, calls=calls)
-        self.assertEqual(calls, [])
-        with self.assertRaises(Refusal): self._open(cap, {})
+        aborted, _runtime, _path, _binding, tmp2, patches2, _factory = self._issue()
+        self.addCleanup(patches2.close); self.addCleanup(tmp2.cleanup)
+        aborted.abort()
+        self.assertEqual(aborted.state, "ABORTED")
+        with self.assertRaises(Refusal): aborted.run_case_a()
+        with self.assertRaises(Refusal): aborted.close()
 
-    def test_15_internal_session_constructor_and_cli_helpers_cannot_bypass_gate(self):
-        counter = {"transact": 0}
+    def test_16_direct_factory_and_legacy_session_bypass_refuse(self):
+        with self.assertRaises(Refusal): guard._create_physical_transport("e" * 64, "f" * 64)
         endpoint = EndpointIdentity("e" * 64, "f" * 64, "selected")
-        transport = FakeTransport(counter)
-        with self.assertRaises(AdapterRefusal): GuardedPhysicalSession(transport, endpoint)
+        counter = {"transact": 0}
+        with self.assertRaises(AdapterRefusal): GuardedPhysicalSession(FakeTransport(counter), endpoint)
         self.assertEqual(counter["transact"], 0)
-
         from first_silicon_cli import run_authorized_live, recover
         class Trap:
             def __getattr__(self, name): raise AssertionError(f"plugin method reached: {name}")
@@ -440,70 +454,39 @@ class PhysicalCloseGuardTests(unittest.TestCase):
                      lambda: recover(Trap(), None)):
             with self.assertRaises(RuntimeError): call()
 
-        good = QualificationGates(True, True, True, True, True, True, True, True, True, True)
-        identity = ExpectedIdentity("e" * 64, "f" * 64)
-        policy = TckPolicy(True, 100_000, "fixture-transport", "a" * 64)
-        observed = TckObservation(100_000, 100_000, True, "fixture-transport")
-        class TrapDiscovery:
-            calls = 0
-            def selected_endpoint(self):
-                self.calls += 1
-                return EndpointIdentity("e" * 64, "f" * 64, "selected")
-        discovery = TrapDiscovery()
-        with self.assertRaises(AdapterRefusal):
-            prepare_physical_session(good, identity, discovery, tck_policy=policy,
-                                     tck_observation=observed, authorized_tck_hz=100_000)
-        self.assertEqual(discovery.calls, 0)
-
-    def test_16_journal_is_fsynced_before_capability_is_issued(self):
-        cap, _runtime, path, _binding, tmp, patches, factory = self._issue()
+    def test_17_mutated_live_state_cannot_reuse_executor_or_reconnect(self):
+        executor, runtime, _path, _binding, tmp, patches, factory = self._issue()
         self.addCleanup(patches.close); self.addCleanup(tmp.cleanup)
-        record = guard._CAPABILITY_REGISTRY[cap]
-        rows = path.read_text().splitlines()
-        self.assertEqual(json.loads(rows[0])["event"], "PRE_TRANSPORT")
-        self.assertEqual(record.journal.sequence, 1)
-        self.assertTrue(record.journal.fd is not None)
+        runtime["endpoint_target_identity_sha256"] = "0" * 64
+        with self.assertRaises(Refusal): executor.run_case_a()
+        with self.assertRaises(Refusal): executor.run_case_a()
+        self.assertEqual(executor.state, "ABORTED")
+        self.assertEqual(factory.calls, 1)
 
-    def test_17_abort_invalidates_capability_after_the_single_abort(self):
-        cap, runtime, _path, _binding, tmp, patches, factory = self._issue(abort_response=True)
+    def test_18_journal_was_fsynced_before_gate_returns_open_executor(self):
+        executor, _runtime, path, _binding, tmp, patches, factory = self._issue()
         self.addCleanup(patches.close); self.addCleanup(tmp.cleanup)
-        endpoint = EndpointIdentity("e" * 64, "f" * 64, "selected")
-        opened, _ = self._open(cap, runtime)
-        transport=opened
-        session = GuardedPhysicalSession(transport, endpoint, transport_capability=cap)
-        session.bind_transaction(1, 1)
-        result = session.abort_once(request(Opcode.ABORT, 0, b"fixture"))
-        self.assertEqual(result, struct.pack("<QH", 1, 1))
-        self.assertEqual(factory.counter["transact"], 1)
-        with self.assertRaises(Refusal): guard.assert_transport_capability_live(cap)
-        session.close()
+        rows = [json.loads(row) for row in path.read_text().splitlines()]
+        self.assertEqual(rows[0]["event"], "PRE_TRANSPORT")
+        self.assertEqual(rows[1]["event"], "TRANSPORT_OPEN_REQUESTED")
+        self.assertEqual(rows[2]["event"], "TRANSPORT_OPENED")
+        self.assertEqual(executor.state, "OPEN")
+        self.assertEqual(factory.calls, 1)
 
-    def test_18_no_importable_secret_or_mint_helper(self):
-        self.assertFalse(hasattr(guard, "_PERMIT_SECRET"))
-        self.assertFalse(hasattr(guard, "_issue_capability"))
+    def test_19_no_supported_transport_open_route_bypasses_master_gate(self):
+        import inspect
+        source = inspect.getsource(guard)
+        self.assertNotIn("_CAPABILITY_REGISTRY", source)
+        self.assertNotIn("open_transport_after_gate", source)
+        self.assertEqual(source.count("_create_physical_transport("), 2)
+        self.assertFalse(hasattr(guard, "transport_factory"))
 
-    def test_19_protocol_failure_poison_session_and_capability(self):
-        cap, runtime, _path, _binding, tmp, patches, factory = self._issue()
-        self.addCleanup(patches.close); self.addCleanup(tmp.cleanup)
-        transport, _ = self._open(cap, runtime)
-        endpoint = EndpointIdentity("e" * 64, "f" * 64, "selected")
-        session = GuardedPhysicalSession(transport, endpoint, transport_capability=cap)
-        with self.assertRaises((AdapterRefusal, ProtocolError)): session.hello_once()
-        self.assertTrue(session.closed)
-        self.assertEqual(factory.counter["transact"], 1)
-        with self.assertRaises(AdapterRefusal): session.hello_once()
-        with self.assertRaises(Refusal): guard.assert_transport_capability_live(cap)
-        self.assertEqual(factory.counter["transact"], 1)
-
-    def test_20_capability_cannot_be_paired_with_another_transport_object(self):
-        cap, runtime, _path, _binding, tmp, patches, _factory = self._issue()
-        self.addCleanup(patches.close); self.addCleanup(tmp.cleanup)
-        _opened, _ = self._open(cap, runtime)
-        substitute = FakeTransport({"transact": 0})
-        endpoint = EndpointIdentity("e" * 64, "f" * 64, "selected")
-        with self.assertRaises(AdapterRefusal):
-            GuardedPhysicalSession(substitute, endpoint, transport_capability=cap)
-        self.assertEqual(substitute.counter["transact"], 0)
+    def test_20_physical_only_gates_remain_unqualified(self):
+        binding = verify_immutable_v51(self.repo)
+        self.assertFalse(binding.qualified_physical_envelope_available)
+        self.assertFalse(binding.qualified_physical_envelope_available)
+        self.assertEqual(binding.case_a["case_id"], CASE_A_ID)
+        self.assertEqual(binding.case_b["case_id"], CASE_B_ID)
 
 
 if __name__ == "__main__":
