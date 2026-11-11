@@ -1,0 +1,26 @@
+{
+  "schema": "PHK2-PHYSICAL-CASE-A-POLICY-v1",
+  "CASE_ID": "40",
+  "CASE_NAME": "host_TCK_frequency_contract",
+  "qualification_commit": "6ad11b72fc62a452195245984b69f236d4d3b315",
+  "qualification_record_sha256": "25b875c707aaa1ee43ec1da064b3fec0b2297aed87be4aacb2c7c2260b26c90e",
+  "v5_1_source_commit": "5f65f0ec8900ecaae3c498223bef0efb2542c047",
+  "v5_1_source_tree_hash": "dcc879775d80e07ab41bc9af955a29a3fd8ba6f9",
+  "v5_1_routed_final_dcp_sha256": "0bd52785662a3c38f68667f85c75acdef33c109502794610669ab8e1cf61e9af",
+  "envelope_path": "results/phk2-v5_1-physical-tck-envelope.json",
+  "envelope_sha256": "9c2dc6d34f7bfc813f6b83558334ba24671b9fbc3f25669c07e4a7de1863eeb2",
+  "evaluation": {
+    "raw_waveform_required": true,
+    "settck_echo_is_physical_evidence": false,
+    "measured_tck_hz_must_match_proven_analysis_point_set": [50000000],
+    "high_time_must_be_compared": true,
+    "low_time_must_be_compared": true,
+    "duty_cycle_must_be_compared": true,
+    "jitter_must_be_compared": true,
+    "unproven_limit_policy": "BLOCK_CASE_PASS",
+    "pass_allowed_only_if_all_required_envelope_fields_are_proven": true,
+    "PASS_ELIGIBLE": false,
+    "CURRENT_CASE_STATUS": "BLOCKED_PENDING_ADDITIONAL_OFFLINE_TIMING_ANALYSIS"
+  },
+  "reason": "The immutable v5.1 route proves one 50 MHz / 20 ns / 50 percent analysis point only. It has no failing boundary, frequency interval, asymmetric pulse-width/duty envelope, or jitter limit."
+}

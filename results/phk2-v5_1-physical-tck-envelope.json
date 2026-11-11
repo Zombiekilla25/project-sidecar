@@ -1,0 +1,184 @@
+{
+  "schema": "PHK2-V5_1-PHYSICAL-TCK-ANALYSIS-ENVELOPE-v1",
+  "candidate": "PHK2-v5.1",
+  "status": "PARTIAL_STATIC_ANALYSIS_ONLY",
+  "identity": {
+    "SOURCE_COMMIT": "5f65f0ec8900ecaae3c498223bef0efb2542c047",
+    "SOURCE_TREE_HASH": "dcc879775d80e07ab41bc9af955a29a3fd8ba6f9",
+    "ROUTED_FINAL_DCP_SHA256": "0bd52785662a3c38f68667f85c75acdef33c109502794610669ab8e1cf61e9af",
+    "QUALIFICATION_COMMIT": "6ad11b72fc62a452195245984b69f236d4d3b315",
+    "QUALIFICATION_RECORD_SHA256": "25b875c707aaa1ee43ec1da064b3fec0b2297aed87be4aacb2c7c2260b26c90e",
+    "V5_1_EVIDENCE_COMMIT": "e89810b832ee7c1909bd92c449f33abb26b6882e",
+    "V5_1_EVIDENCE_TREE_HASH": "ee77ec6fc70042bdfd2c2d0e9175118c1cad92fd",
+    "V5_1_MANIFEST_SHA256": "f87a506ed7e3121b2fe2a67f5c9cb78bd73a649c93bde8d06fa08c8bfc7f5a11",
+    "V5_1_SHA256SUMS_SHA256": "8161197d7934fb1d61289d6cf05d0557f7790a91fd04319ebfa39c0ef498b2e9"
+  },
+  "CONSTRAINT_MODEL": {
+    "name": "PHK2-v5 targeted routed timing model; non-production XDC adapted from the v3 targeted model",
+    "target_part": "xcvu33p-fsvh2104-2-e",
+    "vivado_version": "2026.1 build 6511674",
+    "path": "results/phk2-v5_1-common-reset-20261110/revision1/v5_targeted_constraints.xdc",
+    "sha256": "d69df5c27cf40a66821e950c0e1a041f9a5cb10d034f2a4589d59ed249c433d8",
+    "clock_object": "bscan_tck",
+    "clock_source_pins": ["u_user1/INTERNAL_TCK", "u_user2/INTERNAL_TCK", "u_user3/INTERNAL_TCK"],
+    "analysis_period_ns": 20.0,
+    "analysis_waveform_rise_ns": 0.0,
+    "analysis_waveform_fall_ns": 10.0,
+    "analysis_frequency_hz": 50000000,
+    "production_xdc": false,
+    "broad_async_clock_group_exception": false
+  },
+  "routed_analysis_points": [
+    {
+      "TCK_HZ": 50000000,
+      "PERIOD_NS": 20.0,
+      "ASSUMED_HIGH_NS": 10.0,
+      "ASSUMED_LOW_NS": 10.0,
+      "ASSUMED_DUTY_CYCLE_PERCENT": 50.0,
+      "SETUP_PASS": true,
+      "HOLD_PASS": true,
+      "RESET_PASS": true,
+      "WNS_NS": 0.0,
+      "TNS_NS": 0.0,
+      "WHS_NS": 0.004,
+      "THS_NS": 0.0,
+      "GRAY_MAX_DELAY_PASS": true,
+      "GRAY_BUS_SKEW_PASS": true,
+      "CHECK_TIMING_PASS": true,
+      "POINT_SCOPE": "one routed v5.1 static timing point; not a physical measurement or frequency interval",
+      "FIELD_STATUS": {
+        "TCK_HZ": "PROVEN",
+        "PERIOD_NS": "PROVEN",
+        "ASSUMED_HIGH_NS": "PROVEN",
+        "ASSUMED_LOW_NS": "PROVEN",
+        "ASSUMED_DUTY_CYCLE_PERCENT": "PROVEN",
+        "SETUP_PASS": "PROVEN",
+        "HOLD_PASS": "PROVEN",
+        "RESET_PASS": "PROVEN",
+        "WNS_NS": "PROVEN",
+        "TNS_NS": "PROVEN",
+        "WHS_NS": "PROVEN",
+        "THS_NS": "PROVEN",
+        "GRAY_MAX_DELAY_PASS": "PROVEN",
+        "GRAY_BUS_SKEW_PASS": "PROVEN",
+        "CHECK_TIMING_PASS": "PROVEN"
+      },
+      "PULSE_WIDTH_CHECK_AT_ANALYSIS_POINT": {
+        "required_high_ns": 0.532,
+        "actual_high_ns": 10.0,
+        "high_slack_ns": 9.468,
+        "required_low_ns": 0.532,
+        "actual_low_ns": 10.0,
+        "low_slack_ns": 9.468,
+        "endpoint": "RAMD64E/CLK",
+        "status": "PROVEN_AS_A_REPORTED_CELL_CHECK_ONLY_NOT_AN_ADAPTER_DUTY_ENVELOPE"
+      },
+      "RAW_REPORTS": [
+        {
+          "path": "results/phk2-v5_1-common-reset-20261110/revision1/route/timing_summary.rpt",
+          "sha256": "16ca50f12c46376a6b06daba5c53ffadcfcb3cefc453ea877d767ac9010332fb"
+        },
+        {
+          "path": "results/phk2-v5_1-common-reset-20261110/revision1/route/setup_max.rpt",
+          "sha256": "379c25ddaa23a997604615c5bb3b1f72fa1ae90571973c911effd0bea4eb2420"
+        },
+        {
+          "path": "results/phk2-v5_1-common-reset-20261110/revision1/route/hold_min.rpt",
+          "sha256": "53318ee287218ee340da7e43dbab48c465057adf2089176f6bf941258713c4fe"
+        },
+        {
+          "path": "results/phk2-v5_1-common-reset-20261110/revision1/route/reset_common_bscan_release_recovery_removal.rpt",
+          "sha256": "d7421fa0bb858affbcb8183666ee10d6f6395997b6ee95cbe1fb72f6e6a75933"
+        },
+        {
+          "path": "results/phk2-v5_1-common-reset-20261110/revision1/route/reset_core_release_recovery_removal.rpt",
+          "sha256": "08d93243bf0748d3d0516436c410368dab271e089c95678235e242645672bf12"
+        },
+        {
+          "path": "results/phk2-v5_1-common-reset-20261110/revision1/route/gray_analysis/bus_skew.rpt",
+          "sha256": "fb2b0c4376ee6422a179e46f62844aa75fa4b75ebdf71c69570c387da001b2ff"
+        },
+        {
+          "path": "results/phk2-v5_1-common-reset-20261110/revision1/route/gray_analysis/input_wgray_max_delay.rpt",
+          "sha256": "b1f3101f4ecbb5538dc6f2b5ccbfb66e4284f615e84064c0e493ffd1a7d4b23f"
+        },
+        {
+          "path": "results/phk2-v5_1-common-reset-20261110/revision1/route/gray_analysis/input_rgray_max_delay.rpt",
+          "sha256": "fa7b13e47bb55d7b0e16e80a2ebad9d204a713291237facd3476502487899d3f"
+        },
+        {
+          "path": "results/phk2-v5_1-common-reset-20261110/revision1/route/gray_analysis/result_wgray_max_delay.rpt",
+          "sha256": "ea5881c9f3d7d18f7d8c4551b75a541bbd168382fc1610f4fa2004c4a6110dd2"
+        },
+        {
+          "path": "results/phk2-v5_1-common-reset-20261110/revision1/route/gray_analysis/result_rgray_max_delay.rpt",
+          "sha256": "8e67f2109f521e77c61e617ca8ad8515f4f958626ae01a937a80196dfdc43ca6"
+        },
+        {
+          "path": "results/phk2-v5_1-common-reset-20261110/revision1/route/gray_timing_table.json",
+          "sha256": "976f071a609417d517ea437718e151838b219a5bc2ed60f1e06f840e277bc5ad"
+        },
+        {
+          "path": "results/phk2-v5_1-common-reset-20261110/revision1/route/check_timing.rpt",
+          "sha256": "ea5adcd4deafb9a52796a1bbd0d6b1d038bfdb19d9ba1f63dfbef1ef565302dd"
+        },
+        {
+          "path": "results/phk2-v5_1-common-reset-20261110/revision1/route/route_status.rpt",
+          "sha256": "108c3d0ff05c71b2c6d462ae7455e46553b3774e9b68df6a9deb8edc3bec09c4"
+        }
+      ]
+    }
+  ],
+  "frequency_evidence": {
+    "MIN_TESTED_TCK_HZ": 50000000,
+    "MAX_TESTED_TCK_HZ": 50000000,
+    "MAX_PASSING_TESTED_TCK_HZ": 50000000,
+    "FIRST_FAILING_TCK_HZ": null,
+    "FIRST_FAILING_TCK_STATUS": "NOT_PROVEN_NOT_TESTED_IN_SELECTED_V5_1_PACKAGE",
+    "QUALIFIED_TCK_MIN_HZ": 50000000,
+    "QUALIFIED_TCK_MIN_HZ_STATUS": "PROVEN",
+    "QUALIFIED_TCK_MAX_HZ": 50000000,
+    "QUALIFIED_TCK_MAX_HZ_STATUS": "PROVEN",
+    "QUALIFIED_PERIOD_MIN_NS": 20.0,
+    "QUALIFIED_PERIOD_MIN_NS_STATUS": "PROVEN",
+    "QUALIFIED_PERIOD_MAX_NS": 20.0,
+    "QUALIFIED_PERIOD_MAX_NS_STATUS": "PROVEN",
+    "scope": "singleton passing analysis point only; these values do not prove a continuous operating range, a maximum-frequency boundary, or silicon behavior",
+    "FREQUENCY_LIMIT_QUALIFIED": false
+  },
+  "waveform_limits": {
+    "ANALYSIS_ASSUMED_HIGH_NS": {"value": 10.0, "status": "PROVEN", "meaning": "constraint assumption at the sole 50 MHz point"},
+    "ANALYSIS_ASSUMED_LOW_NS": {"value": 10.0, "status": "PROVEN", "meaning": "constraint assumption at the sole 50 MHz point"},
+    "ANALYSIS_ASSUMED_DUTY_CYCLE_PERCENT": {"value": 50.0, "status": "PROVEN", "meaning": "constraint assumption at the sole 50 MHz point"},
+    "HIGH_NS_MIN": {"value": null, "status": "NOT_PROVEN"},
+    "HIGH_NS_MAX": {"value": null, "status": "NOT_PROVEN"},
+    "LOW_NS_MIN": {"value": null, "status": "NOT_PROVEN"},
+    "LOW_NS_MAX": {"value": null, "status": "NOT_PROVEN"},
+    "DUTY_CYCLE_MIN_PERCENT": {"value": null, "status": "NOT_PROVEN"},
+    "DUTY_CYCLE_MAX_PERCENT": {"value": null, "status": "NOT_PROVEN"},
+    "JITTER_LIMIT_NS": {"value": null, "status": "NOT_PROVEN"},
+    "HIGH_TIME_LIMIT_QUALIFIED": false,
+    "LOW_TIME_LIMIT_QUALIFIED": false,
+    "DUTY_CYCLE_LIMIT_QUALIFIED": false,
+    "JITTER_LIMIT_QUALIFIED": false,
+    "notes": [
+      "The routed timing model uses only a 50/50 waveform; it does not qualify an asymmetric duty-cycle range.",
+      "The routed timing summary's nominal 50/50 pulse-width checks are not a swept high/low acceptance envelope.",
+      "The 0.035 ns clock uncertainty in STA, if present on paths, is not a measured or qualified physical TCK jitter limit."
+    ]
+  },
+  "overall": {
+    "QUALIFIED_TCK_LIMITS_READY": false,
+    "PHYSICAL_CAPTURE_PASS_ALLOWED": false,
+    "PHYSICAL_MEASUREMENT_STILL_REQUIRED": true,
+    "excluded_non_v5_1_sensitivity_data": [
+      "Historical v3 TCK sweep artifacts were found in the repository history but are not included in this envelope and do not qualify v5.1.",
+      "No v5.1 frequency sweep or failing frequency boundary is present in the selected immutable evidence package."
+    ],
+    "ADDITIONAL_OFFLINE_ANALYSIS_REQUIRED": [
+      "Open only the immutable v5.1 routed DCP and perform read-only in-memory timing updates across an explicitly selected TCK period grid, including points above 50 MHz until the first failure or agreed characterization ceiling; do not place, route, optimize, or write a checkpoint.",
+      "For each period, vary bscan_tck rise/fall waveform across candidate high/low widths and analyze setup, hold, reset recovery/removal, pulse-width checks, check_timing, and all four Gray max-delay/bus-skew constraints.",
+      "Define and analyze a jitter/uncertainty budget separately; no physical jitter limit is established by the current routed reports."
+    ]
+  }
+}
