@@ -1,5 +1,9 @@
 # PHK2 final TCK closure harness
 
+The consolidated operator-facing status and currently missing matrix
+identities are tracked in
+[`phk2-physical-closure-operator-package.md`](phk2-physical-closure-operator-package.md).
+
 ## Evidence available in this worktree
 
 The exact 40-case qualification matrix and a qualified v4 routed report are

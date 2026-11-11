@@ -9,6 +9,7 @@ import tempfile
 import unittest
 
 from phk2_close_tck_cases import (
+    _hash_chain_entries,
     _measurement_in_envelope,
     _verify_authorization,
     _verify_bridge,
@@ -107,11 +108,14 @@ class TckClosureDryRun(unittest.TestCase):
             "adapter_identity": self._ref("adapter.json"), "peer_exclusion_proof": self._ref("peers.json"),
             "case_a": {"case_id": "SYNTH-A", "status": "PASS", "MEASURED_TCK_HZ": 30e6,
                 "MEASURED_PERIOD_NS": 33.33, "MEASURED_HIGH_NS": 16.66, "MEASURED_LOW_NS": 16.67,
-                "MEASURED_DUTY_CYCLE": 50, "MEASURED_JITTER_P2P_NS": .2, "MEASURED_JITTER_RMS_NS": .05,
+                "MEASURED_DUTY_CYCLE": 50, "JITTER_MIN_NS": -.1, "JITTER_MAX_NS": .1,
+                "MEASURED_JITTER_P2P_NS": .2, "MEASURED_JITTER_RMS_NS": .05,
                 "raw_waveform": self._ref("wave.csv"), "settck_used_as_measurement": False},
             "case_b": {"case_id": "SYNTH-B", "status": "PASS", "before_state": "IDLE_CONFIRMED",
                 "after_state": "IDLE_CONFIRMED", "tap_cycles": 87, "fpga_programming": False,
-                "workload_changed": False, "transcript": self._ref("tap.jsonl"),
+                "workload_changed": False, "contains_user_instruction": False,
+                "unexpected_tap_response": False, "unexpected_user_instruction": False,
+                "transcript": self._ref("tap.jsonl"),
                 "physical_clock_correlation": self._ref("correlation.csv"), "settck_used_as_measurement": False},
             "final_case_statuses": {"SYNTH-A": "PASS", "SYNTH-B": "PASS"},
             "close": {"transport_closed": True, "tap_idle": True, "peer_count_after": 0}}
@@ -123,11 +127,18 @@ class TckClosureDryRun(unittest.TestCase):
         # Unit-test-only marker lets this synthetic fixture reach later checks;
         # the separate mock-production test proves these flags are rejected.
         self.evidence["synthetic_fixture"] = False
-        self.evidence["evidence_class"] = "PHYSICAL_CAPTURE"
+        self.evidence["evidence_class"] = "PHYSICAL_REAL"
 
     def test_manifest_with_38_zero_and_two_source_cases_passes_static_gate(self):
         _, data = validate_manifest(self.manifest_path)
         self.assertEqual([x["case_id"] for x in data["tck_dependent_cases"]], ["SYNTH-A", "SYNTH-B"])
+
+    def test_evidence_journal_hash_chain_is_ordered_and_linked(self):
+        chain = _hash_chain_entries([("preflight", "1" * 64), ("case_a", "2" * 64), ("close", "3" * 64)])
+        self.assertEqual([entry["sequence"] for entry in chain], [0, 1, 2])
+        self.assertEqual(chain[0]["previous_entry_sha256"], "0" * 64)
+        self.assertEqual(chain[1]["previous_entry_sha256"], chain[0]["entry_sha256"])
+        self.assertEqual(chain[2]["previous_entry_sha256"], chain[1]["entry_sha256"])
 
     def test_only_37_independent_pass_refuses(self):
         self.manifest["TCK_INDEPENDENT_PASS"] = 37
@@ -151,6 +162,12 @@ class TckClosureDryRun(unittest.TestCase):
         with self.assertRaisesRegex(Refusal, "differs"):
             _verify_bridge(self.bridge_path, self.manifest["TARGET_PART"])
 
+    def test_wrong_card_scope_refuses(self):
+        self.auth["one_card_scope"] = False
+        self.auth_path.write_text(json.dumps(self.auth))
+        with self.assertRaisesRegex(Refusal, "one card"):
+            _verify_authorization(self.auth_path, self.manifest)
+
     def test_peer_exclusion_failure_refuses(self):
         self.auth["peer_exclusion"] = "FAIL"
         self.auth_path.write_text(json.dumps(self.auth))
@@ -168,6 +185,12 @@ class TckClosureDryRun(unittest.TestCase):
         value["MEASURED_HIGH_NS"] = value["MEASURED_PERIOD_NS"] / 2
         value["MEASURED_LOW_NS"] = value["MEASURED_PERIOD_NS"] / 2
         with self.assertRaisesRegex(Refusal, "outside qualified envelope"):
+            _measurement_in_envelope(value, self.manifest["TCK_ANALYSIS_ENVELOPE"])
+
+    def test_unstable_tck_jitter_refuses(self):
+        value = dict(self.evidence["case_a"])
+        value["JITTER_MAX_NS"] = 3
+        with self.assertRaisesRegex(Refusal, "jitter min/max"):
             _measurement_in_envelope(value, self.manifest["TCK_ANALYSIS_ENVELOPE"])
 
     def test_duty_outside_envelope_refuses(self):
@@ -193,10 +216,11 @@ class TckClosureDryRun(unittest.TestCase):
             validate_evidence(self.evidence_path, manifest, self.bridge_verified, self.auth_verified)
 
     def test_partial_case_completion_refuses(self):
+        self._allow_downstream_gate_test()
         self.evidence["final_case_statuses"] = {"SYNTH-A": "PASS"}
         self._save_evidence()
         manifest = json.loads(self.manifest_path.read_text()); manifest["_path"] = str(self.manifest_path)
-        with self.assertRaisesRegex(Refusal, "mock/synthetic"):
+        with self.assertRaisesRegex(Refusal, "partial completion refused"):
             validate_evidence(self.evidence_path, manifest, self.bridge_verified, self.auth_verified)
 
     def test_mock_evidence_marked_production_refuses(self):
@@ -206,11 +230,49 @@ class TckClosureDryRun(unittest.TestCase):
 
     def test_stale_evidence_refuses(self):
         self.evidence["synthetic_fixture"] = False
-        self.evidence["evidence_class"] = "PHYSICAL_CAPTURE"
+        self.evidence["evidence_class"] = "PHYSICAL_REAL"
         self.evidence["captured_utc"] = utc(timedelta(days=-2))
         self._save_evidence()
         manifest = json.loads(self.manifest_path.read_text()); manifest["_path"] = str(self.manifest_path)
         with self.assertRaisesRegex(Refusal, "stale"):
+            validate_evidence(self.evidence_path, manifest, self.bridge_verified, self.auth_verified)
+
+    def test_unexpected_tap_response_refuses(self):
+        self._allow_downstream_gate_test()
+        self.evidence["case_b"]["unexpected_tap_response"] = True
+        self._save_evidence()
+        manifest = json.loads(self.manifest_path.read_text()); manifest["_path"] = str(self.manifest_path)
+        with self.assertRaisesRegex(Refusal, "unexpected TAP response"):
+            validate_evidence(self.evidence_path, manifest, self.bridge_verified, self.auth_verified)
+
+    def test_unexpected_user_instruction_refuses(self):
+        self._allow_downstream_gate_test()
+        self.evidence["case_b"]["unexpected_user_instruction"] = True
+        self._save_evidence()
+        manifest = json.loads(self.manifest_path.read_text()); manifest["_path"] = str(self.manifest_path)
+        with self.assertRaisesRegex(Refusal, "unexpected USER instruction"):
+            validate_evidence(self.evidence_path, manifest, self.bridge_verified, self.auth_verified)
+
+    def test_unapproved_expected_user_instruction_refuses(self):
+        self._allow_downstream_gate_test()
+        self.evidence["case_b"]["contains_user_instruction"] = True
+        self._save_evidence()
+        manifest = json.loads(self.manifest_path.read_text()); manifest["_path"] = str(self.manifest_path)
+        with self.assertRaisesRegex(Refusal, "separate case-bound authorization"):
+            validate_evidence(self.evidence_path, manifest, self.bridge_verified, self.auth_verified)
+
+    def test_partial_evidence_write_refuses(self):
+        self.evidence_path.write_text('{"schema":')
+        manifest = json.loads(self.manifest_path.read_text()); manifest["_path"] = str(self.manifest_path)
+        with self.assertRaisesRegex(Refusal, "unreadable JSON"):
+            validate_evidence(self.evidence_path, manifest, self.bridge_verified, self.auth_verified)
+
+    def test_operator_abort_refuses_promotion(self):
+        self._allow_downstream_gate_test()
+        self.evidence["case_a"]["status"] = "ABORTED"
+        self._save_evidence()
+        manifest = json.loads(self.manifest_path.read_text()); manifest["_path"] = str(self.manifest_path)
+        with self.assertRaisesRegex(Refusal, "waveform case incomplete"):
             validate_evidence(self.evidence_path, manifest, self.bridge_verified, self.auth_verified)
 
 

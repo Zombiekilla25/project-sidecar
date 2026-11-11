@@ -1,0 +1,27 @@
+{
+  "CASE_A_DEFINED": false,
+  "CASE_A_ID": null,
+  "CASE_A_PURPOSE_CATEGORY": "physical adapter-pin TCK waveform/contract",
+  "CASE_B_DEFINED": false,
+  "CASE_B_ID": null,
+  "CASE_B_PURPOSE_CATEGORY": "physical BSCAN/TCK interaction",
+  "QUALIFICATION_MATRIX_SOURCE_PRESENT": false,
+  "PHYSICAL_CLOSURE_RUNNER_READY": false,
+  "PEER_EXCLUSION_READY": true,
+  "BRIDGE_ATTESTATION_READY": true,
+  "ARTIFACT_ATTESTATION_READY": true,
+  "EVIDENCE_CAPTURE_READY": false,
+  "PROMOTION_38_TO_40_READY": true,
+  "NEGATIVE_TEST_SCENARIOS": 12,
+  "NEGATIVE_TESTS_PASS": 12,
+  "LIVE_EXECUTION_AUTHORIZED": false,
+  "HARDWARE_ACCESS_COUNT": 0,
+  "JTAG_TRANSACTIONS": 0,
+  "PROGRAM_ATTEMPTS": 0,
+  "BLOCKERS": [
+    "The authenticated qualification matrix/case IDs and exact source criteria are absent from this worktree and its Git object history.",
+    "No physical capture executor or instrument capture backend is installed; the available closure tool is offline promotion only.",
+    "IDCODE-only activity is not sufficient evidence of internal BSCAN self-clock interaction; Case B's exact required sequence is unknown."
+  ],
+  "NEXT_COMMAND_AFTER_AUTHORIZATION": "phk2_physical_close --qualification /authorized/package/PHK2_TCK_CLOSURE_MANIFEST.json --card /authorized/card/PHK2_TARGET_LOCK.json --bridge-policy /authorized/bridge/PHK2_SQRL_XVC_POLICY.json --bridge-attestation /authorized/bridge/bridge-attestation.json --authorization /authorized/PHK2_PHYSICAL_AUTHORIZATION.json --execute-physical (prepared interface only; not executable until matrix and capture backend exist)"
+}

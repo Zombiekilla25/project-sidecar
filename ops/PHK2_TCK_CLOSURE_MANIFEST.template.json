@@ -48,7 +48,7 @@
   ],
   "notes": [
     "This template is intentionally non-qualifying.",
-    "Populate case IDs and criteria only from the authenticated independent qualification matrix and qualified routed v4 reports.",
-    "No v3 hash is pinned; routed checkpoint and image identities are artifact parameters."
+    "Populate case IDs and criteria only from the authenticated independent qualification matrix and the selected qualified routed report set.",
+    "No v3 or v4 hash is pinned; routed checkpoint and image identities are artifact parameters."
   ]
 }

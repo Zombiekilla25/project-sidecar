@@ -15,6 +15,7 @@ import math
 import os
 from pathlib import Path
 import re
+import shutil
 import sys
 import tarfile
 import tempfile
@@ -150,6 +151,22 @@ def _fresh(value: Any, label: str) -> None:
         raise Refusal(f"{label} is stale or future-dated")
 
 
+def _hash_chain_entries(entries: list[tuple[str, str]]) -> list[dict[str, Any]]:
+    """Hash-link ordered event payload digests for the append-only evidence journal."""
+    journal: list[dict[str, Any]] = []
+    previous = "0" * 64
+    for sequence, (event, payload_hash) in enumerate(entries):
+        if not isinstance(event, str) or not event or not HEX64.fullmatch(payload_hash):
+            raise Refusal("evidence journal event/hash is malformed")
+        entry = {"sequence": sequence, "event": event, "payload_sha256": payload_hash,
+                 "previous_entry_sha256": previous}
+        encoded = json.dumps(entry, sort_keys=True, separators=(",", ":")).encode()
+        entry["entry_sha256"] = hashlib.sha256(encoded).hexdigest()
+        previous = entry["entry_sha256"]
+        journal.append(entry)
+    return journal
+
+
 def _verify_bridge(path: str | Path, part: str) -> dict[str, Any]:
     bp, bridge = read_json(path, "bridge attestation")
     if bridge.get("BRIDGE_SHA256") != PINNED_REVIEWED_BRIDGE_SHA256 or bridge.get("BUILD_ID") != PINNED_REVIEWED_BUILD_ID:
@@ -184,7 +201,8 @@ def _verify_authorization(path: str | Path, manifest: dict[str, Any]) -> dict[st
 
 def _measurement_in_envelope(measurement: dict[str, Any], envelope: dict[str, Any]) -> None:
     fields = ("MEASURED_TCK_HZ", "MEASURED_PERIOD_NS", "MEASURED_HIGH_NS", "MEASURED_LOW_NS",
-              "MEASURED_DUTY_CYCLE", "MEASURED_JITTER_P2P_NS", "MEASURED_JITTER_RMS_NS")
+              "MEASURED_DUTY_CYCLE", "JITTER_MIN_NS", "JITTER_MAX_NS",
+              "MEASURED_JITTER_P2P_NS", "MEASURED_JITTER_RMS_NS")
     for key in fields:
         value = measurement.get(key)
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
@@ -198,6 +216,11 @@ def _measurement_in_envelope(measurement: dict[str, Any], envelope: dict[str, An
     calculated_duty = 100 * measurement["MEASURED_HIGH_NS"] / measurement["MEASURED_PERIOD_NS"]
     if not math.isclose(measurement["MEASURED_DUTY_CYCLE"], calculated_duty, abs_tol=1.0):
         raise Refusal("measured duty cycle does not match measured pulse widths")
+    if measurement["JITTER_MIN_NS"] > measurement["JITTER_MAX_NS"]:
+        raise Refusal("measured jitter min/max are inverted")
+    if not math.isclose(measurement["JITTER_MAX_NS"] - measurement["JITTER_MIN_NS"],
+                        measurement["MEASURED_JITTER_P2P_NS"], rel_tol=0.05, abs_tol=0.01):
+        raise Refusal("measured jitter min/max do not match peak-to-peak jitter")
     if not envelope["minimum_tck_hz"] <= measurement["MEASURED_TCK_HZ"] <= envelope["maximum_tck_hz"]:
         raise Refusal("measured TCK outside qualified envelope")
     if measurement["MEASURED_HIGH_NS"] < envelope["minimum_high_ns"] or measurement["MEASURED_LOW_NS"] < envelope["minimum_low_ns"]:
@@ -212,7 +235,7 @@ def validate_evidence(path: str | Path, manifest: dict[str, Any], bridge: dict[s
     ep, evidence = read_json(path, "physical evidence")
     if evidence.get("schema") != "PHK2-TCK-CLOSURE-EVIDENCE-v1":
         raise Refusal("physical evidence schema missing")
-    if evidence.get("evidence_class") != "PHYSICAL_CAPTURE" or evidence.get("synthetic_fixture") is not False or evidence.get("production_evidence") is not True:
+    if evidence.get("evidence_class") != "PHYSICAL_REAL" or evidence.get("synthetic_fixture") is not False or evidence.get("production_evidence") is not True:
         raise Refusal("mock/synthetic evidence cannot promote production")
     _fresh(evidence.get("captured_utc"), "physical evidence")
     if evidence.get("manifest_sha256") != sha256(Path(manifest["_path"])):
@@ -246,6 +269,17 @@ def validate_evidence(path: str | Path, manifest: dict[str, Any], bridge: dict[s
             raise Refusal("TAP before/after idle state evidence missing")
     if tap.get("fpga_programming") is not False or tap.get("workload_changed") is not False:
         raise Refusal("BSCAN evidence reports prohibited programming/workload change")
+    if tap.get("unexpected_tap_response") is not False:
+        raise Refusal("unexpected TAP response; physical evidence cannot pass")
+    if tap.get("unexpected_user_instruction") is not False:
+        raise Refusal("unexpected USER instruction; physical evidence cannot pass")
+    if tap.get("contains_user_instruction") is True:
+        user_case = next(c for c in manifest["tck_dependent_cases"] if c["kind"] == "BSCAN_CLOCK_INTERACTION")
+        if (auth.get("user_instruction_authorized") is not True or
+                user_case["case_id"] not in auth.get("authorized_user_instruction_case_ids", [])):
+            raise Refusal("USER instruction requires separate case-bound authorization")
+    elif tap.get("contains_user_instruction") is not False:
+        raise Refusal("BSCAN evidence must state whether a USER instruction was used")
     if tap.get("tap_cycles", 0) <= 0 or tap.get("tap_cycles", 0) > 256:
         raise Refusal("BSCAN/TAP evidence is missing or exceeds bounded activity")
     if tap.get("settck_used_as_measurement") is not False:
@@ -272,42 +306,100 @@ def promote(manifest_path: str | Path, bridge_path: str | Path, authorization_pa
         raise Refusal("promotion output already exists; evidence output is append-only")
     out.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=f".{out.name}.staging-", dir=out.parent))
-    record = {
-        "schema": "PHK2-TCK-PHYSICAL-PROMOTION-v1",
-        "PHYSICAL_PROTOCOL_QUALIFIED": True,
-        "TCK_INDEPENDENT_PASS": 40,
-        "TCK_INDEPENDENT_FAIL": 0,
-        "source_independent_pass": 38,
-        "source_independent_fail": 0,
-        "case_results": {c["case_id"]: "PASS" for c in manifest["tck_dependent_cases"]},
-        "qualification_manifest_sha256": sha256(mp), "bridge_attestation_sha256": bridge["sha256"],
-        "authorization_sha256": auth["sha256"], "physical_evidence_sha256": evidence["sha256"],
-        "created_utc": datetime.now(timezone.utc).isoformat(), "production_evidence": True,
-    }
-    bundle = staging / "physical-evidence.tar"
-    with tarfile.open(bundle, "w") as archive:
-        archive.add(mp, arcname="qualification_package/qualification-manifest.json")
-        for name in ("routed_dcp", "image"):
-            artifact, _ = package_file(mp.parent, manifest["artifacts"][name], name)
-            archive.add(artifact, arcname=f"qualification_package/{manifest['artifacts'][name]['path']}")
-        matrix_file, _ = package_file(mp.parent, manifest["qualification_matrix"]["source"], "qualification matrix source")
-        archive.add(matrix_file, arcname="qualification_package/qualification-matrix-source")
-        archive.add(Path(bridge_path), arcname="bridge-attestation.json")
-        archive.add(Path(authorization_path), arcname="authorization.json")
-        archive.add(Path(evidence_path), arcname="physical_capture/physical-evidence.json")
-        ev_root = Path(evidence_path).resolve().parent
+    try:
         evidence_doc = json.loads(Path(evidence_path).read_text())
-        refs = [evidence_doc.get("preflight"), evidence_doc.get("adapter_identity"), evidence_doc.get("peer_exclusion_proof"),
-                evidence_doc["case_a"].get("raw_waveform"), evidence_doc["case_b"].get("transcript"),
-                evidence_doc["case_b"].get("physical_clock_correlation")]
-        for ref in refs:
-            file, _ = package_file(ev_root, ref, "bundled physical evidence")
-            archive.add(file, arcname="physical_capture/" + file.relative_to(ev_root).as_posix())
-    record["bundle_path"] = str(out / "physical-evidence.tar")
-    record["bundle_sha256"] = sha256(bundle)
-    (staging / "promotion.json").write_text(json.dumps(record, sort_keys=True, indent=2) + "\n")
-    os.rename(staging, out)
-    return record
+        ev_root = Path(evidence_path).resolve().parent
+        references = [
+            ("preflight", evidence_doc.get("preflight")),
+            ("bridge_identity", {"path": str(Path(bridge_path).resolve()), "sha256": bridge["sha256"]}),
+            ("card_identity", evidence_doc.get("adapter_identity")),
+            ("qualification_manifest", {"path": str(mp), "sha256": sha256(mp)}),
+            ("authorization_state", {"path": str(Path(authorization_path).resolve()), "sha256": auth["sha256"]}),
+            ("peer_exclusion", evidence_doc.get("peer_exclusion_proof")),
+            ("tck_waveform", evidence_doc["case_a"].get("raw_waveform")),
+            ("tap_sequence", evidence_doc["case_b"].get("transcript")),
+            ("case_a_result", {"case_id": evidence_doc["case_a"]["case_id"], "status": evidence_doc["case_a"]["status"]}),
+            ("case_b_result", {"case_id": evidence_doc["case_b"]["case_id"], "status": evidence_doc["case_b"]["status"]}),
+            ("final_idle_close", evidence_doc.get("close")),
+        ]
+        journal_events = []
+        for event, payload in references:
+            if isinstance(payload, dict) and "path" in payload and "sha256" in payload:
+                if event in {"preflight", "card_identity", "peer_exclusion", "tck_waveform", "tap_sequence"}:
+                    _, payload_hash = package_file(ev_root, payload, f"journal {event}")
+                else:
+                    file = Path(payload["path"]).resolve(strict=True)
+                    payload_hash = sha256(file)
+                    if payload_hash != payload["sha256"]:
+                        raise Refusal(f"journal {event} hash mismatch")
+            else:
+                payload_hash = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+            journal_events.append((event, payload_hash))
+        journal = _hash_chain_entries(journal_events)
+        journal_path = staging / "evidence-journal.jsonl"
+        with journal_path.open("x", encoding="utf-8") as stream:
+            for entry in journal:
+                stream.write(json.dumps(entry, sort_keys=True) + "\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+
+        record = {
+            "schema": "PHK2-TCK-PHYSICAL-PROMOTION-v1",
+            "PHYSICAL_PROTOCOL_QUALIFIED": True,
+            "TCK_CASE_A_PASS": True,
+            "TCK_CASE_B_PASS": True,
+            "QUALIFICATION_CASES": 40,
+            "QUALIFICATION_CASES_PASS": 40,
+            "QUALIFICATION_CASES_FAIL": 0,
+            "PHYSICAL_HOST_TCK_CONTRACT_PROVEN": True,
+            "TCK_INDEPENDENT_PASS": 40,
+            "TCK_INDEPENDENT_FAIL": 0,
+            "source_independent_pass": 38,
+            "source_independent_fail": 0,
+            "case_results": {c["case_id"]: "PASS" for c in manifest["tck_dependent_cases"]},
+            "qualification_manifest_sha256": sha256(mp), "bridge_attestation_sha256": bridge["sha256"],
+            "authorization_sha256": auth["sha256"], "physical_evidence_sha256": evidence["sha256"],
+            "evidence_journal_sha256": sha256(journal_path),
+            "created_utc": datetime.now(timezone.utc).isoformat(), "evidence_provenance": "PHYSICAL_REAL",
+        }
+        bundle = staging / "physical-evidence.tar"
+        with tarfile.open(bundle, "w") as archive:
+            archive.add(mp, arcname="qualification_package/qualification-manifest.json")
+            for name in ("routed_dcp", "image"):
+                artifact, _ = package_file(mp.parent, manifest["artifacts"][name], name)
+                archive.add(artifact, arcname=f"qualification_package/{manifest['artifacts'][name]['path']}")
+            matrix_file, _ = package_file(mp.parent, manifest["qualification_matrix"]["source"], "qualification matrix source")
+            archive.add(matrix_file, arcname="qualification_package/qualification-matrix-source")
+            archive.add(Path(bridge_path), arcname="bridge-attestation.json")
+            archive.add(Path(authorization_path), arcname="authorization.json")
+            archive.add(Path(evidence_path), arcname="physical_capture/physical-evidence.json")
+            archive.add(journal_path, arcname="physical_capture/evidence-journal.jsonl")
+            refs = [evidence_doc.get("preflight"), evidence_doc.get("adapter_identity"), evidence_doc.get("peer_exclusion_proof"),
+                    evidence_doc["case_a"].get("raw_waveform"), evidence_doc["case_b"].get("transcript"),
+                    evidence_doc["case_b"].get("physical_clock_correlation")]
+            for ref in refs:
+                file, _ = package_file(ev_root, ref, "bundled physical evidence")
+                archive.add(file, arcname="physical_capture/" + file.relative_to(ev_root).as_posix())
+        record["bundle_path"] = str(out / "physical-evidence.tar")
+        record["bundle_sha256"] = sha256(bundle)
+        (staging / "promotion.json").write_text(json.dumps(record, sort_keys=True, indent=2) + "\n")
+        with (staging / "promotion.json").open("rb") as stream:
+            os.fsync(stream.fileno())
+        staging_fd = os.open(staging, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(staging_fd)
+        finally:
+            os.close(staging_fd)
+        os.rename(staging, out)
+        parent_fd = os.open(out.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(parent_fd)
+        finally:
+            os.close(parent_fd)
+        return record
+    except Exception:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
 
 
 def main(argv: list[str] | None = None) -> int:
