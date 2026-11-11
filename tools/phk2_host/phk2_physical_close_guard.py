@@ -741,6 +741,7 @@ class _CapabilityRecord:
     consumed: bool = False
     opened: bool = False
     invalidated: bool = False
+    transport_object: Any = None
 
 
 _CAPABILITY_REGISTRY: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
@@ -1053,6 +1054,7 @@ def open_transport_after_gate(capability: TransportCapability | None, *,
     except Exception:
         record.invalidated = True
         raise
+    record.transport_object = transport
     record.opened = True
     try:
         record.journal.append("TRANSPORT_OPENED", {"session_nonce": record.claims["session_nonce"]})

@@ -495,6 +495,16 @@ class PhysicalCloseGuardTests(unittest.TestCase):
         with self.assertRaises(Refusal): guard.assert_transport_capability_live(cap)
         self.assertEqual(factory.counter["transact"], 1)
 
+    def test_20_capability_cannot_be_paired_with_another_transport_object(self):
+        cap, runtime, _path, _binding, tmp, patches, _factory = self._issue()
+        self.addCleanup(patches.close); self.addCleanup(tmp.cleanup)
+        _opened, _ = self._open(cap, runtime)
+        substitute = FakeTransport({"transact": 0})
+        endpoint = EndpointIdentity("e" * 64, "f" * 64, "selected")
+        with self.assertRaises(AdapterRefusal):
+            GuardedPhysicalSession(substitute, endpoint, transport_capability=cap)
+        self.assertEqual(substitute.counter["transact"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

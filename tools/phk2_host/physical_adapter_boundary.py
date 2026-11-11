@@ -176,7 +176,8 @@ class GuardedPhysicalSession:
         if type(transport_capability) is not TransportCapability:
             raise AdapterRefusal("transport session requires the opaque master gate capability")
         record = _CAPABILITY_REGISTRY.get(transport_capability)
-        if record is None or not record.opened or record.invalidated:
+        if (record is None or not record.opened or record.invalidated or
+                record.transport_object is not transport):
             raise AdapterRefusal("transport session capability was not issued/opened by master gate")
         claims = capability_audit_metadata(transport_capability)
         if (claims["endpoint_target_identity_sha256"] != endpoint.target_identity_sha256 or
