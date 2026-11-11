@@ -120,7 +120,8 @@ def prepare_physical_session(gates: QualificationGates, expected: ExpectedIdenti
                              timeout_ms: int = 2000, *,
                              tck_policy: TckPolicy | None = None,
                              tck_observation: TckObservation | None = None,
-                             authorized_tck_hz: int | None = None) -> "GuardedPhysicalSession":
+                             authorized_tck_hz: int | None = None,
+                             pretransport_permit=None) -> "GuardedPhysicalSession":
     """Resolve only a previously selected endpoint, then open after all gates.
 
     No discovery implementation is included. Gate failures happen before even
@@ -130,13 +131,24 @@ def prepare_physical_session(gates: QualificationGates, expected: ExpectedIdenti
     missing = gates.missing()
     if missing: raise AdapterRefusal("qualification gates missing: " + ",".join(missing))
     _validate_tck_gate(tck_policy, tck_observation, authorized_tck_hz)
+    # Legacy boolean gates cannot authorize opening a physical transport.
+    # The opaque permit is issued only after the closure master gate has
+    # verified immutable qualification, signed authorization, peer/card
+    # proofs, rollback and a durable PRE_TRANSPORT journal entry.
+    from phk2_physical_close_guard import PreTransportPermit, open_transport_after_gate
+    if not isinstance(pretransport_permit, PreTransportPermit):
+        raise AdapterRefusal("master pre-transport closure permit required")
     endpoint = discovery.selected_endpoint()
     endpoint = validate_preflight(gates, expected, endpoint,
                                   tck_policy=tck_policy,
                                   tck_observation=tck_observation,
                                   authorized_tck_hz=authorized_tck_hz)
-    transport = transport_factory(endpoint)
-    return GuardedPhysicalSession(transport, endpoint, timeout_ms)
+    try:
+        transport = open_transport_after_gate(pretransport_permit, lambda: transport_factory(endpoint))
+    except Exception as exc:
+        raise AdapterRefusal(f"transport opening refused by master pre-transport gate: {exc}") from exc
+    return GuardedPhysicalSession(transport, endpoint, timeout_ms,
+                                  pretransport_permit=pretransport_permit)
 
 def make_hello_request(sequence: int = 0) -> bytes:
     """Exact existing board-protocol HELLO request (empty payload)."""
@@ -150,8 +162,12 @@ class GuardedPhysicalSession:
     reconnect is attempted. This wrapper does not discover or open endpoints.
     """
     def __init__(self, transport: PhysicalTransport, endpoint: EndpointIdentity,
-                 timeout_ms: int = 2000):
+                 timeout_ms: int = 2000, *, pretransport_permit=None):
         if timeout_ms <= 0: raise ValueError("timeout_ms must be positive")
+        from phk2_physical_close_guard import PreTransportPermit
+        if (not isinstance(pretransport_permit, PreTransportPermit) or
+                not pretransport_permit._consumed or not pretransport_permit._opened):
+            raise AdapterRefusal("a transport opened by the master pre-transport gate is required")
         self._transport = transport; self.endpoint = endpoint; self.timeout_ms = timeout_ms
         self._closed = False; self._hello_attempts = 0; self._sequence = 0
         self._abort_attempts = 0; self._seen_result_slots: set[tuple[int, int, int]] = set(); self._transaction_identity = None

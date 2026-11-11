@@ -1,279 +1,74 @@
-"""Synthetic-only negative coverage for the final TCK closure verifier."""
+"""Fail-closed regressions for the operator-facing promotion command."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-import hashlib
 import json
 from pathlib import Path
 import tempfile
 import unittest
 
-from phk2_close_tck_cases import (
-    _hash_chain_entries,
-    _measurement_in_envelope,
-    _verify_authorization,
-    _verify_bridge,
-    validate_evidence,
-    validate_manifest,
-)
-from physical_tck_preflight import PINNED_REVIEWED_BRIDGE_SHA256, PINNED_REVIEWED_BUILD_ID, Refusal
+from physical_tck_preflight import Refusal
+from phk2_close_tck_cases import validate_manifest, _verify_authorization, package_file
+from phk2_physical_close_guard import verify_immutable_v51, CASE_A_ID, CASE_A_NAME, CASE_B_ID, CASE_B_NAME
 
 
-def digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def utc(delta=timedelta(0)):
-    return (datetime.now(timezone.utc) + delta).isoformat()
-
-
-class TckClosureDryRun(unittest.TestCase):
+class CloseRunnerRejectsUnboundInputs(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory(prefix="phk2-close-tck-")
-        self.root = Path(self.tmp.name)
-        self.package = self.root / "qualified-v4"
-        self.package.mkdir()
-        self._artifact("routed.dcp", b"synthetic routed v4")
-        self._artifact("image.bit", b"synthetic v4 image")
-        self._artifact("matrix.json", b'{"fixture":true,"cases":["SYNTH-A","SYNTH-B"]}')
-        self.manifest_path = self.package / "closure-manifest.json"
-        self.manifest_path.write_text(json.dumps(self._manifest(), sort_keys=True))
-        self.manifest = json.loads(self.manifest_path.read_text())
-        self.bridge_path = self.root / "bridge.json"
-        self.bridge = {"BRIDGE_SHA256": PINNED_REVIEWED_BRIDGE_SHA256,
-                       "BUILD_ID": PINNED_REVIEWED_BUILD_ID, "TARGET_PART": "xcvu33p-fsvh2104-2-e",
-                       "verified": True, "verified_utc": utc()}
-        self.bridge_path.write_text(json.dumps(self.bridge))
-        self.auth_path = self.root / "auth.json"
-        self.auth = {"status": "AUTHORIZED", "signature_verified": True, "one_card_scope": True,
-                     "target_part": self.manifest["TARGET_PART"], "routed_dcp_hash": self.manifest["ROUTED_DCP_HASH"],
-                     "image_hash": self.manifest["IMAGE_HASH"], "peer_exclusion": "PASS",
-                     "workload_preservation": "PASS", "rollback_readiness": "PASS",
-                     "issued_utc": utc(), "expires_utc": utc(timedelta(hours=2))}
-        self.auth_path.write_text(json.dumps(self.auth))
-        self.bridge_verified = _verify_bridge(self.bridge_path, self.manifest["TARGET_PART"])
-        self.auth_verified = _verify_authorization(self.auth_path, self.manifest)
-        self.evidence_path = self.root / "capture" / "evidence.json"
-        self.evidence_path.parent.mkdir()
-        for name, data in (("wave.csv", b"time,tck\n"), ("tap.jsonl", b"{}\n"),
-                           ("correlation.csv", b"time,bscane2\n"), ("preflight.json", b"{}\n"),
-                           ("adapter.json", b"{}\n"), ("peers.json", b"{}\n")):
-            (self.evidence_path.parent / name).write_bytes(data)
-        self.evidence = self._evidence()
-        self._save_evidence()
+        self.repo = Path(__file__).resolve().parents[2]
+        self.binding = verify_immutable_v51(self.repo)
 
-    def tearDown(self):
-        self.tmp.cleanup()
+    def test_exact_case_definitions_come_from_immutable_record(self):
+        self.assertEqual((CASE_A_ID, self.binding.case_a["case"]), ("40", CASE_A_NAME))
+        self.assertEqual((CASE_B_ID, self.binding.case_b["case"]), ("33", CASE_B_NAME))
 
-    def _artifact(self, name, content):
-        path = self.package / name
-        path.write_bytes(content)
-        return {"path": name, "sha256": digest(path)}
+    def test_arbitrary_synthetic_manifest_refuses(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "manifest.json"
+            path.write_text(json.dumps({"schema": "PHK2-TCK-CLOSURE-MANIFEST-v1",
+                "synthetic_fixture": False, "TCK_INDEPENDENT_PASS": 38,
+                "TCK_INDEPENDENT_FAIL": 0, "tck_dependent_cases": [
+                    {"case_id": "SYNTH-A", "kind": "PHYSICAL_TCK_WAVEFORM"},
+                    {"case_id": "SYNTH-B", "kind": "BSCAN_CLOCK_INTERACTION"}]}))
+            with self.assertRaises(Refusal): validate_manifest(path)
 
-    def _manifest(self):
-        route = {"path": "routed.dcp", "sha256": digest(self.package / "routed.dcp")}
-        image = {"path": "image.bit", "sha256": digest(self.package / "image.bit")}
-        matrix = {"path": "matrix.json", "sha256": digest(self.package / "matrix.json")}
-        cases = [
-            {"case_id": "SYNTH-A", "kind": "PHYSICAL_TCK_WAVEFORM", "purpose": "fixture waveform case",
-             "required_inputs": ["scope trace"], "required_measurement": ["TCK frequency and pulse widths"],
-             "pass_criteria": ["within envelope"], "fail_criteria": ["outside envelope"], "evidence_output": ["waveform.csv"]},
-            {"case_id": "SYNTH-B", "kind": "BSCAN_CLOCK_INTERACTION", "purpose": "fixture BSCAN case",
-             "required_inputs": ["TAP trace"], "required_measurement": ["clock correlation"],
-             "pass_criteria": ["source-derived correlation"], "fail_criteria": ["interaction mismatch"], "evidence_output": ["tap.jsonl"]},
-        ]
-        return {"schema": "PHK2-TCK-CLOSURE-MANIFEST-v1", "synthetic_fixture": False,
+    def test_v5_1_record_has_no_physical_envelope_so_runner_stays_closed(self):
+        self.assertFalse(self.binding.qualified_physical_envelope_available)
+        self.assertEqual(self.binding.tck_envelope["physical_waveform_limits"], None)
+        self.assertFalse(self.binding.tck_envelope["physical_tck_contract_qualified"])
+
+    def test_route_json_pass_claim_cannot_override_artifact_bytes(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td); (root / "routed.dcp").write_bytes(b"actual wrong route bytes")
+            b = self.binding
+            manifest = {"schema": "PHK2-TCK-CLOSURE-MANIFEST-v1", "synthetic_fixture": False,
                 "TCK_INDEPENDENT_PASS": 38, "TCK_INDEPENDENT_FAIL": 0,
-                "independent_qualification": {"result": "PASS"}, "TARGET_PART": "xcvu33p-fsvh2104-2-e",
-                "artifacts": {"routed_dcp": route, "image": image}, "ROUTED_DCP_HASH": route["sha256"],
-                "IMAGE_HASH": image["sha256"], "route_qualification": {"status": "QUALIFIED"},
-                "TCK_ANALYSIS_ENVELOPE": {"qualified": True, "minimum_tck_hz": 1e6, "maximum_tck_hz": 50e6,
-                    "minimum_high_ns": 8, "minimum_low_ns": 8, "minimum_duty_cycle_percent": 40,
-                    "maximum_duty_cycle_percent": 60, "maximum_period_jitter_p2p_ns": 1,
-                    "maximum_period_jitter_rms_ns": 0.25},
-                "qualification_matrix": {"status": "AUTHENTICATED", "source": matrix}, "tck_dependent_cases": cases}
+                "v5_1_identity": {"source_commit": b.source_commit, "source_tree_hash": b.source_tree_hash,
+                    "routed_dcp_sha256": b.routed_dcp_sha256,
+                    "qualification_record_sha256": b.qualification_record_sha256,
+                    "matrix_sha256": b.matrix_sha256, "evidence_commit": b.evidence_commit},
+                "qualification_matrix": {"sha256": b.matrix_sha256,
+                    "commit": "6ad11b72fc62a452195245984b69f236d4d3b315",
+                    "path": "results/phk2-v3-post-route-intake-20261110/qualification.json"},
+                "tck_dependent_cases": [
+                    {"case_id": "40", "case": "host_TCK_frequency_contract", "kind": "PHYSICAL_TCK_WAVEFORM",
+                     "matrix_detail": "Physical host maximum TCK frequency/duty contract not qualified"},
+                    {"case_id": "33", "case": "clock_interaction_no_unsafe", "kind": "BSCAN_CLOCK_INTERACTION",
+                     "matrix_detail": b.case_b["detail"]}],
+                "TCK_ENVELOPE_SHA256": b.tck_envelope_sha256,
+                "TCK_ANALYSIS_REFERENCE": b.tck_envelope,
+                "artifacts": {"routed_dcp": {"path": "routed.dcp", "sha256": b.routed_dcp_sha256}}}
+            path = root / "manifest.json"; path.write_text(json.dumps(manifest))
+            with self.assertRaises(Refusal): validate_manifest(path)
+            fake_pass_ref = {"path": "routed.dcp", "sha256": "0" * 64}
+            with self.assertRaises(Refusal): package_file(root, fake_pass_ref, "routed DCP")
 
-    def _ref(self, name):
-        p = self.evidence_path.parent / name
-        return {"path": name, "sha256": digest(p)}
-
-    def _evidence(self):
-        manifest = json.loads(self.manifest_path.read_text())
-        return {"schema": "PHK2-TCK-CLOSURE-EVIDENCE-v1", "evidence_class": "MOCK_CAPTURE",
-            "synthetic_fixture": True, "production_evidence": True, "captured_utc": utc(),
-            "manifest_sha256": digest(self.manifest_path), "routed_dcp_hash": manifest["ROUTED_DCP_HASH"],
-            "image_hash": manifest["IMAGE_HASH"], "bridge_sha256": self.bridge["BRIDGE_SHA256"],
-            "authorization_sha256": digest(self.auth_path), "peer_exclusion": "PASS", "one_card_scope": True,
-            "workload_unchanged": True, "preflight": self._ref("preflight.json"),
-            "adapter_identity": self._ref("adapter.json"), "peer_exclusion_proof": self._ref("peers.json"),
-            "case_a": {"case_id": "SYNTH-A", "status": "PASS", "MEASURED_TCK_HZ": 30e6,
-                "MEASURED_PERIOD_NS": 33.33, "MEASURED_HIGH_NS": 16.66, "MEASURED_LOW_NS": 16.67,
-                "MEASURED_DUTY_CYCLE": 50, "JITTER_MIN_NS": -.1, "JITTER_MAX_NS": .1,
-                "MEASURED_JITTER_P2P_NS": .2, "MEASURED_JITTER_RMS_NS": .05,
-                "raw_waveform": self._ref("wave.csv"), "settck_used_as_measurement": False},
-            "case_b": {"case_id": "SYNTH-B", "status": "PASS", "before_state": "IDLE_CONFIRMED",
-                "after_state": "IDLE_CONFIRMED", "tap_cycles": 87, "fpga_programming": False,
-                "workload_changed": False, "contains_user_instruction": False,
-                "unexpected_tap_response": False, "unexpected_user_instruction": False,
-                "transcript": self._ref("tap.jsonl"),
-                "physical_clock_correlation": self._ref("correlation.csv"), "settck_used_as_measurement": False},
-            "final_case_statuses": {"SYNTH-A": "PASS", "SYNTH-B": "PASS"},
-            "close": {"transport_closed": True, "tap_idle": True, "peer_count_after": 0}}
-
-    def _save_evidence(self):
-        self.evidence_path.write_text(json.dumps(self.evidence, sort_keys=True))
-
-    def _allow_downstream_gate_test(self):
-        # Unit-test-only marker lets this synthetic fixture reach later checks;
-        # the separate mock-production test proves these flags are rejected.
-        self.evidence["synthetic_fixture"] = False
-        self.evidence["evidence_class"] = "PHYSICAL_REAL"
-
-    def test_manifest_with_38_zero_and_two_source_cases_passes_static_gate(self):
-        _, data = validate_manifest(self.manifest_path)
-        self.assertEqual([x["case_id"] for x in data["tck_dependent_cases"]], ["SYNTH-A", "SYNTH-B"])
-
-    def test_evidence_journal_hash_chain_is_ordered_and_linked(self):
-        chain = _hash_chain_entries([("preflight", "1" * 64), ("case_a", "2" * 64), ("close", "3" * 64)])
-        self.assertEqual([entry["sequence"] for entry in chain], [0, 1, 2])
-        self.assertEqual(chain[0]["previous_entry_sha256"], "0" * 64)
-        self.assertEqual(chain[1]["previous_entry_sha256"], chain[0]["entry_sha256"])
-        self.assertEqual(chain[2]["previous_entry_sha256"], chain[1]["entry_sha256"])
-
-    def test_only_37_independent_pass_refuses(self):
-        self.manifest["TCK_INDEPENDENT_PASS"] = 37
-        self.manifest_path.write_text(json.dumps(self.manifest))
-        with self.assertRaisesRegex(Refusal, "exactly 38 pass"):
-            validate_manifest(self.manifest_path)
-
-    def test_missing_v4_manifest_refuses(self):
-        with self.assertRaisesRegex(Refusal, "unavailable"):
-            validate_manifest(self.root / "missing-v4.json")
-
-    def test_wrong_route_hash_refuses(self):
-        self.manifest["ROUTED_DCP_HASH"] = "0" * 64
-        self.manifest_path.write_text(json.dumps(self.manifest))
-        with self.assertRaisesRegex(Refusal, "identity/hash mismatch"):
-            validate_manifest(self.manifest_path)
-
-    def test_bridge_mismatch_refuses(self):
-        self.bridge["BRIDGE_SHA256"] = "0" * 64
-        self.bridge_path.write_text(json.dumps(self.bridge))
-        with self.assertRaisesRegex(Refusal, "differs"):
-            _verify_bridge(self.bridge_path, self.manifest["TARGET_PART"])
-
-    def test_wrong_card_scope_refuses(self):
-        self.auth["one_card_scope"] = False
-        self.auth_path.write_text(json.dumps(self.auth))
-        with self.assertRaisesRegex(Refusal, "one card"):
-            _verify_authorization(self.auth_path, self.manifest)
-
-    def test_peer_exclusion_failure_refuses(self):
-        self.auth["peer_exclusion"] = "FAIL"
-        self.auth_path.write_text(json.dumps(self.auth))
-        with self.assertRaisesRegex(Refusal, "peer exclusion"):
-            _verify_authorization(self.auth_path, self.manifest)
-
-    def test_missing_authorization_refuses(self):
-        with self.assertRaisesRegex(Refusal, "unavailable"):
-            _verify_authorization(self.root / "missing-auth.json", self.manifest)
-
-    def test_tck_above_envelope_refuses(self):
-        value = dict(self.evidence["case_a"])
-        value["MEASURED_TCK_HZ"] = 51e6
-        value["MEASURED_PERIOD_NS"] = 1e9 / 51e6
-        value["MEASURED_HIGH_NS"] = value["MEASURED_PERIOD_NS"] / 2
-        value["MEASURED_LOW_NS"] = value["MEASURED_PERIOD_NS"] / 2
-        with self.assertRaisesRegex(Refusal, "outside qualified envelope"):
-            _measurement_in_envelope(value, self.manifest["TCK_ANALYSIS_ENVELOPE"])
-
-    def test_unstable_tck_jitter_refuses(self):
-        value = dict(self.evidence["case_a"])
-        value["JITTER_MAX_NS"] = 3
-        with self.assertRaisesRegex(Refusal, "jitter min/max"):
-            _measurement_in_envelope(value, self.manifest["TCK_ANALYSIS_ENVELOPE"])
-
-    def test_duty_outside_envelope_refuses(self):
-        value = dict(self.evidence["case_a"])
-        value["MEASURED_DUTY_CYCLE"] = 65
-        with self.assertRaisesRegex(Refusal, "duty cycle"):
-            _measurement_in_envelope(value, self.manifest["TCK_ANALYSIS_ENVELOPE"])
-
-    def test_missing_waveform_evidence_refuses(self):
-        self._allow_downstream_gate_test()
-        self.evidence["case_a"] = {"status": "NOT_RUN"}
-        self._save_evidence()
-        manifest = json.loads(self.manifest_path.read_text()); manifest["_path"] = str(self.manifest_path)
-        with self.assertRaisesRegex(Refusal, "waveform case incomplete"):
-            validate_evidence(self.evidence_path, manifest, self.bridge_verified, self.auth_verified)
-
-    def test_missing_bscan_evidence_refuses(self):
-        self._allow_downstream_gate_test()
-        self.evidence["case_b"] = {"status": "NOT_RUN"}
-        self._save_evidence()
-        manifest = json.loads(self.manifest_path.read_text()); manifest["_path"] = str(self.manifest_path)
-        with self.assertRaisesRegex(Refusal, "BSCAN clock-interaction case incomplete"):
-            validate_evidence(self.evidence_path, manifest, self.bridge_verified, self.auth_verified)
-
-    def test_partial_case_completion_refuses(self):
-        self._allow_downstream_gate_test()
-        self.evidence["final_case_statuses"] = {"SYNTH-A": "PASS"}
-        self._save_evidence()
-        manifest = json.loads(self.manifest_path.read_text()); manifest["_path"] = str(self.manifest_path)
-        with self.assertRaisesRegex(Refusal, "partial completion refused"):
-            validate_evidence(self.evidence_path, manifest, self.bridge_verified, self.auth_verified)
-
-    def test_mock_evidence_marked_production_refuses(self):
-        manifest = json.loads(self.manifest_path.read_text()); manifest["_path"] = str(self.manifest_path)
-        with self.assertRaisesRegex(Refusal, "mock/synthetic"):
-            validate_evidence(self.evidence_path, manifest, self.bridge_verified, self.auth_verified)
-
-    def test_stale_evidence_refuses(self):
-        self.evidence["synthetic_fixture"] = False
-        self.evidence["evidence_class"] = "PHYSICAL_REAL"
-        self.evidence["captured_utc"] = utc(timedelta(days=-2))
-        self._save_evidence()
-        manifest = json.loads(self.manifest_path.read_text()); manifest["_path"] = str(self.manifest_path)
-        with self.assertRaisesRegex(Refusal, "stale"):
-            validate_evidence(self.evidence_path, manifest, self.bridge_verified, self.auth_verified)
-
-    def test_unexpected_tap_response_refuses(self):
-        self._allow_downstream_gate_test()
-        self.evidence["case_b"]["unexpected_tap_response"] = True
-        self._save_evidence()
-        manifest = json.loads(self.manifest_path.read_text()); manifest["_path"] = str(self.manifest_path)
-        with self.assertRaisesRegex(Refusal, "unexpected TAP response"):
-            validate_evidence(self.evidence_path, manifest, self.bridge_verified, self.auth_verified)
-
-    def test_unexpected_user_instruction_refuses(self):
-        self._allow_downstream_gate_test()
-        self.evidence["case_b"]["unexpected_user_instruction"] = True
-        self._save_evidence()
-        manifest = json.loads(self.manifest_path.read_text()); manifest["_path"] = str(self.manifest_path)
-        with self.assertRaisesRegex(Refusal, "unexpected USER instruction"):
-            validate_evidence(self.evidence_path, manifest, self.bridge_verified, self.auth_verified)
-
-    def test_unapproved_expected_user_instruction_refuses(self):
-        self._allow_downstream_gate_test()
-        self.evidence["case_b"]["contains_user_instruction"] = True
-        self._save_evidence()
-        manifest = json.loads(self.manifest_path.read_text()); manifest["_path"] = str(self.manifest_path)
-        with self.assertRaisesRegex(Refusal, "separate case-bound authorization"):
-            validate_evidence(self.evidence_path, manifest, self.bridge_verified, self.auth_verified)
-
-    def test_partial_evidence_write_refuses(self):
-        self.evidence_path.write_text('{"schema":')
-        manifest = json.loads(self.manifest_path.read_text()); manifest["_path"] = str(self.manifest_path)
-        with self.assertRaisesRegex(Refusal, "unreadable JSON"):
-            validate_evidence(self.evidence_path, manifest, self.bridge_verified, self.auth_verified)
-
-    def test_operator_abort_refuses_promotion(self):
-        self._allow_downstream_gate_test()
-        self.evidence["case_a"]["status"] = "ABORTED"
-        self._save_evidence()
-        manifest = json.loads(self.manifest_path.read_text()); manifest["_path"] = str(self.manifest_path)
-        with self.assertRaisesRegex(Refusal, "waveform case incomplete"):
-            validate_evidence(self.evidence_path, manifest, self.bridge_verified, self.auth_verified)
+    def test_boolean_authorization_is_not_accepted(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "auth.json"
+            path.write_text(json.dumps({"AUTHORIZED": True, "signature_verified": True}))
+            with self.assertRaises(Refusal):
+                _verify_authorization(path, {}, {}, expected_card_id=self.binding.expected_card_id,
+                                      session_nonce="fixture", service_config_sha256="0" * 64,
+                                      peer_expectation_sha256="0" * 64)
 
 
 if __name__ == "__main__":

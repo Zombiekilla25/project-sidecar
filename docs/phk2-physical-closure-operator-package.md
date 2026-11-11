@@ -1,161 +1,92 @@
-# PHK2 physical closure operator package
+# PHK2 physical closure package
 
-## Readiness boundary
+## Immutable case binding
 
-This worktree does not contain the authenticated current 40-case qualification
-matrix or its immutable source/hash. A repository and all-ref Git-object
-search found case *kinds* in the templates, but no source-defined IDs,
-criteria, TAP procedure, or exact BSCAN clock-observation requirement. Thus:
+The v5.1 38/40 qualification record is pinned to commit
+`6ad11b72fc62a452195245984b69f236d4d3b315` and SHA256
+`25b875c707aaa1ee43ec1da064b3fec0b2297aed87be4aacb2c7c2260b26c90e`.
+The exact unresolved cases in its retained qualification matrix are:
 
-```text
-CASE_A_ID=UNRECOVERED
-CASE_A_PURPOSE=Physical adapter-pin TCK waveform/contract (matrix purpose text unavailable)
-CASE_B_ID=UNRECOVERED
-CASE_B_PURPOSE=Physical BSCAN/TCK interaction (matrix purpose text unavailable)
-```
+| ID | Matrix case | Purpose |
+|---|---|---|
+| 40 | `host_TCK_frequency_contract` | Measure the real host adapter-pin TCK waveform and establish it against the qualified routed timing envelope. |
+| 33 | `clock_interaction_no_unsafe` | Resolve the routed BSCAN/TCK self-clock interaction under real, bounded TAP activity and correlate physical TCK with the BSCAN interaction. |
 
-Do not substitute `SYNTH-A`/`SYNTH-B` from tests or invent criteria. The
-existing closure verifier requires the exact source matrix and both complete
-case definitions in the authenticated qualification manifest. The current
-`PHK2_TCK_CLOSURE_MANIFEST.template.json` is intentionally synthetic and
-non-qualifying.
+The gate binds these ordered definitions, full matrix SHA256, v5.1 source
+commit/tree, routed DCP SHA256, and qualification record SHA256. It does not
+accept synthetic IDs, reordered cases, substituted criteria, or route hashes
+from another run.
 
-An IDCODE-only scan can reset the TAP and observe the adapter-level TCK
-waveform, but the retained runbook explicitly says that it does not select a
-BSCANE2 USER chain and therefore cannot by itself demonstrate the internal
-BSCAN/self-clock interaction. The current evidence does not establish that a
-USER instruction is avoidable for Case B. If the matrix requires a USER
-instruction, the instruction and exact read-only sequence must come from that
-case definition and require separate case-bound authorization. Until then,
-Case B has no executable sequence and the physical execution gate stays
-closed.
+The retained v5.1 route analyzes `bscan_tck` at 50 MHz (20 ns period, 0/10 ns
+edges). The immutable qualification explicitly says the physical host TCK
+contract is unproven. Therefore these are route-analysis facts, not a
+qualified physical waveform envelope; no physical TCK measurement can pass
+until a later immutable qualification record supplies limits.
 
-## One operator entry point (prepared shape)
+## Fail-closed state
 
-The intended single entry point is:
+The command that exists today is an offline evidence promoter. It does not
+capture measurements or open transport. The pre-transport master gate now
+requires an opaque single-use permit, cryptographic signed authorization,
+cryptographically signed peer/card evidence, rollback readiness, a qualified
+physical envelope, a reviewed capture backend attestation, and a durable
+`PRE_TRANSPORT` journal entry. The transport factory and guarded session
+constructor reject legacy boolean-only gates.
 
-```sh
-phk2_physical_close \
-  --qualification /authorized/package/PHK2_TCK_CLOSURE_MANIFEST.json \
-  --card /authorized/card/PHK2_TARGET_LOCK.json \
-  --bridge-policy /authorized/bridge/PHK2_SQRL_XVC_POLICY.json \
-  --bridge-attestation /authorized/bridge/bridge-attestation.json \
-  --authorization /authorized/PHK2_PHYSICAL_AUTHORIZATION.json \
-  --dry-run
-```
+Current blockers are external to this tooling:
 
-The entry point is **not implemented as a physical executor** in this
-worktree. The existing `physical_tck_preflight.py` provides local process,
-socket, identity, lock, and artifact checks without protocol traffic. The
-existing `phk2_close_tck_cases.py` verifies captured evidence and performs
-offline promotion; it never connects. No installed capture backend combines
-them into an authorized physical executor, so `PHYSICAL_CLOSURE_RUNNER_READY=false`.
+1. No operator-approved Ed25519 trust-root file exists for authorization,
+   peer/card evidence, or capture-backend attestations.
+2. No reviewed physical capture backend is installed or attested.
+3. v5.1 has no qualified physical TCK waveform limits.
 
-After the matrix and a reviewed capture implementation exist, the same entry
-point must be invoked with explicit physical authorization:
+Consequently `LIVE_EXECUTION_AUTHORIZED=false`,
+`EVIDENCE_CAPTURE_READY=false`, and
+`PHYSICAL_CLOSURE_RUNNER_READY=false`. Do not treat this as an executable
+physical runbook.
 
-```sh
-phk2_physical_close \
-  --qualification /authorized/package/PHK2_TCK_CLOSURE_MANIFEST.json \
-  --card /authorized/card/PHK2_TARGET_LOCK.json \
-  --bridge-policy /authorized/bridge/PHK2_SQRL_XVC_POLICY.json \
-  --bridge-attestation /authorized/bridge/bridge-attestation.json \
-  --authorization /authorized/PHK2_PHYSICAL_AUTHORIZATION.json \
-  --execute-physical
-```
+## Parsers and evidence provenance
 
-This command shape is not currently installed and must not be treated as
-executable.
+The accepted waveform format is UTF-8 CSV with exactly
+`sample_index,timestamp_ns,logic_level`. The parser requires contiguous sample
+indices, strictly increasing timestamps, at least 30 samples and ten complete
+periods, then derives TCK, period, high/low widths, duty, jitter extrema,
+peak-to-peak/RMS jitter, and sample count from raw edges. Any supplied summary
+must agree with those calculations. The XVC `settck` echo is not accepted as
+clock evidence.
 
-When the authenticated matrix and a reviewed capture backend exist, the same
-entry point must default to dry-run and require `--execute-physical` before it
-can open any transport. Before that flag can cause any connection, the runner
-must pass, in order:
+The TAP parser accepts a bounded 87-clock reset/IDCODE-only trace: five TMS
+ones reset the TAP, the six-bit IDCODE instruction `0x09` is shifted, exactly
+64 DR bits are captured and checked against the expected IDCODE plus zero
+padding, and the trace ends in Run-Test/Idle. Its exact bit vector rejects
+USER1/USER2/USER3, configuration instructions, and extra shift/clocks. This
+sequence alone does not prove the internal BSCAN interaction; Case B also
+requires signed physical-TCK/BSCAN correlation evidence. No USER instruction
+is authorized or currently justified by the matrix evidence.
 
-```text
-V5_1_QUALIFIED_OFFLINE=true
-TCK_INDEPENDENT_PASS=38
-EXACT_BRIDGE_SHA_MATCH=true
-PEER_EXCLUSION=true
-NO_ACTIVE_XVC_CLIENT=true
-ONE_CARD_SCOPE=true
-ROLLBACK_READY=true
-EVIDENCE_JOURNAL_READY=true
-EXPLICIT_AUTHORIZATION=true
-```
+Physical captures require signed Ed25519 documents from configured trust
+roots, role-bound payloads, exact qualification hash/case ID, raw capture
+bytes and matching SHA256. A `PHYSICAL_REAL` string or boolean is insufficient.
+Peer proof content must bind the expected SQRL process, executable/build and
+service config, listening socket owner, zero clients/competitors, a fresh
+timestamp, and a held local exclusion lock. Card evidence must match the
+immutable canary card/adapter/IDCODE metadata and exact bridge hash.
 
-Any failed or indeterminate precheck stops before transport open. The
-peer-exclusion software is the existing process/socket-only preflight; it
-does not provide remote network ACL proof by itself. The deployment owner
-must bind that proof into authorization and the evidence package.
+The hash-chained evidence journal writes and fsyncs `PRE_TRANSPORT` before a
+transport permit can be issued. Failure to create/fsync it refuses transport.
+The final promotion path remains unavailable until the external blockers
+above are resolved and real signed evidence is captured.
 
-## Case evidence to capture once the matrix is recovered
+## Required later operator invocation
 
-Case A must capture an externally measured TCK/SK waveform at the exact
-authorized adapter pin, referenced to adapter ground, during only the
-matrix-approved bounded activity. Preserve raw samples and instrument/probe,
-bandwidth, sample rate, calibration, trigger, and capture-window metadata.
-Record:
+Once the missing qualification, trust roots, capture backend, and separate
+physical authorization exist, a future reviewed executor may expose a single
+command defaulting to dry-run and requiring `--execute-physical`. It must
+verify exact v5.1 artifact and bridge identity, rows 40 and 33, no active
+client, one-card scope, peer exclusion, rollback readiness, signed
+authorization, capture backend readiness, and the durable pre-transport
+journal before opening transport. No such physical executor is installed by
+this change.
 
-```text
-MEASURED_TCK_HZ=
-MEASURED_PERIOD_NS=
-MEASURED_HIGH_NS=
-MEASURED_LOW_NS=
-MEASURED_DUTY_CYCLE=
-JITTER_MIN_NS=
-JITTER_MAX_NS=
-MEASURED_JITTER_P2P_NS=
-MEASURED_JITTER_RMS_NS=
-```
-
-Compare these values against the exact qualified route envelope in the
-authenticated manifest. The SQRL/XVC ELF's `settck` response is an echo and
-is not effective-clock evidence.
-
-Case B must use the exact source-defined sequence, capture its TAP response,
-and correlate the observed physical TCK with the interaction required by the
-matrix. Start and finish at confirmed Run-Test/Idle, stop after the bounded
-observation, and close once without retry/reconnect. No programming,
-configuration instruction, image change, or workload change is permitted.
-IDCODE-only is not claimed sufficient for BSCAN self-clock proof.
-
-## Journal and promotion
-
-The offline promotion verifier now requires provenance `PHYSICAL_REAL`, both
-case results, raw waveform and TAP/correlation records, explicit flags for
-unexpected TAP responses and USER instructions, and the exact close/idle
-record. It requires `JITTER_MIN_NS` and `JITTER_MAX_NS` as well as peak-to-peak
-and RMS jitter. A USER instruction requires separate authorization naming the
-Case B ID. Promotion stages the bundle in a temporary directory, writes an
-append-only SHA256 hash-chained journal, hashes the final tar, and atomically
-renames the completed directory. A partial/aborted run cannot promote.
-
-After both exact matrix cases pass, the offline result will include:
-
-```text
-TCK_CASE_A_PASS=true
-TCK_CASE_B_PASS=true
-QUALIFICATION_CASES=40
-QUALIFICATION_CASES_PASS=40
-QUALIFICATION_CASES_FAIL=0
-PHYSICAL_HOST_TCK_CONTRACT_PROVEN=true
-PHYSICAL_PROTOCOL_QUALIFIED=true
-```
-
-Only real evidence (`evidence_class=PHYSICAL_REAL`,
-`synthetic_fixture=false`, `production_evidence=true`) may reach that state.
-Mock evidence, stale evidence, aborts, unexpected responses/instructions,
-partial records, and any hash mismatch refuse promotion.
-
-## Offline negative coverage
-
-The refusal suite covers bridge mismatch, active peer, peer-exclusion failure,
-wrong card scope, wrong route artifact, TCK above envelope, duty violation,
-unstable jitter, unexpected TAP response, unexpected USER instruction,
-partial evidence write, and operator abort. Additional existing tests cover
-wrong binary/service config, duplicate server, competing client, stale/live
-foreign lock, missing/unqualified manifest, missing TCK envelope, missing
-waveform/BSCAN evidence, mock-as-production, and stale evidence.
-
-Nothing in this package authorizes or performs physical execution.
+No hardware, live XVC, USB enumeration, JTAG, or FPGA programming was used to
+prepare this package.

@@ -9,6 +9,7 @@ from first_silicon_cli import main as cli_main
 import first_silicon_cli
 from physical_adapter_boundary import (AdapterRefusal,EndpointIdentity,ExpectedIdentity,
     GuardedPhysicalSession,QualificationGates,prepare_physical_session,make_hello_request)
+from phk2_physical_close_guard import PreTransportPermit, PreTransportJournal, _PERMIT_SECRET
 from tck_contract import TckObservation,TckPolicy
 from oracle import predict
 from runtime import Descriptor,fixture_descriptor,fixture_path,sha
@@ -93,6 +94,13 @@ def physical_boundary_tests(tmp):
     def prepare(gates, discovery, transport_factory, timeout_ms=2000, with_tck=True):
         options={'tck_policy':synthetic_policy,'tck_observation':synthetic_observation} if with_tck else {}
         return prepare_physical_session(gates,identity,discovery,transport_factory,timeout_ms=timeout_ms,**options)
+    def mock_session(transport, endpoint=endpoint, timeout_ms=2000):
+        tmp.mkdir(parents=True,exist_ok=True)
+        journal=PreTransportJournal(tmp/f'synthetic-session-{time.time_ns()}.jsonl','synthetic-test')
+        journal.initialize({'test_fixture':True})
+        permit=PreTransportPermit(_PERMIT_SECRET,'f'*64,'synthetic-test',journal)
+        permit._consumed=True;permit._opened=True
+        return GuardedPhysicalSession(transport,endpoint,timeout_ms,pretransport_permit=permit)
     opened=[]
     def factory(_):
         t=MockPhysicalTransport();opened.append(t);return t
@@ -130,38 +138,45 @@ def physical_boundary_tests(tmp):
     try:prepare(good,d,factory);raise AssertionError('wrong protocol accepted')
     except AdapterRefusal:pass
     checks.append(d.calls==1 and not opened)
-    # Valid mocked endpoint: exactly one HELLO, explicit timeout, no retry.
-    d=MockSelectedEndpoint(endpoint);transport=MockPhysicalTransport();session=prepare(good,d,lambda _:transport,timeout_ms=1234)
+    # Legacy booleans and a synthetic TCK fixture cannot issue a master
+    # pre-transport permit; refusal occurs before endpoint discovery/open.
+    d=MockSelectedEndpoint(endpoint)
+    try:prepare(good,d,factory);raise AssertionError('legacy gates opened transport')
+    except AdapterRefusal:pass
+    checks.append(d.calls==0 and not opened)
+    # Session behavior is separately exercised with an already supplied
+    # mock transport; this never calls the physical transport factory.
+    transport=MockPhysicalTransport();session=mock_session(transport,endpoint,1234)
     caps=session.hello_once();checks.append(caps.profile_id==3 and session.hello_attempts==1 and transport.mock_calls==1 and transport.timeouts==[1234] and transport.physical_access_count==0)
     try:session.hello_once();raise AssertionError('duplicate HELLO accepted')
     except AdapterRefusal:pass
     checks.append(session.hello_attempts==1 and transport.mock_calls==1)
     # Timeout, partial, malformed, wrong sequence, and disconnect poison the session without reconnect/retry.
     for mode in ('timeout','partial','malformed','wrong_sequence','disconnect'):
-        t=MockPhysicalTransport(mode);s=GuardedPhysicalSession(t,endpoint,321)
+        t=MockPhysicalTransport(mode);s=mock_session(t,endpoint,321)
         try:s.hello_once();raise AssertionError(f'{mode} response accepted')
         except (AdapterRefusal,TimeoutError,ConnectionError,ProtocolError):pass
         try:s.hello_once();raise AssertionError(f'{mode} session re-used')
         except AdapterRefusal:pass
         checks.append(s.closed and t.mock_calls==1 and t.close_count==1 and t.physical_access_count==0)
     # HELLO protocol mismatch closes immediately; session identity is sticky.
-    t=MockPhysicalTransport('wrong_caps');s=GuardedPhysicalSession(t,endpoint)
+    t=MockPhysicalTransport('wrong_caps');s=mock_session(t,endpoint)
     try:s.hello_once();raise AssertionError('wrong HELLO capabilities accepted')
     except (AdapterRefusal,ProtocolError):pass
     checks.append(s.closed and t.mock_calls==1 and t.physical_access_count==0)
     # Stale session and stale/duplicate result identities are rejected.
-    t=MockPhysicalTransport();s=GuardedPhysicalSession(t,endpoint);s.close()
+    t=MockPhysicalTransport();s=mock_session(t,endpoint);s.close()
     try:s.hello_once();raise AssertionError('closed session accepted HELLO')
     except AdapterRefusal:pass
     checks.append(t.mock_calls==0 and t.close_count==1)
-    s=GuardedPhysicalSession(MockPhysicalTransport(),endpoint);s.bind_transaction(8,3);s.accept_result_slot(8,3,0)
+    s=mock_session(MockPhysicalTransport(),endpoint);s.bind_transaction(8,3);s.accept_result_slot(8,3,0)
     try:s.accept_result_slot(8,3,0);raise AssertionError('duplicate result accepted')
     except AdapterRefusal:pass
     try:s.accept_result_slot(7,3,1);raise AssertionError('stale result accepted')
     except AdapterRefusal:pass
     checks.append(len(s._seen_result_slots)==1)
     # ABORT is one-shot and close is idempotent.
-    t=MockPhysicalTransport();s=GuardedPhysicalSession(t,endpoint);s.bind_transaction(1,1)
+    t=MockPhysicalTransport();s=mock_session(t,endpoint);s.bind_transaction(1,1)
     ack=s.abort_once(request(Opcode.ABORT,0,b'fixture-abort'))
     try:s.abort_once(request(Opcode.ABORT,1,b'fixture-abort'));raise AssertionError('duplicate abort accepted')
     except AdapterRefusal:pass
