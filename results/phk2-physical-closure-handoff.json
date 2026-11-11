@@ -1,0 +1,52 @@
+{
+  "schema": "PHK2-PHYSICAL-CLOSURE-HANDOFF-v1",
+  "CLOSURE_RUNNER_COMMIT": "419716dc4d4e0885613219a933ba14f1a56db1bb",
+  "CLOSURE_RUNNER_TREE_HASH": "e693008114c6cf7064fdea2648d723de867df0aa",
+  "CLOSURE_RUNNER_FILES": [
+    "docs/phk2-physical-closure-operator-package.md",
+    "tools/phk2_host/first_silicon_qualify.py",
+    "tools/phk2_host/phk2_close_tck_cases.py",
+    "tools/phk2_host/phk2_physical_close_guard.py",
+    "tools/phk2_host/physical_adapter_boundary.py",
+    "tools/phk2_host/test_phk2_close_tck_cases.py",
+    "tools/phk2_host/test_phk2_physical_close_guard.py"
+  ],
+  "V5_1_QUALIFICATION_COMMIT": "6ad11b72fc62a452195245984b69f236d4d3b315",
+  "V5_1_QUALIFICATION_RECORD_SHA256": "25b875c707aaa1ee43ec1da064b3fec0b2297aed87be4aacb2c7c2260b26c90e",
+  "CASE_A_ID": "40",
+  "CASE_A_NAME": "host_TCK_frequency_contract",
+  "CASE_B_ID": "33",
+  "CASE_B_NAME": "clock_interaction_no_unsafe",
+  "TEST_COUNTS": {
+    "FOCUSED_SUITES": "37/37 PASS",
+    "BROAD_HARNESS": "PASS",
+    "BROAD_FAIL_CLOSED_CASES": "20/20 PASS",
+    "BROAD_FAULT_MATRIX": "15/15 PASS",
+    "BROAD_HOST_STRESS_EVENTS": 100000,
+    "BROAD_UNEXPECTED_FAILURES": 0,
+    "BROAD_DUPLICATE_RESULTS": 0,
+    "BROAD_DROPPED_RESULTS": 0,
+    "BROAD_STALE_RESULT_ACCEPTS": 0
+  },
+  "BLAKE3": {
+    "AVAILABLE": true,
+    "VERSION": "1.0.11",
+    "ENVIRONMENT": ".venv (Python 3.12.3)",
+    "DECLARED_IN": "requirements.txt"
+  },
+  "SOFTWARE_CLOSURE_RUNNER_READY": true,
+  "PHYSICAL_CAPTURE_BACKEND_READY": false,
+  "AUTHORIZATION_TRUST_ROOT_READY": false,
+  "QUALIFIED_TCK_LIMITS_READY": false,
+  "PHYSICAL_CLOSURE_RUNNER_READY": false,
+  "LIVE_EXECUTION_AUTHORIZED": false,
+  "REMAINING_EXTERNAL_BLOCKERS": [
+    "Operator-approved Ed25519 authorization trust root and pinned trust-store hash are not provisioned.",
+    "Reviewed real physical waveform/TAP capture backend and signed backend attestation are not available.",
+    "No immutable qualification record provides physical TCK frequency, pulse-width, duty-cycle, and jitter limits."
+  ],
+  "HARDWARE_ACCESS_COUNT": 0,
+  "LIVE_XVC_CONNECTIONS": 0,
+  "JTAG_TRANSACTIONS": 0,
+  "PROGRAM_ATTEMPTS": 0
+}

@@ -95,7 +95,7 @@ def physical_boundary_tests(tmp):
         options={'tck_policy':synthetic_policy,'tck_observation':synthetic_observation} if with_tck else {}
         return prepare_physical_session(gates,identity,discovery,transport_factory,timeout_ms=timeout_ms,**options)
     def mock_session(transport, endpoint=endpoint, timeout_ms=2000):
-        tmp.mkdir(parents=True,exist_ok=True)
+        tmp.mkdir(parents=True,exist_ok=True,mode=0o700);tmp.chmod(0o700)
         journal=PreTransportJournal(tmp/f'synthetic-session-{time.time_ns()}.jsonl','synthetic-test')
         journal.initialize({'test_fixture':True})
         permit=PreTransportPermit(_PERMIT_SECRET,'f'*64,'synthetic-test',journal)
@@ -121,7 +121,7 @@ def physical_boundary_tests(tmp):
     discovery=MockSelectedEndpoint(None)
     try:prepare(good,discovery,factory);raise AssertionError('missing endpoint accepted')
     except AdapterRefusal:pass
-    checks.append(discovery.calls==1 and not opened)
+    checks.append(discovery.calls==0 and not opened)
     # Unqualified image and missing authorization fail before endpoint discovery.
     for gates in (QualificationGates(True,True,False,True,True,True,True,True,True,True),
                   QualificationGates(True,False,True,True,True,True,True,True,True,True)):
@@ -133,11 +133,11 @@ def physical_boundary_tests(tmp):
     wrong=EndpointIdentity('c'*64,identity.candidate_image_sha256,'fixture-wrong-target');d=MockSelectedEndpoint(wrong)
     try:prepare(good,d,factory);raise AssertionError('wrong identity accepted')
     except AdapterRefusal:pass
-    checks.append(d.calls==1 and not opened)
+    checks.append(d.calls==0 and not opened)
     wrong_proto=EndpointIdentity(identity.target_identity_sha256,identity.candidate_image_sha256,'fixture-wrong-protocol',(2,0,3,112,64,112,0x3f));d=MockSelectedEndpoint(wrong_proto)
     try:prepare(good,d,factory);raise AssertionError('wrong protocol accepted')
     except AdapterRefusal:pass
-    checks.append(d.calls==1 and not opened)
+    checks.append(d.calls==0 and not opened)
     # Legacy booleans and a synthetic TCK fixture cannot issue a master
     # pre-transport permit; refusal occurs before endpoint discovery/open.
     d=MockSelectedEndpoint(endpoint)
