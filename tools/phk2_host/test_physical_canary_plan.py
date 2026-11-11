@@ -59,6 +59,13 @@ class PhysicalCanaryPlanTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "JSON identity mismatch"):
                 plan.verify_envelope(ROOT, verify_all=False)
 
+    def test_wrong_immutable_commit_and_missing_git_objects_refuse(self):
+        with mock.patch.object(plan, "ENVELOPE_COMMIT", "f" * 40):
+            with self.assertRaisesRegex(ValueError, "immutable local Git object unavailable"):
+                plan.verify_envelope(ROOT, verify_all=False)
+        with self.assertRaisesRegex(ValueError, "immutable local Git object unavailable"):
+            plan.verify_envelope(ROOT / "missing-repository", verify_all=False)
+
     def test_source_is_offline_only(self):
         text = Path(plan.__file__).read_text()
         self.assertNotIn("socket.connect", text)

@@ -52,6 +52,7 @@ CASE_A_NAME = "host_TCK_frequency_contract"
 CASE_B_ID = "33"
 CASE_B_NAME = "clock_interaction_no_unsafe"
 CASE_IDS = (CASE_A_ID, CASE_B_ID)
+EXPECTED_TARGET_PART = "xcvu33p-fsvh2104-2-e"
 
 V51_BASE = "results/phk2-v5_1-common-reset-20261110/revision1"
 V51_MANIFEST_PATH = f"{V51_BASE}/V5_1_EVIDENCE_MANIFEST.json"
@@ -178,6 +179,8 @@ class V51Binding:
     expected_card_id: str
     expected_adapter_id: str
     expected_idcode: str
+    expected_fpga_dna: str
+    expected_target_part: str
 
 
 def verify_immutable_v51(repo: str | Path) -> V51Binding:
@@ -220,7 +223,10 @@ def verify_immutable_v51(repo: str | Path) -> V51Binding:
     adapter_block = rollback.get("fk0957_program_history", {}).get("post_program_identity", {})
     adapter_id = adapter_block.get("jtag_serial") or adapter_block.get("usb_serial")
     idcode = adapter_block.get("idcode")
-    if card_id != "153300000957" or adapter_id != "153300000957A" or not isinstance(idcode, str) or not re.fullmatch(r"[0-9a-fA-F]{8}", idcode):
+    dna = adapter_block.get("dna")
+    if (card_id != "153300000957" or adapter_id != "153300000957A" or
+            not isinstance(idcode, str) or not re.fullmatch(r"[0-9a-fA-F]{8}", idcode) or
+            not isinstance(dna, str) or not re.fullmatch(r"[0-9a-fA-F]{24}", dna)):
         raise Refusal("immutable canary card/adapter/IDCODE identity is incomplete")
     q = record["qualification"]
     if (q["tck_independent_cases"], q["tck_independent_pass"], q["tck_independent_fail"],
@@ -273,7 +279,7 @@ def verify_immutable_v51(repo: str | Path) -> V51Binding:
                       {"case_id": CASE_A_ID, **cases[39], **cases_audit["A"]},
                       {"case_id": CASE_B_ID, **cases[32], **cases_audit["B"]},
                       route_envelope, _sha(_canonical(route_envelope)), False,
-                      card_id, adapter_id, idcode.lower())
+                      card_id, adapter_id, idcode.lower(), dna.lower(), EXPECTED_TARGET_PART)
 
 
 def validate_case_manifest(manifest: dict[str, Any], binding: V51Binding) -> None:
@@ -393,6 +399,7 @@ def parse_waveform_csv(raw: bytes, summary: dict[str, Any] | None = None) -> dic
         "MEASURED_JITTER_P2P_NS": max(deviations) - min(deviations),
         "MEASURED_JITTER_RMS_NS": math.sqrt(statistics.fmean(d * d for d in deviations)),
         "SAMPLE_COUNT": len(samples),
+        "RISING_EDGE_COUNT": len(rising),
     }
     if summary is not None:
         for name, value in result.items():
@@ -518,7 +525,11 @@ def validate_card_identity(payload: dict[str, Any], expected: dict[str, Any]) ->
                ("OBSERVED_CARD_ID", "observed_card_id", "expected_card_id"),
                ("EXPECTED_ADAPTER_ID", "expected_adapter_id", "expected_adapter_id"),
                ("OBSERVED_ADAPTER_ID", "observed_adapter_id", "expected_adapter_id"),
-               ("BRIDGE_SHA256", "bridge_sha256", "bridge_sha256"))
+               ("BRIDGE_SHA256", "bridge_sha256", "bridge_sha256"),
+               ("EXPECTED_FPGA_DNA", "expected_fpga_dna", "expected_fpga_dna"),
+               ("OBSERVED_FPGA_DNA", "observed_fpga_dna", "expected_fpga_dna"),
+               ("EXPECTED_TARGET_PART", "expected_target_part", "expected_target_part"),
+               ("OBSERVED_TARGET_PART", "observed_target_part", "expected_target_part"))
     output = {}
     for label, field, expected_field in mapping:
         value = payload.get(field)
@@ -595,6 +606,7 @@ def validate_authorization_status(wrapper: dict[str, Any], trusted_keys: dict[st
 def validate_signed_capture(wrapper: dict[str, Any], trusted_keys: dict[str, dict[str, Any]], *,
                             expected_role: str, expected_case_id: str,
                             expected_record_sha256: str,
+                            expected_session_nonce: str | None = None,
                             now: datetime | None = None) -> tuple[dict[str, Any], bytes]:
     """Verify physical provenance and return the signed raw capture bytes.
 
@@ -606,6 +618,8 @@ def validate_signed_capture(wrapper: dict[str, Any], trusted_keys: dict[str, dic
         raise Refusal("capture provenance is not cryptographically attested PHYSICAL_REAL")
     if payload.get("qualification_record_sha256") != expected_record_sha256 or payload.get("case_id") != expected_case_id:
         raise Refusal("capture is not bound to exact v5.1 record/case")
+    if expected_session_nonce is not None and payload.get("session_nonce") != expected_session_nonce:
+        raise Refusal("capture is not bound to the current authorized session")
     try:
         raw = base64.b64decode(payload["raw_capture_b64"], validate=True)
     except (KeyError, TypeError, ValueError) as exc:
@@ -615,23 +629,68 @@ def validate_signed_capture(wrapper: dict[str, Any], trusted_keys: dict[str, dic
     return payload, raw
 
 
+def validate_case_a_instrument_evidence(payload: dict[str, Any]) -> bytes:
+    """Require the signed native acquisition and its calibration context."""
+    try:
+        native = base64.b64decode(payload["native_acquisition_b64"], validate=True)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise Refusal("Case A native instrument acquisition is missing or malformed") from exc
+    if not native or payload.get("native_acquisition_sha256") != _sha(native):
+        raise Refusal("Case A native instrument acquisition hash mismatch")
+    metadata = payload.get("instrument_metadata")
+    required = ("instrument_model", "instrument_serial", "probe_id", "calibration_certificate_sha256",
+                "calibration_valid_until_utc", "bandwidth_hz", "sample_rate_hz", "voltage_threshold_v",
+                "coupling", "channel", "timebase", "trigger", "capture_window", "software_version",
+                "measurement_uncertainty_ns")
+    if not isinstance(metadata, dict) or any(metadata.get(key) in (None, "") for key in required):
+        raise Refusal("Case A instrument/calibration metadata is incomplete")
+    if not re.fullmatch(r"[0-9a-f]{64}", str(metadata["calibration_certificate_sha256"])):
+        raise Refusal("Case A calibration certificate hash is malformed")
+    try:
+        calibration_expiry = datetime.fromisoformat(metadata["calibration_valid_until_utc"].replace("Z", "+00:00"))
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise Refusal("instrument calibration expiry timestamp is invalid") from exc
+    if calibration_expiry.tzinfo is None or calibration_expiry <= datetime.now(timezone.utc):
+        raise Refusal("instrument calibration is expired or has no timezone")
+    for field in ("bandwidth_hz", "sample_rate_hz", "voltage_threshold_v", "measurement_uncertainty_ns"):
+        value = metadata[field]
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            raise Refusal(f"Case A instrument metadata is invalid: {field}")
+    if metadata["bandwidth_hz"] <= 0 or metadata["sample_rate_hz"] <= 0 or metadata["measurement_uncertainty_ns"] <= 0:
+        raise Refusal("Case A instrument bandwidth, sample rate, and uncertainty must be positive")
+    return native
+
+
 def validate_physical_capture_package(*, trusted_keys: dict[str, dict[str, Any]],
                                       waveform_wrapper: dict[str, Any], tap_wrapper: dict[str, Any],
                                       binding: V51Binding, expected_idcode: str,
+                                      expected_session_nonce: str,
                                       now: datetime | None = None) -> dict[str, Any]:
     """Parse both signed raw captures; no producer PASS field is trusted."""
     wave_payload, wave_raw = validate_signed_capture(
         waveform_wrapper, trusted_keys, expected_role="capture", expected_case_id=CASE_A_ID,
-        expected_record_sha256=binding.qualification_record_sha256, now=now)
+        expected_record_sha256=binding.qualification_record_sha256,
+        expected_session_nonce=expected_session_nonce, now=now)
     waveform = parse_waveform_csv(wave_raw, wave_payload.get("summary"))
+    validate_case_a_instrument_evidence(wave_payload)
+    if waveform["RISING_EDGE_COUNT"] != 87:
+        raise Refusal("Case A waveform must contain exactly 87 TCK rising edges")
     tap_payload, tap_raw = validate_signed_capture(
         tap_wrapper, trusted_keys, expected_role="capture", expected_case_id=CASE_B_ID,
-        expected_record_sha256=binding.qualification_record_sha256, now=now)
+        expected_record_sha256=binding.qualification_record_sha256,
+        expected_session_nonce=expected_session_nonce, now=now)
     tap = parse_tap_transcript(tap_raw, expected_idcode)
-    if tap_payload.get("physical_clock_correlation_sha256") is None:
-        raise Refusal("Case B lacks signed physical TCK/BSCAN clock correlation evidence")
-    if not re.fullmatch(r"[0-9a-f]{64}", tap_payload["physical_clock_correlation_sha256"]):
-        raise Refusal("Case B clock correlation hash is malformed")
+    correlation_hash = tap_payload.get("physical_clock_correlation_sha256")
+    try:
+        correlation_artifact = base64.b64decode(tap_payload["physical_clock_correlation_b64"], validate=True)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise Refusal("Case B correlation artifact is missing or malformed") from exc
+    if (not correlation_artifact or not isinstance(correlation_hash, str) or
+            not re.fullmatch(r"[0-9a-f]{64}", correlation_hash) or
+            _sha(correlation_artifact) != correlation_hash):
+        raise Refusal("Case B lacks hash-verified physical TCK/BSCAN clock correlation evidence")
+    if not binding.case_b.get("approved_bscan_observation_schema") or not binding.case_b.get("approved_expected_observation"):
+        raise Refusal("Case B has no immutable matrix-approved BSCAN observation method")
     if (tap_payload.get("fpga_programming") is not False or
             tap_payload.get("workload_changed") is not False or
             tap_payload.get("settck_used_as_measurement") is not False):
@@ -825,8 +884,10 @@ def master_pretransport_gate(*, repo: str | Path, closure_manifest: dict[str, An
     if (card_expectation.get("expected_card_id") != binding.expected_card_id or
             card_expectation.get("expected_adapter_id") != binding.expected_adapter_id or
             str(card_expectation.get("expected_idcode", "")).lower() != binding.expected_idcode or
+            str(card_expectation.get("expected_fpga_dna", "")).lower() != binding.expected_fpga_dna or
+            card_expectation.get("expected_target_part") != binding.expected_target_part or
             card_expectation.get("bridge_sha256") != PINNED_REVIEWED_BRIDGE_SHA256):
-        raise Refusal("expected canary/adapter/IDCODE/bridge differs from immutable approved identity")
+        raise Refusal("expected canary/adapter/FPGA DNA/part/IDCODE/bridge differs from immutable approved identity")
     card = validate_card_identity(card_payload, card_expectation)
     if rollback_expectation.get("rollback_manifest_sha256") != ROLLBACK_SHA256:
         raise Refusal("rollback readiness is not bound to the immutable qualified rollback manifest")
@@ -1059,8 +1120,12 @@ def master_pretransport_gate(*, repo: str | Path, closure_manifest: dict[str, An
                 wrapper = _execute_case_a_capture(self.__transport)
                 payload, raw = validate_signed_capture(
                     wrapper, trusted_keys, expected_role="capture", expected_case_id=CASE_A_ID,
-                    expected_record_sha256=qualification_hash)
+                    expected_record_sha256=qualification_hash,
+                    expected_session_nonce=self.__claims["session_nonce"])
                 waveform = parse_waveform_csv(raw, payload.get("summary"))
+                validate_case_a_instrument_evidence(payload)
+                if waveform["RISING_EDGE_COUNT"] != 87:
+                    raise Refusal("Case A waveform must contain exactly 87 TCK rising edges")
                 limits = binding.tck_envelope.get("physical_waveform_limits")
                 if not isinstance(limits, dict):
                     raise Refusal("v5.1 physical TCK envelope is not qualified")
@@ -1101,7 +1166,8 @@ def master_pretransport_gate(*, repo: str | Path, closure_manifest: dict[str, An
                 wrapper = _execute_case_b_capture(self.__transport)
                 result = validate_physical_capture_package(
                     trusted_keys=trusted_keys, waveform_wrapper=self.__case_a_wrapper,
-                    tap_wrapper=wrapper, binding=binding, expected_idcode=binding.expected_idcode)
+                    tap_wrapper=wrapper, binding=binding, expected_idcode=binding.expected_idcode,
+                    expected_session_nonce=self.__claims["session_nonce"])
                 self.__case_b_complete = True
                 self.__journal.append("CASE_B_CAPTURED", {
                     "case_id": CASE_B_ID,

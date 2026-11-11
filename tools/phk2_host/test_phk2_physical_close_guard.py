@@ -92,7 +92,8 @@ def issue_executor(repo: Path, journal_path: Path, *, abort_response=False):
             "minimum_duty_cycle_percent": 45.0, "maximum_duty_cycle_percent": 55.0,
             "minimum_jitter_ns": 0.0, "maximum_jitter_ns": 1.0}},
         expected_card_id="153300000957", expected_adapter_id="153300000957A",
-        expected_idcode="04b69093")
+        expected_idcode="04b69093", expected_fpga_dna="4000000001295d813c80a445",
+        expected_target_part="xcvu33p-fsvh2104-2-e")
     now = datetime.now(timezone.utc).isoformat()
     peer_payload = {"schema": "PHK2-PEER-EXCLUSION-PROOF-v1", "captured_utc": now,
         "server": {"pid": 100, "exe_path": "/sqrl/xvc", "sha256": PINNED_REVIEWED_BRIDGE_SHA256,
@@ -106,12 +107,16 @@ def issue_executor(repo: Path, journal_path: Path, *, abort_response=False):
         "expected_card_id": binding.expected_card_id, "observed_card_id": binding.expected_card_id,
         "expected_adapter_id": binding.expected_adapter_id, "observed_adapter_id": binding.expected_adapter_id,
         "bridge_sha256": PINNED_REVIEWED_BRIDGE_SHA256, "one_card_scope": True,
+        "expected_fpga_dna": binding.expected_fpga_dna, "observed_fpga_dna": binding.expected_fpga_dna,
+        "expected_target_part": binding.expected_target_part, "observed_target_part": binding.expected_target_part,
         "observed_idcode": binding.expected_idcode}
     peer_expectation = {"pid": 100, "exe_path": "/sqrl/xvc", "sha256": PINNED_REVIEWED_BRIDGE_SHA256,
         "build_id": PINNED_REVIEWED_BUILD_ID, "service_unit": "sqrl.service",
         "service_config_sha256": "c" * 64, "port": 2542, "lock_key": "d" * 64}
     card_expectation = {"expected_card_id": binding.expected_card_id,
         "expected_adapter_id": binding.expected_adapter_id, "expected_idcode": binding.expected_idcode,
+        "expected_fpga_dna": binding.expected_fpga_dna,
+        "expected_target_part": binding.expected_target_part,
         "bridge_sha256": PINNED_REVIEWED_BRIDGE_SHA256}
     auth_wrapper = {"fixture_signed_auth": "metadata-only-test"}
     auth_payload = {"authorization_id": "auth-1", "operator_id": "operator-1"}
@@ -250,6 +255,76 @@ class PhysicalCloseGuardTests(unittest.TestCase):
         with self.assertRaises(Refusal): parse_tap_transcript(json.dumps(doc).encode(), self.binding.expected_idcode)
         with self.assertRaises(Refusal): parse_tap_transcript(b"{\"tap_pass\":true}", self.binding.expected_idcode)
 
+    def test_case_evidence_requires_87_edges_correlation_bytes_and_session_nonce(self):
+        key = Ed25519PrivateKey.generate()
+        public = key.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+        roots = {"fixture-key": {"roles": ["capture"], "public_key_b64": base64.b64encode(public).decode()}}
+        now = datetime.now(timezone.utc).isoformat()
+        nonce = "current-session"
+        wave = wave_csv(periods=87)
+        wave_summary = parse_waveform_csv(wave)
+        corr = b'{"correlation":"fixture evidence"}'
+        native = b"synthetic native instrument payload"
+        instrument = {"instrument_model": "fixture", "instrument_serial": "fixture-1", "probe_id": "probe-1",
+                     "calibration_certificate_sha256": "a" * 64,
+                     "calibration_valid_until_utc": (datetime.now(timezone.utc) + timedelta(days=1)).isoformat(),
+                     "bandwidth_hz": 1_000_000, "sample_rate_hz": 10_000_000, "voltage_threshold_v": 1.2,
+                     "coupling": "DC", "channel": "CH1", "timebase": "1us/div", "trigger": "rising TCK",
+                     "capture_window": "1us pre, 20us post", "software_version": "fixture",
+                     "measurement_uncertainty_ns": 0.1}
+
+        def capture(case_id, raw, **extra):
+            payload = {"provenance": "PHYSICAL_REAL", "synthetic_fixture": False,
+                       "captured_utc": now, "qualification_record_sha256": self.binding.qualification_record_sha256,
+                       "case_id": case_id, "session_nonce": nonce,
+                       "raw_capture_b64": base64.b64encode(raw).decode(),
+                       "raw_capture_sha256": _sha(raw), **extra}
+            return signed(payload, key)
+
+        wave_wrapper = capture(CASE_A_ID, wave, summary=wave_summary,
+            native_acquisition_b64=base64.b64encode(native).decode(),
+            native_acquisition_sha256=_sha(native), instrument_metadata=instrument)
+        tap_extra = {"physical_clock_correlation_b64": base64.b64encode(corr).decode(),
+                     "physical_clock_correlation_sha256": _sha(corr),
+                     "fpga_programming": False, "workload_changed": False,
+                     "settck_used_as_measurement": False,
+                     "final_close": {"transport_closed": True, "tap_idle": True, "peer_count_after": 0}}
+        tap_wrapper = capture(CASE_B_ID, tap_json(), **tap_extra)
+        with self.assertRaisesRegex(Refusal, "no immutable matrix-approved"):
+            validate_physical_capture_package(
+                trusted_keys=roots, waveform_wrapper=wave_wrapper, tap_wrapper=tap_wrapper,
+                binding=self.binding, expected_idcode=self.binding.expected_idcode,
+                expected_session_nonce=nonce, now=datetime.fromisoformat(now))
+
+        short_wave = capture(CASE_A_ID, wave_csv(periods=12), summary=parse_waveform_csv(wave_csv(periods=12)),
+            native_acquisition_b64=base64.b64encode(native).decode(),
+            native_acquisition_sha256=_sha(native), instrument_metadata=instrument)
+        with self.assertRaisesRegex(Refusal, "exactly 87"):
+            validate_physical_capture_package(trusted_keys=roots, waveform_wrapper=short_wave,
+                tap_wrapper=tap_wrapper, binding=self.binding, expected_idcode=self.binding.expected_idcode,
+                expected_session_nonce=nonce, now=datetime.fromisoformat(now))
+
+        missing_native = capture(CASE_A_ID, wave, summary=wave_summary)
+        with self.assertRaisesRegex(Refusal, "native instrument acquisition"):
+            validate_physical_capture_package(trusted_keys=roots, waveform_wrapper=missing_native,
+                tap_wrapper=tap_wrapper, binding=self.binding, expected_idcode=self.binding.expected_idcode,
+                expected_session_nonce=nonce, now=datetime.fromisoformat(now))
+
+        missing_corr = capture(CASE_B_ID, tap_json(), **{k: v for k, v in tap_extra.items()
+            if k != "physical_clock_correlation_b64"})
+        with self.assertRaisesRegex(Refusal, "correlation artifact"):
+            validate_physical_capture_package(trusted_keys=roots, waveform_wrapper=wave_wrapper,
+                tap_wrapper=missing_corr, binding=self.binding, expected_idcode=self.binding.expected_idcode,
+                expected_session_nonce=nonce, now=datetime.fromisoformat(now))
+
+        replayed = capture(CASE_B_ID, tap_json(), **tap_extra)
+        replayed["payload"]["session_nonce"] = "old-session"
+        replayed = signed(replayed["payload"], key)
+        with self.assertRaisesRegex(Refusal, "current authorized session"):
+            validate_physical_capture_package(trusted_keys=roots, waveform_wrapper=wave_wrapper,
+                tap_wrapper=replayed, binding=self.binding, expected_idcode=self.binding.expected_idcode,
+                expected_session_nonce=nonce, now=datetime.fromisoformat(now))
+
     def test_05_signed_peer_and_card_content_must_match(self):
         now = datetime.now(timezone.utc)
         expected_peer = {"pid": 100, "exe_path": "/opt/sqrl/xvc", "sha256": "a" * 64,
@@ -268,14 +343,27 @@ class PhysicalCloseGuardTests(unittest.TestCase):
         with self.assertRaises(Refusal): validate_peer_proof(bad_peer, expected_peer, now=now)
         expected_card = {"expected_card_id": self.binding.expected_card_id,
                          "expected_adapter_id": self.binding.expected_adapter_id,
-                         "bridge_sha256": "e" * 64, "expected_idcode": self.binding.expected_idcode}
+                         "bridge_sha256": "e" * 64, "expected_idcode": self.binding.expected_idcode,
+                         "expected_fpga_dna": self.binding.expected_fpga_dna,
+                         "expected_target_part": self.binding.expected_target_part}
         card = {"schema": "PHK2-CARD-ADAPTER-IDENTITY-v1",
                 "captured_utc": now.isoformat(),
                 "expected_card_id": self.binding.expected_card_id, "observed_card_id": self.binding.expected_card_id,
                 "expected_adapter_id": self.binding.expected_adapter_id, "observed_adapter_id": self.binding.expected_adapter_id,
-                "bridge_sha256": "e" * 64, "one_card_scope": True, "observed_idcode": self.binding.expected_idcode}
+                "bridge_sha256": "e" * 64, "one_card_scope": True,
+                "expected_fpga_dna": self.binding.expected_fpga_dna,
+                "observed_fpga_dna": self.binding.expected_fpga_dna,
+                "expected_target_part": self.binding.expected_target_part,
+                "observed_target_part": self.binding.expected_target_part,
+                "observed_idcode": self.binding.expected_idcode}
         validate_card_identity(card, expected_card)
         card["observed_card_id"] = "wrong"
+        with self.assertRaises(Refusal): validate_card_identity(card, expected_card)
+        card["observed_card_id"] = self.binding.expected_card_id
+        card["observed_fpga_dna"] = "0" * 24
+        with self.assertRaises(Refusal): validate_card_identity(card, expected_card)
+        card["observed_fpga_dna"] = self.binding.expected_fpga_dna
+        card["observed_target_part"] = "xcvu33p-fsvh2104-1-e"
         with self.assertRaises(Refusal): validate_card_identity(card, expected_card)
 
     def test_06_boolean_authorization_and_fake_physical_real_refuse(self):
@@ -415,11 +503,13 @@ class PhysicalCloseGuardTests(unittest.TestCase):
         with self.assertRaises(Refusal): executor.run_case_b()
         with mock.patch.object(guard, "_execute_case_a_capture", return_value={"capture": b"wave"}), \
              mock.patch.object(guard, "validate_signed_capture", return_value=({"summary": {}}, b"wave")), \
+             mock.patch.object(guard, "validate_case_a_instrument_evidence", return_value=b"native"), \
              mock.patch.object(guard, "parse_waveform_csv", return_value={
                  "MEASURED_TCK_HZ": 50_000_000, "MEASURED_HIGH_NS": 10.0,
                  "MEASURED_LOW_NS": 10.0, "MEASURED_DUTY_CYCLE": 50.0,
                  "JITTER_MIN_NS": 0.0, "JITTER_MAX_NS": 0.1,
-                 "MEASURED_PERIOD_NS": 20.0, "SAMPLE_COUNT": 100}):
+                 "MEASURED_PERIOD_NS": 20.0, "SAMPLE_COUNT": 100,
+                 "RISING_EDGE_COUNT": 87}):
             executor.run_case_a()
         self.assertEqual(executor.state, "CASE_A")
         with mock.patch.object(guard, "_execute_case_b_capture", return_value={"capture": b"tap"}), \
