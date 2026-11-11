@@ -1,0 +1,33 @@
+{
+  "audit_scope": "offline source/interface inspection only",
+  "calibration_validation_present": false,
+  "capture_backend_ready": false,
+  "case_a_status": "UNQUALIFIED",
+  "case_b_status": "UNQUALIFIED",
+  "current_numeric_physical_jitter_limit": "NOT_QUALIFIED",
+  "digital_waveform_csv_parser_present": true,
+  "external_instrument_interface_present": false,
+  "fpga_program_attempts": 0,
+  "jtag_transactions": 0,
+  "live_xvc_connections": 0,
+  "native_raw_acquisition_ingest_present": false,
+  "physical_access_count": 0,
+  "private_physical_transport_opener_behavior": "Refuses with reviewed physical capture/transport backend is not installed.",
+  "required_backend_features": [
+    "Open only the exact signed one-card bridge/session after the sealed master gate and durable PRE_TRANSPORT journal.",
+    "Set effective MPSSE TCK to 5 MHz before the first TCK edge and prove the effective setting; XVC settck echo does not set it.",
+    "Acquire calibrated native analog TCK/SK samples at the exact adapter pin and ground with instrument/probe/calibration/bandwidth/sample-rate/threshold metadata.",
+    "Derive period/high/low/duty/jitter from raw time-stamped samples and bind the resulting CSV to the native acquisition hash.",
+    "Capture bounded semantic TAP transcript and the additional matrix-approved BSCAN observation with shared nonce/timebase.",
+    "Sign role-bound raw evidence using a key rooted in the operator-approved trust store; write and fsync the hash-chain journal.",
+    "Enforce one 87-cycle capture, immediate stop on mismatch, no retries/reconnects, and normal close to Run-Test/Idle."
+  ],
+  "reviewed_instrument_identity_present": false,
+  "schema": "PHK2-PHYSICAL-CAPTURE-BACKEND-AUDIT-v1",
+  "signed_capture_wrapper_validation_present": true,
+  "tap_capture_ready": false,
+  "tap_semantic_parser_present": true,
+  "transport_backend_ready": false,
+  "trust_root_pinned": false,
+  "waveform_capture_ready": false
+}

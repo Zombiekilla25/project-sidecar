@@ -1,0 +1,90 @@
+{
+  "schema": "PHK2-FK0957-PHYSICAL-EVIDENCE-PACKAGE-v1",
+  "status": "PREPARATION_SCHEMA_ONLY_NO_EVIDENCE",
+  "provenance": {
+    "required_value": "PHYSICAL_REAL",
+    "must_be_cryptographically_signed": true,
+    "required_trust_root": "operator-approved pinned Ed25519 trust store",
+    "boolean_or_string_claim_alone_is_accepted": false
+  },
+  "immutable_binding": {
+    "source_commit": "5f65f0ec8900ecaae3c498223bef0efb2542c047",
+    "source_tree_hash": "dcc879775d80e07ab41bc9af955a29a3fd8ba6f9",
+    "routed_dcp_sha256": "0bd52785662a3c38f68667f85c75acdef33c109502794610669ab8e1cf61e9af",
+    "timing_envelope_commit": "a01a735fb1e1d0e9b918a2d20c0733ba244b4ee0",
+    "timing_envelope_sha256": "eea838b5d4dcf930b856299a909684a8eecc86f0d539bf9eb6cc7b8a26297e49",
+    "case_ids": ["40", "33"],
+    "card_count": 1,
+    "card_id": "153300000957",
+    "adapter_id": "153300000957A"
+  },
+  "pretransport_journal": {
+    "required_first_event": "PRE_TRANSPORT",
+    "must_be_fsynced_before_transport_open": true,
+    "hash_algorithm": "SHA-256",
+    "append_only": true,
+    "required_events_in_order": [
+      "PRE_TRANSPORT",
+      "TRANSPORT_OPEN_REQUESTED",
+      "TRANSPORT_OPENED",
+      "CLOCK_CONTROL_VERIFIED",
+      "CASE_A_CAPTURED",
+      "CASE_B_CAPTURED",
+      "CASE_A_RESULT",
+      "CASE_B_RESULT",
+      "FINAL_IDLE_CLOSE"
+    ]
+  },
+  "required_artifacts": [
+    "signed_preflight",
+    "signed_authorization",
+    "qualification_and_envelope_manifest",
+    "bridge_elf_and_service_config_identity",
+    "fresh_card_adapter_image_identity",
+    "peer_exclusion_proof",
+    "clock_control_evidence",
+    "instrument_identity_and_calibration",
+    "native_waveform_capture",
+    "derived_waveform_csv_and_summary",
+    "semantic_tap_transcript",
+    "matrix_approved_bscan_observation",
+    "case_a_result",
+    "case_b_result",
+    "post_test_idle_close_evidence",
+    "rollback_recovery_readiness"
+  ],
+  "case_a": {
+    "id": "40",
+    "status_before_evidence": "UNQUALIFIED",
+    "raw_data_required": true,
+    "measured_fields": [
+      "measured_tck_hz",
+      "measured_period_ns",
+      "measured_high_ns",
+      "measured_low_ns",
+      "measured_duty_cycle_percent",
+      "jitter_min_ns",
+      "jitter_max_ns",
+      "jitter_peak_to_peak_ns",
+      "jitter_rms_ns"
+    ],
+    "jitter_limit_status": "NOT_QUALIFIED_CASE_CANNOT_PASS"
+  },
+  "case_b": {
+    "id": "33",
+    "status_before_evidence": "UNQUALIFIED",
+    "idcode_transcript_only_sufficient": false,
+    "matrix_approved_bscan_observation_required": true,
+    "user_instruction_authorized": false
+  },
+  "promotion": {
+    "requires_both_cases_pass": true,
+    "requires_raw_evidence_hashes": true,
+    "requires_valid_signatures_and_chain": true,
+    "mock_evidence_can_promote": false,
+    "missing_or_partial_evidence_promotes": false,
+    "qualification_after_both_pass": "40/40",
+    "case_40_pass": false,
+    "case_33_pass": false
+  }
+}

@@ -1,0 +1,107 @@
+{
+  "authorized_card_count": 1,
+  "bounded_sequence": {
+    "case_a_max_tck_edges": 87,
+    "case_b_baseline_instruction": "IDCODE only",
+    "case_b_baseline_tck_edges": 87,
+    "case_b_internal_bscan_observation": "NOT_DEFINED; IDCODE transcript alone is insufficient",
+    "configuration_instruction_used": false,
+    "fpga_programming": false,
+    "user1_used": false,
+    "user2_used": false,
+    "user3_used": false,
+    "workload_change": false
+  },
+  "canary": {
+    "adapter_serial": "153300000957A",
+    "board_id": "153300000957",
+    "historical_fpga_dna": "4000000001295d813c80a445",
+    "idcode": "04b69093",
+    "live_observation_required": true,
+    "name": "FK0957",
+    "part": "xcvu33p-fsvh2104-2-e",
+    "usb_serial_supplemental": "153300000957"
+  },
+  "capture_requirements": {
+    "external_tck_pin_measurement_required": true,
+    "hash_chain_and_ed25519_signatures_required": true,
+    "instrument_calibration_metadata_required": true,
+    "instrument_native_capture_required": true,
+    "posttrigger_us": 20,
+    "pretrigger_us": 1,
+    "raw_sample_csv_header": [
+      "sample_index",
+      "timestamp_ns",
+      "logic_level"
+    ],
+    "trigger": "first rising TCK edge"
+  },
+  "execution_enabled": false,
+  "first_clock_plan_only": {
+    "duty_cycle_percent": 50.0,
+    "effective_rate_proven": false,
+    "high_ns": 100.0,
+    "low_ns": 100.0,
+    "period_ns": 200.0,
+    "settck_echo_accepted_as_proof": false,
+    "target_hz": 5000000
+  },
+  "mode": "OFFLINE_PREPARATION_ONLY",
+  "promotion": {
+    "physical_case_a_pass": false,
+    "physical_case_b_pass": false,
+    "qualification_40_of_40_allowed_only_after_both_authentic_signed_cases": true
+  },
+  "qualification": {
+    "case_a": {
+      "id": "40",
+      "name": "host_TCK_frequency_contract",
+      "status": "UNQUALIFIED"
+    },
+    "case_b": {
+      "id": "33",
+      "name": "clock_interaction_no_unsafe",
+      "status": "UNQUALIFIED"
+    },
+    "offline_pass": "38/40",
+    "timing_envelope_commit": "a01a735fb1e1d0e9b918a2d20c0733ba244b4ee0",
+    "timing_envelope_path": "results/phk2-v5_1-common-reset-20261110/tck_envelope/PHK2_V5_1_TCK_ENVELOPE.json",
+    "timing_envelope_qualification_commit": "af539f88e99d4815010db7372dbc83decad2bd05",
+    "timing_envelope_sha256": "eea838b5d4dcf930b856299a909684a8eecc86f0d539bf9eb6cc7b8a26297e49",
+    "timing_envelope_sha256sums_sha256": "7b0ba6de12201b93d40b8b6bc4ee7dd3adcfdf8d2b9420d15ed1823a0d4b7f09",
+    "v5_1_routed_dcp_sha256": "0bd52785662a3c38f68667f85c75acdef33c109502794610669ab8e1cf61e9af",
+    "v5_1_source_commit": "5f65f0ec8900ecaae3c498223bef0efb2542c047",
+    "v5_1_source_tree_hash": "dcc879775d80e07ab41bc9af955a29a3fd8ba6f9"
+  },
+  "qualified_waveform_limits": {
+    "duty_cycle_max_percent": 60.0,
+    "duty_cycle_min_percent": 40.0,
+    "frequency_max_hz": 40000000,
+    "frequency_min_hz": 5000000,
+    "high_ns_min": 10.0,
+    "jitter_numeric_limit_ns": null,
+    "jitter_status": "NOT_QUALIFIED",
+    "low_ns_min": 10.0,
+    "period_max_ns": 200.0,
+    "period_min_ns": 25.0,
+    "physical_measurement_required": true
+  },
+  "readiness": {
+    "missing": [
+      "operator-approved authorization trust root",
+      "fresh running bridge ELF/build/service-config attestation",
+      "reviewed instrument acquisition/capture backend",
+      "effective adapter clock control for initial 5 MHz setting",
+      "qualified numeric physical jitter and measurement uncertainty limits",
+      "fresh live FK0957 card/adapter/image identity proof",
+      "matrix-approved BSCAN internal observation and exact case-bound method/authorization"
+    ],
+    "physical_canary_readiness": "FAIL"
+  },
+  "reviewed_bridge_identity": {
+    "build_id": "b0562d538761373e2f1025c8bc8d8188ff8a0c40",
+    "current_deployment_attested": false,
+    "sha256": "8c7230f0bf586e9297dc0e568bd19278aeeb7cff8dbb3dde150811f11393218a"
+  },
+  "schema": "PHK2-FK0957-CANARY-CONFIG-v1"
+}

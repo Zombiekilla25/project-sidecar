@@ -1,0 +1,174 @@
+{
+  "abort_conditions": [
+    "Any identity/hash/config/authorization/peer/lock mismatch or stale evidence.",
+    "Any measured TCK period, high/low width or duty cycle outside the qualified rectangle; any unbounded/missing jitter policy.",
+    "Any unexpected TAP state/response/instruction, USER or configuration instruction, extra/missing clock, malformed capture, or transport disconnect.",
+    "Any workload/configuration/image change, second client, reconnect, journal write/fsync failure, or ambiguity in completion/idle state."
+  ],
+  "case_a_measurement": {
+    "acceptance": {
+      "every_duty_cycle_percent": "40.0 <= duty <= 60.0",
+      "every_high_ns": "high >= 10.0",
+      "every_low_ns": "low >= 10.0",
+      "every_period_ns": "25.0 <= period <= 200.0",
+      "jitter": "Compute min/max, peak-to-peak and RMS from raw edges. No numeric PASS limit exists; Case A cannot pass until a qualified jitter limit and capture-instrument uncertainty rule are bound.",
+      "waveform_stability": "Reject missing/extra edges, non-monotonic samples, clipped/saturated captures, invalid thresholds, unstable period/pulse metrics, summary/raw mismatch, or incomplete capture."
+    },
+    "capture": "single-shot raw waveform, trigger on first rising TCK edge; 1 us pre-trigger and 20 us post-trigger; capture exactly one bounded 87-TCK scan and its idle tail",
+    "measurement_point": "identified adapter TCK/SK output at the JTAG connector, referenced to the adapter ground, using the exact physical pinout for the authorized adapter revision",
+    "raw_format": "Preserve instrument-native acquisition plus lossless CSV sample_index,timestamp_ns,logic_level derived using documented voltage thresholds; retain calibration, instrument/probe IDs, bandwidth, sample rate, threshold, coupling, timebase, channel and acquisition metadata.",
+    "settck_echo_is_measurement": false
+  },
+  "case_b_sequence": {
+    "approved_baseline_sequence": "TAP reset, six-bit IDCODE instruction 0x09, 64-bit DR capture per the pinned PHK2 parser (87 TCK total), finish Run-Test/Idle; capture the same physical waveform and semantic TAP transcript.",
+    "baseline_limit": "This IDCODE-only scan and adapter waveform do not by themselves prove internal BSCAN USER-branch behavior or clear the matrix's unsafe clock-interaction row.",
+    "fpga_programming": false,
+    "internal_observation": "Blocked pending a matrix-approved, case-bound read-only method and exact expected observations; do not guess an instruction opcode or select USER1/USER2/USER3.",
+    "matrix_case_id": "33",
+    "routed_clock_interaction_criterion": "bscan_tck bscan_tck rise-fall ... Partial Common Node Timed (unsafe)",
+    "user_instructions_authorized": false,
+    "workload_change": false
+  },
+  "execution_enabled": false,
+  "first_requested_tck": {
+    "control_rule": "Do not rely on XVC settck readback. A reviewed adapter clock-control path must set this rate before the first scan; measured TCK must confirm it remains inside the envelope.",
+    "period_ns": 200.0,
+    "status": "PLAN_ONLY_EFFECTIVE_RATE_UNPROVEN",
+    "target_duty_cycle_percent": 50.0,
+    "target_high_ns": 100.0,
+    "target_hz": 5000000,
+    "target_low_ns": 100.0
+  },
+  "fpga_program_attempts": 0,
+  "hardware_access_count": 0,
+  "immutable_tck_envelope": {
+    "commit": "a01a735fb1e1d0e9b918a2d20c0733ba244b4ee0",
+    "envelope_json_sha256": "eea838b5d4dcf930b856299a909684a8eecc86f0d539bf9eb6cc7b8a26297e49",
+    "limits": {
+      "duty_cycle_max_percent": 60.0,
+      "duty_cycle_min_percent": 40.0,
+      "high_ns_min": 10.0,
+      "jitter_numeric_limit_ns": null,
+      "jitter_status": "NOT_QUALIFIED",
+      "low_ns_min": 10.0,
+      "period_max_ns": 200.0,
+      "period_min_ns": 25.0,
+      "tck_max_hz": 40000000,
+      "tck_min_hz": 5000000
+    },
+    "path": "results/phk2-v5_1-common-reset-20261110/tck_envelope/PHK2_V5_1_TCK_ENVELOPE.json",
+    "qualification_commit": "af539f88e99d4815010db7372dbc83decad2bd05",
+    "routed_dcp_sha256": "0bd52785662a3c38f68667f85c75acdef33c109502794610669ab8e1cf61e9af",
+    "sha256sums_entries": 733,
+    "sha256sums_sha256": "7b0ba6de12201b93d40b8b6bc4ee7dd3adcfdf8d2b9420d15ed1823a0d4b7f09",
+    "sha256sums_valid": true,
+    "source_commit": "5f65f0ec8900ecaae3c498223bef0efb2542c047",
+    "source_tree_hash": "dcc879775d80e07ab41bc9af955a29a3fd8ba6f9"
+  },
+  "jtag_transactions": 0,
+  "live_xvc_connections": 0,
+  "mode": "OFFLINE_PREPARATION_ONLY",
+  "one_card_scope": {
+    "adapter_id": "153300000957A",
+    "authorized_card_count": 1,
+    "card_id": "153300000957",
+    "historical_fpga_dna": "4000000001295d813c80a445",
+    "idcode": "04b69093",
+    "name": "FK0957",
+    "target_part": "xcvu33p-fsvh2104-2-e",
+    "usb_serial": "153300000957"
+  },
+  "physical_canary_readiness": "FAIL",
+  "physical_evidence_passes": {
+    "33": false,
+    "40": false
+  },
+  "preflight_gates": [
+    "Verify exact immutable qualification and TCK-envelope commits/hashes.",
+    "One-card-only signed authorization bound to FK0957, the v5.1 source/tree/route, bridge, cases 40 and 33, session nonce, expiry and operator.",
+    "Verify expected adapter serial 153300000957A and card ID 153300000957 from independent signed live evidence; IDCODE 04b69093 is family identification only, not unique identity.",
+    "Match expected historical FPGA DNA 4000000001295d813c80a445 and xcvu33p-fsvh2104-2-e; if live DNA/card mapping cannot be established before transport, refuse.",
+    "Verify exact deployed bridge ELF/build/service-config hash and effective clock-control implementation; settck echo is not proof.",
+    "Process/socket-only peer exclusion, one listener, zero existing clients, no competing XVC/JTAG process, exclusive OS lock, and signed network ACL proof; no protocol probe during preflight.",
+    "Capture backend, calibrated instrument metadata, evidence journal directory, append-only/hash-chain, fsync and rollback/recovery checks all ready before transport."
+  ],
+  "prerequisites": [
+    {
+      "id": "AUTHORIZATION_TRUST_ROOT",
+      "ready": false,
+      "reason": "No operator-approved signing trust root is pinned in this worktree."
+    },
+    {
+      "id": "DEPLOYED_BRIDGE_MATCH",
+      "ready": false,
+      "reason": "Static bridge identity is pinned, but current remote process ELF/service-config identity is not freshly attested."
+    },
+    {
+      "id": "REAL_CAPTURE_BACKEND",
+      "ready": false,
+      "reason": "No instrument acquisition backend is installed; the private transport opener refuses."
+    },
+    {
+      "id": "EFFECTIVE_5MHZ_CLOCK_CONTROL",
+      "ready": false,
+      "reason": "Reviewed SQRL/XVC settck echoes the request without configuring MPSSE; no effective 5 MHz setter is installed."
+    },
+    {
+      "id": "PHYSICAL_JITTER_LIMIT",
+      "ready": false,
+      "reason": "The routed envelope explicitly marks physical jitter limit unqualified."
+    },
+    {
+      "id": "LIVE_CARD_ADAPTER_ATTESTATION",
+      "ready": false,
+      "reason": "Historical FK0957 mapping exists; current v5.1 live card observation is still required."
+    },
+    {
+      "id": "BSCAN_INTERNAL_OBSERVATION_METHOD",
+      "ready": false,
+      "reason": "The matrix requires physical TCK/BSCAN correlation; IDCODE-only evidence cannot attest internal USER-branch behavior, and no separately authorized read-only BSCAN observer is defined."
+    },
+    {
+      "id": "CASE_B_EXACT_METHOD_AUTHORIZATION",
+      "ready": false,
+      "reason": "The authenticated matrix does not authorize a USER instruction; no case-bound authorization or exact USER3 transaction is pinned."
+    }
+  ],
+  "qualification": {
+    "case_a": {
+      "id": "40",
+      "name": "host_TCK_frequency_contract",
+      "status": "UNQUALIFIED"
+    },
+    "case_b": {
+      "id": "33",
+      "name": "clock_interaction_no_unsafe",
+      "status": "UNQUALIFIED"
+    },
+    "offline_pass": "38/40",
+    "promotion_requires_authentic_physical_evidence": true
+  },
+  "remaining_prerequisites": [
+    "AUTHORIZATION_TRUST_ROOT",
+    "DEPLOYED_BRIDGE_MATCH",
+    "REAL_CAPTURE_BACKEND",
+    "EFFECTIVE_5MHZ_CLOCK_CONTROL",
+    "PHYSICAL_JITTER_LIMIT",
+    "LIVE_CARD_ADAPTER_ATTESTATION",
+    "BSCAN_INTERNAL_OBSERVATION_METHOD",
+    "CASE_B_EXACT_METHOD_AUTHORIZATION"
+  ],
+  "reviewed_bridge_identity": {
+    "build_id": "b0562d538761373e2f1025c8bc8d8188ff8a0c40",
+    "current_deployment_attested": false,
+    "sha256": "8c7230f0bf586e9297dc0e568bd19278aeeb7cff8dbb3dde150811f11393218a"
+  },
+  "rollback_recovery": {
+    "failure": "Abort immediately; do not retry, reconnect, program, reset the FPGA, restart/stop services or miners. Preserve the lock and evidence; require separate authorized recovery if transport/TAP idle or image/workload preservation cannot be proven.",
+    "image_restore": "No programming rollback is part of this test. Any image discrepancy is a stop-and-escalate condition for a separately authorized recovery procedure.",
+    "normal_close": "Return TAP to Run-Test/Idle, stop after the bounded scan, close the single transport, verify zero sessions, seal evidence, then release peer exclusion/lock.",
+    "test_mutates_fpga_image": false,
+    "test_mutates_workload": false
+  },
+  "schema": "PHK2-FK0957-PHYSICAL-CANARY-PLAN-v1"
+}
