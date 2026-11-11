@@ -1,0 +1,81 @@
+{
+  "audited_runner_commit": "50cccf152cd1d5e2057183049898eb7a5df0d354",
+  "executor_state_model": [
+    "PRETRANSPORT",
+    "OPEN",
+    "CASE_A",
+    "CASE_B",
+    "CLOSED",
+    "ABORTED"
+  ],
+  "fix_commit": "bdbe9ebc3b4cede7d0b99b312f92288776c6248b",
+  "fix_tree_hash": "d6a3798de96a6f82957514883dc54c2f0f0fd24e",
+  "negative_regressions": {
+    "audit_metadata_deserialization": "PASS",
+    "case_order": "PASS",
+    "close_abort_replay": "PASS",
+    "copy_pickle": "PASS",
+    "cross_session": "PASS",
+    "direct_factory": "PASS",
+    "journal_loss_aborts_and_closes": "PASS",
+    "legacy_session_constructor": "PASS",
+    "old_record_type": "PASS",
+    "physical_only_auto_promotion": "PASS",
+    "registry_forgery": "PASS",
+    "runtime_identity_change": "PASS"
+  },
+  "offline_tests": {
+    "FIRST_SILICON_FAIL_CLOSED": "10/10 PASS",
+    "HOST_STRESS_DROPPED_RESULTS": 0,
+    "HOST_STRESS_DUPLICATE_RESULTS": 0,
+    "HOST_STRESS_EVENTS": 100000,
+    "HOST_STRESS_STALE_RESULT_ACCEPTS": 0,
+    "HOST_STRESS_UNEXPECTED_FAILURES": 0,
+    "OFFLINE_BOUNDARY_CASES": "10/10 PASS",
+    "OFFLINE_CANARY_GATES": "20/20 PASS",
+    "OFFLINE_FAULT_SCENARIOS": "51/51 PASS",
+    "OFFLINE_IMAGE_NEGATIVES": "22/22 PASS",
+    "PHYSICAL_CLOSE_GUARD": "20/20 PASS",
+    "UNITTEST_DISCOVERY": "78/78 PASS"
+  },
+  "physical_access": {
+    "fpga_programming": 0,
+    "hardware": 0,
+    "jtag": 0,
+    "live_xvc": 0
+  },
+  "prior_audit_issue": "The module-global capability registry and publicly reachable record type allowed capability forgery.",
+  "remaining_blockers": [
+    "Operator-approved authorization trust root and pinned trust-store hash are not provisioned.",
+    "Reviewed real physical waveform/TAP capture backend is not installed.",
+    "Immutable v5.1 qualification has no physical TCK frequency, pulse-width, duty-cycle, or jitter limits.",
+    "Real physical waveform and BSCAN/TCK interaction evidence has not been captured."
+  ],
+  "schema": "PHK2-OFFLINE-CLOSURE-RUNNER-AUDIT-v1",
+  "transport_audit": {
+    "arbitrary_python_reflection_or_runtime_patch_threat_model": "OUT_OF_SCOPE",
+    "module_global_authority_registries": 0,
+    "ordinary_imported_caller_threat_model": "PASS",
+    "public_transport_factories": 0,
+    "supported_transport_open_path": "master_pretransport_gate creates a local sealed executor, initializes/fsyncs PRE_TRANSPORT, and opens the exact bound transport before returning; this checkout has no installed physical opener and its private opener refuses.",
+    "ungated_transport_entrypoints": 0
+  },
+  "v5_1_bundle": {
+    "case_a_unqualified": true,
+    "case_b_unqualified": true,
+    "manifest_sha256": "8af30a7e194bc2ac67f0add8869b55c47b60d1bd7e8a2f30f9bc66ada98f57d5",
+    "middle_intake_commit": "b432ef1d97aa51883357b5a49cc3f615583a0087",
+    "middle_intake_tree_hash": "5c5ada030adcec1efe2b4d3b2cee2d959d0309c3",
+    "path": "/home/rmann/project-sidecar-phk2-v5_1-common-reset-20261110/results/phk2-v5_1-common-reset-20261110/revision1",
+    "qualification_cases_pass": 38,
+    "qualification_cases_total": 40,
+    "qualification_commit": "6ad11b72fc62a452195245984b69f236d4d3b315",
+    "qualification_record_sha256": "25b875c707aaa1ee43ec1da064b3fec0b2297aed87be4aacb2c7c2260b26c90e",
+    "routed_dcp_sha256_actual": "0bd52785662a3c38f68667f85c75acdef33c109502794610669ab8e1cf61e9af",
+    "routed_dcp_sha256_expected": "0bd52785662a3c38f68667f85c75acdef33c109502794610669ab8e1cf61e9af",
+    "sha256sum_entries": 127,
+    "sha256sums_valid": true,
+    "source_commit": "5f65f0ec8900ecaae3c498223bef0efb2542c047",
+    "source_tree_hash": "dcc879775d80e07ab41bc9af955a29a3fd8ba6f9"
+  }
+}
