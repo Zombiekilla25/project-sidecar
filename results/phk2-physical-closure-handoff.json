@@ -1,9 +1,10 @@
 {
   "schema": "PHK2-PHYSICAL-CLOSURE-HANDOFF-v1",
-  "CLOSURE_RUNNER_COMMIT": "419716dc4d4e0885613219a933ba14f1a56db1bb",
-  "CLOSURE_RUNNER_TREE_HASH": "e693008114c6cf7064fdea2648d723de867df0aa",
+  "CLOSURE_RUNNER_COMMIT": "3d2e74f38086a2398dd8bda9b36e8f68c9dc4dc3",
+  "CLOSURE_RUNNER_TREE_HASH": "510219e55d7e2160a1192055e18655fc445e7774",
   "CLOSURE_RUNNER_FILES": [
     "docs/phk2-physical-closure-operator-package.md",
+    "tools/phk2_host/first_silicon_cli.py",
     "tools/phk2_host/first_silicon_qualify.py",
     "tools/phk2_host/phk2_close_tck_cases.py",
     "tools/phk2_host/phk2_physical_close_guard.py",
@@ -18,15 +19,23 @@
   "CASE_B_ID": "33",
   "CASE_B_NAME": "clock_interaction_no_unsafe",
   "TEST_COUNTS": {
-    "FOCUSED_SUITES": "37/37 PASS",
+    "FOCUSED_SUITES": "47/47 PASS",
+    "CLOSURE_CAPABILITY_ADVERSARIAL_CASES": "19/19 PASS",
     "BROAD_HARNESS": "PASS",
-    "BROAD_FAIL_CLOSED_CASES": "20/20 PASS",
+    "BROAD_FAIL_CLOSED_CASES": "10/10 PASS",
+    "CANARY_GATE_CASES": "20/20 PASS",
+    "OFFLINE_BOUNDARY_CASES": "10/10 PASS",
+    "OFFLINE_FAULT_SCENARIOS": "51/51 PASS",
     "BROAD_FAULT_MATRIX": "15/15 PASS",
     "BROAD_HOST_STRESS_EVENTS": 100000,
     "BROAD_UNEXPECTED_FAILURES": 0,
     "BROAD_DUPLICATE_RESULTS": 0,
     "BROAD_DROPPED_RESULTS": 0,
-    "BROAD_STALE_RESULT_ACCEPTS": 0
+    "BROAD_STALE_RESULT_ACCEPTS": 0,
+    "HARDWARE_ACCESS": 0,
+    "LIVE_XVC_CONNECTIONS": 0,
+    "JTAG_TRANSACTIONS": 0,
+    "PROGRAM_ATTEMPTS": 0
   },
   "BLAKE3": {
     "AVAILABLE": true,
