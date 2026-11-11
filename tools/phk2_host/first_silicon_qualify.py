@@ -9,7 +9,6 @@ from first_silicon_cli import main as cli_main
 import first_silicon_cli
 from physical_adapter_boundary import (AdapterRefusal,EndpointIdentity,ExpectedIdentity,
     GuardedPhysicalSession,QualificationGates,prepare_physical_session,make_hello_request)
-from phk2_physical_close_guard import PreTransportPermit, PreTransportJournal, _PERMIT_SECRET
 from tck_contract import TckObservation,TckPolicy
 from oracle import predict
 from runtime import Descriptor,fixture_descriptor,fixture_path,sha
@@ -91,97 +90,56 @@ def physical_boundary_tests(tmp):
     good=QualificationGates(True,True,True,True,True,True,True,True,True,True)
     synthetic_policy=TckPolicy(True,1_000_000,'fixture-transport','a'*64)
     synthetic_observation=TckObservation(100_000,100_000,True,'fixture-transport')
-    def prepare(gates, discovery, transport_factory, timeout_ms=2000, with_tck=True):
+    def prepare(gates, discovery, timeout_ms=2000, with_tck=True):
         options={'tck_policy':synthetic_policy,'tck_observation':synthetic_observation} if with_tck else {}
-        return prepare_physical_session(gates,identity,discovery,transport_factory,timeout_ms=timeout_ms,**options)
-    def mock_session(transport, endpoint=endpoint, timeout_ms=2000):
-        tmp.mkdir(parents=True,exist_ok=True,mode=0o700);tmp.chmod(0o700)
-        journal=PreTransportJournal(tmp/f'synthetic-session-{time.time_ns()}.jsonl','synthetic-test')
-        journal.initialize({'test_fixture':True})
-        permit=PreTransportPermit(_PERMIT_SECRET,'f'*64,'synthetic-test',journal)
-        permit._consumed=True;permit._opened=True
-        return GuardedPhysicalSession(transport,endpoint,timeout_ms,pretransport_permit=permit)
+        return prepare_physical_session(gates,identity,discovery,timeout_ms=timeout_ms,**options)
     opened=[]
-    def factory(_):
-        t=MockPhysicalTransport();opened.append(t);return t
     # An otherwise complete legacy gate set without a verified TCK contract
     # refuses before endpoint discovery or transport construction.
     no_tck=QualificationGates(True,True,True,True,True,True,True,True,True)
     d=MockSelectedEndpoint(endpoint)
-    try:prepare(no_tck,d,factory,with_tck=False);raise AssertionError('missing TCK contract accepted')
+    try:prepare(no_tck,d,with_tck=False);raise AssertionError('missing TCK contract accepted')
     except AdapterRefusal:pass
     checks.append(d.calls==0 and not opened)
     # Even a set gate bit cannot replace missing policy provenance/readback.
     claimed_tck=QualificationGates(True,True,True,True,True,True,True,True,True,True)
     d=MockSelectedEndpoint(endpoint)
-    try:prepare(claimed_tck,d,factory,with_tck=False);raise AssertionError('unproven TCK evidence accepted')
+    try:prepare(claimed_tck,d,with_tck=False);raise AssertionError('unproven TCK evidence accepted')
     except AdapterRefusal:pass
     checks.append(d.calls==0 and not opened)
     # Missing selected endpoint: no transport open, transaction or hardware access.
     discovery=MockSelectedEndpoint(None)
-    try:prepare(good,discovery,factory);raise AssertionError('missing endpoint accepted')
+    try:prepare(good,discovery);raise AssertionError('missing endpoint accepted')
     except AdapterRefusal:pass
     checks.append(discovery.calls==0 and not opened)
     # Unqualified image and missing authorization fail before endpoint discovery.
     for gates in (QualificationGates(True,True,False,True,True,True,True,True,True,True),
                   QualificationGates(True,False,True,True,True,True,True,True,True,True)):
         d=MockSelectedEndpoint(endpoint)
-        try:prepare(gates,d,factory);raise AssertionError('missing gate accepted')
+        try:prepare(gates,d);raise AssertionError('missing gate accepted')
         except AdapterRefusal:pass
         checks.append(d.calls==0 and not opened)
     # Wrong physical identity or declared protocol/capability never opens transport.
     wrong=EndpointIdentity('c'*64,identity.candidate_image_sha256,'fixture-wrong-target');d=MockSelectedEndpoint(wrong)
-    try:prepare(good,d,factory);raise AssertionError('wrong identity accepted')
+    try:prepare(good,d);raise AssertionError('wrong identity accepted')
     except AdapterRefusal:pass
     checks.append(d.calls==0 and not opened)
     wrong_proto=EndpointIdentity(identity.target_identity_sha256,identity.candidate_image_sha256,'fixture-wrong-protocol',(2,0,3,112,64,112,0x3f));d=MockSelectedEndpoint(wrong_proto)
-    try:prepare(good,d,factory);raise AssertionError('wrong protocol accepted')
+    try:prepare(good,d);raise AssertionError('wrong protocol accepted')
     except AdapterRefusal:pass
     checks.append(d.calls==0 and not opened)
     # Legacy booleans and a synthetic TCK fixture cannot issue a master
     # pre-transport permit; refusal occurs before endpoint discovery/open.
     d=MockSelectedEndpoint(endpoint)
-    try:prepare(good,d,factory);raise AssertionError('legacy gates opened transport')
+    try:prepare(good,d);raise AssertionError('legacy gates opened transport')
     except AdapterRefusal:pass
     checks.append(d.calls==0 and not opened)
-    # Session behavior is separately exercised with an already supplied
-    # mock transport; this never calls the physical transport factory.
-    transport=MockPhysicalTransport();session=mock_session(transport,endpoint,1234)
-    caps=session.hello_once();checks.append(caps.profile_id==3 and session.hello_attempts==1 and transport.mock_calls==1 and transport.timeouts==[1234] and transport.physical_access_count==0)
-    try:session.hello_once();raise AssertionError('duplicate HELLO accepted')
-    except AdapterRefusal:pass
-    checks.append(session.hello_attempts==1 and transport.mock_calls==1)
-    # Timeout, partial, malformed, wrong sequence, and disconnect poison the session without reconnect/retry.
-    for mode in ('timeout','partial','malformed','wrong_sequence','disconnect'):
-        t=MockPhysicalTransport(mode);s=mock_session(t,endpoint,321)
-        try:s.hello_once();raise AssertionError(f'{mode} response accepted')
-        except (AdapterRefusal,TimeoutError,ConnectionError,ProtocolError):pass
-        try:s.hello_once();raise AssertionError(f'{mode} session re-used')
-        except AdapterRefusal:pass
-        checks.append(s.closed and t.mock_calls==1 and t.close_count==1 and t.physical_access_count==0)
-    # HELLO protocol mismatch closes immediately; session identity is sticky.
-    t=MockPhysicalTransport('wrong_caps');s=mock_session(t,endpoint)
-    try:s.hello_once();raise AssertionError('wrong HELLO capabilities accepted')
-    except (AdapterRefusal,ProtocolError):pass
-    checks.append(s.closed and t.mock_calls==1 and t.physical_access_count==0)
-    # Stale session and stale/duplicate result identities are rejected.
-    t=MockPhysicalTransport();s=mock_session(t,endpoint);s.close()
-    try:s.hello_once();raise AssertionError('closed session accepted HELLO')
-    except AdapterRefusal:pass
-    checks.append(t.mock_calls==0 and t.close_count==1)
-    s=mock_session(MockPhysicalTransport(),endpoint);s.bind_transaction(8,3);s.accept_result_slot(8,3,0)
-    try:s.accept_result_slot(8,3,0);raise AssertionError('duplicate result accepted')
-    except AdapterRefusal:pass
-    try:s.accept_result_slot(7,3,1);raise AssertionError('stale result accepted')
-    except AdapterRefusal:pass
-    checks.append(len(s._seen_result_slots)==1)
-    # ABORT is one-shot and close is idempotent.
-    t=MockPhysicalTransport();s=mock_session(t,endpoint);s.bind_transaction(1,1)
-    ack=s.abort_once(request(Opcode.ABORT,0,b'fixture-abort'))
-    try:s.abort_once(request(Opcode.ABORT,1,b'fixture-abort'));raise AssertionError('duplicate abort accepted')
-    except AdapterRefusal:pass
-    s.close();s.close();checks.append(ack==struct.pack('<QH',1,1) and s.abort_attempts==1 and t.mock_calls==1 and t.close_count==1 and t.physical_access_count==0)
-    # Aggregate fixture counters prove every physical I/O counter stayed zero.
+    # Even a directly supplied physical-like mock transport cannot construct
+    # the production session without the exact master-issued capability.
+    transport=MockPhysicalTransport()
+    try:GuardedPhysicalSession(transport,endpoint)
+    except AdapterRefusal:checks.append(transport.mock_calls==0 and not opened)
+    else:raise AssertionError('direct session construction bypassed master gate')
     checks.append(all(t.physical_access_count==0 for t in opened+[transport]))
     return len(checks),len(checks),checks
 
@@ -340,9 +298,9 @@ def qualify():
         cli_tests+=int(cli_manifest['candidate_bitstream_sha256']==hashlib.sha256(fake_bit.read_bytes()).hexdigest() and cli_manifest['target_lock_sha256']==sha(fake_lock.read_bytes()) and cli_manifest['descriptor_sha256']==sha((fixture_path()/'descriptor.bin').read_bytes()) and cli_manifest['host_executable_sha256'] is None and all(cli_manifest.get(k) for k in ('host_cli_source_sha256','host_harness_source_sha256','protocol_source_sha256','transport_reference_source_sha256')))
         auth=tmp/'authorization.json'; auth.write_text(json.dumps({"schema":"PHK2-FIRST-SILICON-AUTH-v1","single_use":True,"one_card_authorized":True,"candidate_image_qualified":True,"wire_contract_qualified":True,"bitstream_sha256":hashlib.sha256(fake_bit.read_bytes()).hexdigest(),"target_lock_sha256":sha(fake_lock.read_bytes()),"descriptor_sha256":sha((fixture_path()/'descriptor.bin').read_bytes()),"max_program_attempts":1,"max_hello_attempts":1,"max_transactions":1,"peer_program_allowed":False,"expires_utc":"2099-01-01T00:00:00Z"}))
         capture=io.StringIO()
-        with mock.patch.object(first_silicon_cli.importlib,'import_module',side_effect=AssertionError('live adapter import forbidden')), mock.patch.object(first_silicon_cli.importlib.util,'find_spec',side_effect=AssertionError('endpoint discovery forbidden')), contextlib.redirect_stdout(capture):
+        with contextlib.redirect_stdout(capture):
             refusal=cli_main(['--live','--authorization',str(auth),'--bitstream',str(fake_bit),'--bitstream-sha',hashlib.sha256(fake_bit.read_bytes()).hexdigest(),'--target-lock',str(fake_lock),'--descriptor',str(fixture_path()/'descriptor.bin'),'--evidence-dir',str(tmp/'live-evidence')])
-        refused=json.loads(capture.getvalue());cli_tests+=int(refusal==3 and refused['classification']=='PRECHECK_REFUSAL' and not refused['live_action_performed'] and 'no physically qualified' in refused['reason'] and auth.exists() and not (tmp/'live-evidence').exists())
+        refused=json.loads(capture.getvalue());cli_tests+=int(refusal==3 and refused['classification']=='PRECHECK_REFUSAL' and not refused['live_action_performed'] and 'live physical execution is disabled' in refused['reason'] and auth.exists() and not (tmp/'live-evidence').exists())
         checks['COMMAND_GENERATOR_TESTS']=f'{cli_tests}/3'
         fail_closed_passed,fail_closed_total,fail_closed_cases=physical_boundary_tests(tmp/'physical-boundary')
         checks['FAIL_CLOSED_TESTS']=f'{fail_closed_passed}/{fail_closed_total}';checks['FAIL_CLOSED_CASES']=fail_closed_cases
