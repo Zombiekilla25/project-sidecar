@@ -1,0 +1,183 @@
+{
+  "ANALYSIS_LIMITATION": "Based on the preserved routed static timing reports; no implementation or what-if run was performed.",
+  "BSCAN_CLOCK_SETUP_FAILING_ENDPOINTS": 4,
+  "BSCAN_CLOCK_TNS_NS": -0.652,
+  "CLOCK_SKEW_DOMINATED": 3,
+  "COMMON_RESET_ARCHITECTURE_VALID": true,
+  "CONSTRAINT_DEFECT": false,
+  "EVIDENCE_COMMIT": "ce9cc2dd9e6334d6b24c6f7d3a0cbcc8619af00e",
+  "FAILED_PATHS": 4,
+  "FANOUT_CONTRIBUTOR_PATHS": 3,
+  "FANOUT_DOMINATED": 0,
+  "GLOBAL_SETUP_FAILING_ENDPOINTS": 15,
+  "GLOBAL_TNS_NS": -0.75,
+  "GLOBAL_WNS_NS": -0.272,
+  "HOLD_THS_NS": 0.0,
+  "HOLD_WHS_NS": 0.008,
+  "LOGIC_DOMINATED": 0,
+  "MANIFEST_AND_SHA256SUMS_VALID": true,
+  "NON_BSCAN_SETUP_FAILING_ENDPOINTS": 11,
+  "NON_BSCAN_SETUP_FAILURES": [
+    {
+      "ENDPOINT": "core_endpoint/response_payload_reg[613]/D",
+      "SLACK_NS": -0.019
+    },
+    {
+      "ENDPOINT": "core_endpoint/response_payload_reg[1987]/D",
+      "SLACK_NS": -0.019
+    },
+    {
+      "ENDPOINT": "core_endpoint/response_payload_reg[451]/D",
+      "SLACK_NS": -0.015
+    },
+    {
+      "ENDPOINT": "core_endpoint/response_payload_reg[1859]/D",
+      "SLACK_NS": -0.011
+    },
+    {
+      "ENDPOINT": "core_endpoint/response_payload_reg[3111]/D",
+      "SLACK_NS": -0.009
+    },
+    {
+      "ENDPOINT": "core_endpoint/response_payload_reg[2002]/D",
+      "SLACK_NS": -0.008
+    },
+    {
+      "ENDPOINT": "core_endpoint/response_payload_reg[3330]/D",
+      "SLACK_NS": -0.004
+    },
+    {
+      "ENDPOINT": "core_endpoint/response_payload_reg[2119]/D",
+      "SLACK_NS": -0.004
+    },
+    {
+      "ENDPOINT": "core_endpoint/response_payload_reg[1219]/D",
+      "SLACK_NS": -0.004
+    },
+    {
+      "ENDPOINT": "core_endpoint/response_payload_reg[1575]/D",
+      "SLACK_NS": -0.003
+    },
+    {
+      "ENDPOINT": "core_endpoint/response_payload_reg[3213]/D",
+      "SLACK_NS": -0.001
+    }
+  ],
+  "NON_BSCAN_TNS_NS": -0.098,
+  "PATH_DETAILS": [
+    {
+      "CLOCKS": "bscan_tck -> bscan_tck",
+      "CLOCK_ROOTS": [
+        "X6Y1",
+        "X7Y1"
+      ],
+      "CLOCK_SKEW_NS": -5.708,
+      "COMMON_RESET_NET_DELAY_NS": 5.174,
+      "COMMON_RESET_NET_FANOUT": 213,
+      "CONTRIBUTORS": [
+        "CLOCK_SKEW_DOMINATED_COMPONENT",
+        "HIGH_FANOUT_COMMON_RELEASE_NET"
+      ],
+      "DATAPATH_DELAY_NS": 14.553,
+      "DESTINATION_BRANCH": "USER1 BSCANE2 INTERNAL_TCK",
+      "ENDPOINT": "result_fifo/rbin_reg[8]/D",
+      "LOGIC_DELAY_NS": 0.579,
+      "MAX_DATA_NET_FANOUT": 213,
+      "PERIOD_NS": 20.0,
+      "PRIMARY_CLASS": "ROUTING_DOMINATED",
+      "ROUTE_DELAY_NS": 13.974,
+      "ROUTE_FRACTION": 0.96021,
+      "SLACK_NS": -0.272,
+      "SOURCE_BRANCH": "USER2 BSCANE2 INTERNAL_TCK",
+      "STARTPOINT": "bscan_reset_release/release_pipe_reg[1]/C"
+    },
+    {
+      "CLOCKS": "bscan_tck -> bscan_tck",
+      "CLOCK_ROOTS": [
+        "X6Y1",
+        "X7Y1"
+      ],
+      "CLOCK_SKEW_NS": -5.714,
+      "COMMON_RESET_NET_DELAY_NS": 5.174,
+      "COMMON_RESET_NET_FANOUT": 213,
+      "CONTRIBUTORS": [
+        "CLOCK_SKEW_DOMINATED_COMPONENT",
+        "HIGH_FANOUT_COMMON_RELEASE_NET"
+      ],
+      "DATAPATH_DELAY_NS": 14.492,
+      "DESTINATION_BRANCH": "USER1 BSCANE2 INTERNAL_TCK",
+      "ENDPOINT": "result_fifo/rbin_reg[3]/D",
+      "LOGIC_DELAY_NS": 0.62,
+      "MAX_DATA_NET_FANOUT": 213,
+      "PERIOD_NS": 20.0,
+      "PRIMARY_CLASS": "ROUTING_DOMINATED",
+      "ROUTE_DELAY_NS": 13.872,
+      "ROUTE_FRACTION": 0.95722,
+      "SLACK_NS": -0.217,
+      "SOURCE_BRANCH": "USER2 BSCANE2 INTERNAL_TCK",
+      "STARTPOINT": "bscan_reset_release/release_pipe_reg[1]/C"
+    },
+    {
+      "CLOCKS": "bscan_tck -> bscan_tck",
+      "CLOCK_ROOTS": [
+        "X6Y1",
+        "X7Y1"
+      ],
+      "CLOCK_SKEW_NS": -5.714,
+      "COMMON_RESET_NET_DELAY_NS": 5.174,
+      "COMMON_RESET_NET_FANOUT": 213,
+      "CONTRIBUTORS": [
+        "CLOCK_SKEW_DOMINATED_COMPONENT",
+        "HIGH_FANOUT_COMMON_RELEASE_NET"
+      ],
+      "DATAPATH_DELAY_NS": 14.377,
+      "DESTINATION_BRANCH": "USER1 BSCANE2 INTERNAL_TCK",
+      "ENDPOINT": "result_fifo/rgray_reg[3]/D",
+      "LOGIC_DELAY_NS": 0.644,
+      "MAX_DATA_NET_FANOUT": 213,
+      "PERIOD_NS": 20.0,
+      "PRIMARY_CLASS": "ROUTING_DOMINATED",
+      "ROUTE_DELAY_NS": 13.733,
+      "ROUTE_FRACTION": 0.95521,
+      "SLACK_NS": -0.102,
+      "SOURCE_BRANCH": "USER2 BSCANE2 INTERNAL_TCK",
+      "STARTPOINT": "bscan_reset_release/release_pipe_reg[1]/C"
+    },
+    {
+      "CLOCKS": "bscan_tck -> bscan_tck",
+      "CLOCK_ROOTS": [
+        "X7Y1",
+        "X7Y1"
+      ],
+      "CLOCK_SKEW_NS": -0.293,
+      "COMMON_RESET_NET_DELAY_NS": null,
+      "COMMON_RESET_NET_FANOUT": null,
+      "CONTRIBUTORS": [],
+      "DATAPATH_DELAY_NS": 19.759,
+      "DESTINATION_BRANCH": "USER1 BSCANE2 INTERNAL_TCK",
+      "ENDPOINT": "tx_shift_reg[4]/D",
+      "LOGIC_DELAY_NS": 0.477,
+      "MAX_DATA_NET_FANOUT": 69,
+      "PERIOD_NS": 20.0,
+      "PRIMARY_CLASS": "ROUTING_DOMINATED",
+      "ROUTE_DELAY_NS": 19.282,
+      "ROUTE_FRACTION": 0.97586,
+      "SLACK_NS": -0.062,
+      "SOURCE_BRANCH": "USER1 BSCANE2 INTERNAL_TCK",
+      "STARTPOINT": "result_fifo/rbin_reg[3]/C"
+    }
+  ],
+  "PHYSICAL_ONLY_FIX_LIKELY": false,
+  "RECOMMENDED_FIX": "Keep the single common metastability-resolving reset chain. Prefer a deterministic, timed post-synchronizer branch-local distribution stage to remove the severe USER2-to-USER1 launch/capture skew and high-fanout common net from downstream reset-sensitive logic; use physical placement/buffering to reduce residual routing. Separately optimize the result_fifo distributed-RAM read route and the 11 small core-clock setup violations. Never add independent asynchronous deassert synchronizers per branch.",
+  "REMEDY_RANKING": {
+    "A_PHYS_OPT_PLACEMENT_ROUTING": "ACCEPTABLE as a bounded first experiment; likely helps fanout/routing and the separate RAM path, but cannot remove the measured BSCANE2 branch insertion skew by placement alone.",
+    "B_BUFFER_OR_REPLICATE_POST_SYNC_RELEASE_NET": "ACCEPTABLE only after common metastability resolution; likely reduces the 213-load reset net delay, but does not add cycle margin for the cross-branch skew or repair the FIFO RAM path.",
+    "C_DETERMINISTIC_SYNC_BRANCH_LOCAL_DISTRIBUTION_STAGE": "PREFERRED; add a timed synchronous distribution stage only after the single common synchronizer, locally drive each branch, preserve asynchronous assertion and stop-clock-safe reassertion, and verify no independently resolving reset chain is introduced.",
+    "D_CHANGE_ARCHITECTURAL_RESET_SCHEME": "REJECT absent new evidence; the one-chain common reset topology is sound and the failures are routed timing/distribution paths, not evidence that common reset is architecturally wrong."
+  },
+  "ROUTED_DCP_SHA256": "17ee11c07cdf74d2d27d2205ead0c11909809eac5b5c045f9b0e1f0a224130aa",
+  "ROUTING_DOMINATED": 4,
+  "SOURCE_COMMIT": "42b6a724df771906ee7e565034724edd345081a8",
+  "SOURCE_TREE_HASH": "6423092d516f964f4ea745fdec49463db4337d19",
+  "SYNC_DISTRIBUTION_STAGE_LIKELY_REQUIRED": true
+}
