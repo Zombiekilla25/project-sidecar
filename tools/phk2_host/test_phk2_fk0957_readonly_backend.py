@@ -25,6 +25,24 @@ def target(**kw):
     return Device(**data)
 
 
+def write_sysfs_device(root, name, *, vid="0403", pid="6010",
+                       manufacturer="Xilinx", product="SQRL FK",
+                       serial="153300000957A", bus="1", devpath="2.3",
+                       interface_number="00"):
+    node = root / name
+    node.mkdir()
+    for attr, value in (("idVendor", vid), ("idProduct", pid),
+                        ("manufacturer", manufacturer), ("product", product),
+                        ("serial", serial), ("busnum", bus), ("devpath", devpath)):
+        if value is not None:
+            (node / attr).write_text(value + "\n")
+    if interface_number is not None:
+        intf = root / f"{name}:1.0"
+        intf.mkdir()
+        (intf / "bInterfaceNumber").write_text(interface_number + "\n")
+    return node
+
+
 class FakeCatalog:
     def __init__(self, devices):
         self.devices = list(devices)
@@ -62,13 +80,91 @@ class BackendTests(unittest.TestCase):
         with self.assertRaises(Refusal):
             self.backend(target(serial="")).select_exact(TargetSelector())
 
-    def test_unreadable_high_bus_usb_candidate_refuses_as_ambiguous(self):
+    def test_numeric_entry_without_vid_pid_still_refuses_fail_closed(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             (root / "9-1").mkdir()
             with self.assertRaises(BackendRefusal) as caught:
                 SysfsCatalog(root).enumerate_fk()
             self.assertEqual(caught.exception.refusal_code, "INCOMPLETE_DESCRIPTOR_METADATA")
+
+    def test_unrelated_usb_hub_without_serial_is_ignored(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            write_sysfs_device(root, "1-9", vid="0bda", pid="5411",
+                               manufacturer="Generic", product="4-Port USB 2.0 Hub",
+                               serial=None, interface_number=None)
+            self.assertEqual(SysfsCatalog(root).enumerate_fk(), [])
+
+    def test_unrelated_usb_device_without_manufacturer_is_ignored(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            write_sysfs_device(root, "2-4", vid="1234", pid="5678",
+                               manufacturer=None, serial=None, interface_number=None)
+            self.assertEqual(SysfsCatalog(root).enumerate_fk(), [])
+
+    def test_unrelated_usb_device_with_malformed_optional_fields_is_ignored(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            node = write_sysfs_device(root, "3-2", vid="0bda", pid="5411",
+                                      manufacturer=None, product=None, serial=None,
+                                      interface_number=None)
+            (node / "manufacturer").mkdir()
+            (node / "serial").mkdir()
+            self.assertEqual(SysfsCatalog(root).enumerate_fk(), [])
+
+    def test_approved_candidate_missing_serial_refuses_incomplete_metadata(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            write_sysfs_device(root, "4-1", serial=None)
+            with self.assertRaises(BackendRefusal) as caught:
+                SysfsCatalog(root).enumerate_fk()
+            self.assertEqual(caught.exception.refusal_code, "INCOMPLETE_DESCRIPTOR_METADATA")
+
+    def test_approved_candidate_missing_manufacturer_or_product_refuses(self):
+        for missing in ("manufacturer", "product"):
+            with self.subTest(missing=missing), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                kwargs = {missing: None}
+                write_sysfs_device(root, "5-1", **kwargs)
+                with self.assertRaises(BackendRefusal) as caught:
+                    SysfsCatalog(root).enumerate_fk()
+                self.assertEqual(caught.exception.refusal_code, "INCOMPLETE_DESCRIPTOR_METADATA")
+
+    def test_multiple_approved_sysfs_candidates_still_refuse_peer(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            write_sysfs_device(root, "6-1")
+            write_sysfs_device(root, "6-2", serial="153300000711A", devpath="2.2")
+            with self.assertRaises(BackendRefusal) as caught:
+                FK0957ReadOnlyBackend(SysfsCatalog(root)).select_exact(TargetSelector())
+            self.assertEqual(caught.exception.refusal_code, "UNEXPECTED_PEER_DEVICE")
+
+    def test_zero_approved_sysfs_candidates_returns_no_match(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            write_sysfs_device(root, "7-1", vid="0bda", pid="5411",
+                               manufacturer=None, serial=None, interface_number=None)
+            with self.assertRaises(BackendRefusal) as caught:
+                FK0957ReadOnlyBackend(SysfsCatalog(root)).select_exact(TargetSelector())
+            self.assertEqual(caught.exception.refusal_code, "NO_MATCHING_TARGET")
+
+    def test_enumeration_only_reads_sysfs_metadata_and_opens_no_device_handle(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            write_sysfs_device(root, "8-1")
+            seen = []
+            original = Path.read_text
+
+            def tracked_read(path, *args, **kwargs):
+                seen.append(path)
+                return original(path, *args, **kwargs)
+
+            with mock.patch.object(Path, "read_text", tracked_read):
+                self.assertEqual(len(SysfsCatalog(root).enumerate_fk()), 1)
+            self.assertTrue(seen)
+            self.assertTrue(all(root == path or root in path.parents for path in seen))
+            self.assertFalse(any(str(path).startswith("/dev/") for path in seen))
 
     def test_duplicate_match_refuses(self):
         with self.assertRaises(BackendRefusal) as caught:

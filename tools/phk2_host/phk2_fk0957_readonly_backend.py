@@ -111,21 +111,25 @@ class SysfsCatalog:
             try:
                 vid = (node / "idVendor").read_text().strip().lower()
                 pid = (node / "idProduct").read_text().strip().lower()
+            except OSError as exc:
+                # Without VID/PID, a numeric bus-port entry could be an
+                # approved peer. Keep the uniqueness check fail-closed.
+                if re.match(r"^[0-9]+-", node.name):
+                    raise BackendRefusal("INCOMPLETE_DESCRIPTOR_METADATA") from exc
+                continue
+            # VID/PID is the only eligibility check needed for unrelated USB
+            # devices. Do not require FK-specific descriptors from them.
+            if (vid, pid) != ("0403", "6010"):
+                continue
+            try:
                 manufacturer = (node / "manufacturer").read_text().strip()
                 product = (node / "product").read_text().strip()
                 serial = (node / "serial").read_text().strip()
                 bus = (node / "busnum").read_text().strip()
                 devpath = (node / "devpath").read_text().strip()
-            except OSError:
-                # An unreadable potentially matching candidate makes the
-                # single-device scope ambiguous; do not silently skip it.
-                # USB device nodes use <bus>-<port path>; this must cover
-                # buses above 8 too. Silently skipping an unreadable candidate
-                # could hide a peer and make the remaining FK look unique.
-                if re.match(r"^[0-9]+-", node.name):
-                    raise BackendRefusal("INCOMPLETE_DESCRIPTOR_METADATA")
-                continue
-            if vid != "0403" or pid != "6010" or manufacturer != "Xilinx" or product != "SQRL FK":
+            except OSError as exc:
+                raise BackendRefusal("INCOMPLETE_DESCRIPTOR_METADATA") from exc
+            if manufacturer != "Xilinx" or product != "SQRL FK":
                 continue
             interfaces = sorted(self.root.glob(f"{node.name}:1.*"))
             if not interfaces:

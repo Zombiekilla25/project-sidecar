@@ -42,7 +42,7 @@ EXPECTED_FIELDS = {
 }
 ZERO_FIELDS = ("WRITE_COUNT", "RESET_COUNT", "PROGRAM_COUNT", "JTAG_OPERATIONS")
 SOURCE_COMMIT_PIN = "e2feedcfde44563854a3cf41fe4526c231ed385b"
-OBSERVER_PIN = "e6afea8706df6c9c9855ddf7ca86d8054b3c1fb759f06d1aca77b2431d549210"
+OBSERVER_PIN = "a83ccbbf350cdf165a2209b69de0f89146a11c233425206e314bcae7222c12bd"
 BUNDLE_BUILDER_PIN = "a60d4bb57fea4e9441bf9a89476e286da16e12d4b9bd9cf7c7df8178a41c3438"
 BUNDLE_RUNNER_PIN = "8e3aaf2422199072551c9be495c0335df61e3d7abaf1c4fc9f6cfd015a351813"
 
@@ -809,7 +809,7 @@ def verify_signed(evidence: dict, public_key) -> bool:
 
 # Updated to the reviewed collector bytes after implementation; prevents a
 # mutable collector replacement from being sent to the authorized host.
-COLLECTOR_PIN = "af7b4fa6371516e4747bed2a0b03ec2ed2afd305c2cba94b536f0494e14ab87a"
+COLLECTOR_PIN = "f6f862f8b0b7b675252935300ab64377b70141555fc8a0058d2b65e0448adb64"
 
 
 def main(argv=None) -> int:
