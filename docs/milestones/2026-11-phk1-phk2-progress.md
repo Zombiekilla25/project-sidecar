@@ -63,12 +63,37 @@ This unoptimized architecture used 26 parallel keyed-BLAKE3 blocks and 12 Philox
 
 The resource result motivated a sequential, time-multiplexed keyed-BLAKE3/work-generation design with cached job-scoped factors. This is an architectural direction, not a qualified implementation. The 200 MHz value remains a target basis only.
 
+## PHK2 pre-live first-silicon control path
+
+Since the earlier November PHK2 synthesis milestone, the first-silicon software path has been hardened around a deliberately fail-closed physical-qualification boundary.
+
+### Offline software closure and physical gates
+
+The PHK2 physical-close logic now distinguishes software readiness from physical execution readiness. Offline host, guard, plan, evidence, and deterministic-regeneration tests progressed while physical Case A and Case B remained unqualified. Case A now has an explicit physical measurement contract and owner-decision workflow; Case B has a fail-closed schema/validator and a candidate read-only status-observation method derived from RTL/test evidence. Candidate values remain unapproved and are not treated as physical qualification.
+
+The measurement side also gained deterministic period/jitter metric support for the qualified capture shape. Numeric physical jitter limits, measurement-uncertainty/guardband rules, calibrated instrument requirements, and final physical acceptance remain owner-controlled inputs rather than software defaults.
+
+### Single-target identity and provenance path
+
+A dedicated descriptor-only identity path was built for the first authorized physical canary. Its reviewed backend is intentionally narrower than a general JTAG/MPSSE interface: it performs descriptor identity observation only and does not expose programming, reset, arbitrary IR/DR, or JTAG operations. Target selection and ambiguity checks are designed to fail closed before deeper access, and independent audits added regression coverage for source/hash verification, incomplete metadata, peer-device ambiguity, and path/provenance handling.
+
+Evidence acquisition and signing were separated so the hardware-side process returns unsigned canonical observations while validation and Ed25519 signing remain local to the trusted host. Additional hardening requires pinned SSH host authentication, binds host-key provenance into evidence, treats the remote hostname as self-reported metadata, rejects replay/stale evidence, refuses unsafe signing-key/output paths, and uses atomic evidence output.
+
+### Live preflight and no-checkout execution
+
+The first descriptor-only live preflight authenticated the remote host but correctly stopped before collector or device access because no suitable pinned PHK2 checkout was available remotely. No card was opened and no programming, reset, or JTAG operation occurred.
+
+Rather than make the remote checkout a new trust dependency, a no-checkout ephemeral collector/bundle mode was implemented. The design transmits only the reviewed acquisition payload, binds source/bundle hashes and session provenance before execution, returns unsigned canonical evidence, and preserves local validation/signing. Offline targeted and broad regressions passed aside from the previously documented optional BLAKE3 test-environment limitation. Independent adversarial audit of the ephemeral mode is currently in progress.
+
+This milestone therefore establishes a hardened path toward the first signed descriptor identity observation; it does **not** establish PHK2 JTAG/BSCAN qualification, FPGA programming success, physical timing/jitter qualification, silicon correctness, or acceleration performance.
+
 ## Roadmap
 
 1. **PHK1:** resolve the identify-phase evidence/attestation mismatch; then complete the one-card diagnostic silicon test, capture direct error sources, and restore through the qualified rollback path. Keep physical qualification false until the complete correctness criteria pass.
-2. **PHK2:** implement the sequential work-generation architecture and prove it against the production CPU golden model.
-3. **PHK2 physical design:** synthesize behind a realistic serial descriptor/result interface, then run routing, timing, and design-rule checks. Do not infer physical fit from the initial synthesis baseline.
-4. **Qualification and scaling:** perform separately authorized one-card silicon qualification only after offline and routed gates pass; consider scaling only after measured results.
+2. **PHK2 pre-live qualification:** complete the independent audit of the no-checkout descriptor-acquisition path, then perform the separately authorized single-card descriptor identity observation. Preserve the boundary between descriptor evidence and deeper JTAG/BSCAN qualification.
+3. **PHK2 physical qualification:** finalize owner-approved measurement limits, calibrated capture requirements, and the authoritative read-only BSCAN method before deeper physical testing.
+4. **PHK2 implementation:** continue the sequential work-generation architecture and physical design behind a realistic interface; run routing, timing, and design-rule checks before any performance claim.
+5. **Qualification and scaling:** consider broader silicon testing or scaling only after measured correctness, timing, recovery, and end-to-end results.
 
 ## Evidence boundary
 
