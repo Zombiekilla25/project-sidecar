@@ -83,14 +83,19 @@ class Command:
     read_bytes: int = 0
     tck_count: int = 0
     label: str = ""
+    scan: str | None = None
 
 
 @dataclass(frozen=True)
 class DiscoveryPlan:
     commands: tuple[Command, ...]
+    scan_a_commands: tuple[Command, ...]
+    scan_b_commands: tuple[Command, ...]
     tdi_scans: tuple[tuple[int, ...], tuple[int, ...]]
     tms_bits: tuple[int, ...]
     tdi_bits: tuple[int, ...]
+    scan_a_tck_count: int
+    scan_b_tck_count: int
     tck_count: int
     transaction_sha256: str
     command_contract_sha256: str
@@ -211,14 +216,14 @@ def _pack_lsb(bits: Iterable[int]) -> bytes:
     return bytes(out)
 
 
-def _tms_command(bits: tuple[int, ...], *, read: bool) -> Command:
+def _tms_command(bits: tuple[int, ...], *, read: bool, scan: str | None = None) -> Command:
     if not 1 <= len(bits) <= 7 or any(bit not in (0, 1) for bit in bits):
         raise Refusal("invalid internal TMS segment")
     packed = sum(bit << index for index, bit in enumerate(bits))
     opcode = 0x6B if read else 0x4B
     payload = packed  # TDI is fixed low on all state-navigation clocks.
     return Command(bytes((opcode, len(bits) - 1, payload)), 1 if read else 0,
-                   len(bits), "TMS_READ" if read else "TMS_NO_READ")
+                   len(bits), "TMS_READ" if read else "TMS_NO_READ", scan)
 
 
 def build_plan() -> DiscoveryPlan:
@@ -229,13 +234,13 @@ def build_plan() -> DiscoveryPlan:
     entry = (1, 1, 1, 1, 1, 0, 1, 0, 0)
     nav: list[Command] = []
     for start in range(0, len(entry), 7):
-        nav.append(_tms_command(entry[start:start + 7], read=False))
+        nav.append(_tms_command(entry[start:start + 7], read=False, scan="A"))
     commands: list[Command] = [Command(MPSSE_SYNC, 2, 0, "SYNC"),
                                Command(MPSSE_SETUP, 0, 0, "CONFIG")] + nav
     tms_full: list[int] = list(entry)
     tdi_full: list[int] = [0] * len(entry)
 
-    def append_scan(pattern: tuple[int, ...], first: bool) -> None:
+    def append_scan(pattern: tuple[int, ...], scan: str) -> None:
         body = _pack_lsb(pattern[:-1])
         if len(body) % 8:
             raise AssertionError("internal DR body must be byte aligned")
@@ -244,24 +249,28 @@ def build_plan() -> DiscoveryPlan:
             raise AssertionError("internal MPSSE byte count is outside command bounds")
         encoded_count = byte_count - 1
         commands.append(Command(bytes((0x39, encoded_count & 0xff, encoded_count >> 8)) + body,
-                                byte_count, len(pattern) - 1, "DR_A_INOUT_BYTE_LSB" if first else "DR_B_INOUT_BYTE_LSB"))
+                                byte_count, len(pattern) - 1, f"DR_{scan}_INOUT_BYTE_LSB", scan))
         last = pattern[-1]
         commands.append(Command(bytes((0x6B, 0x00, 0x01 | (last << 7))), 1, 1,
-                                "DR_A_FINAL_BIT_EXIT" if first else "DR_B_FINAL_BIT_EXIT"))
+                                f"DR_{scan}_FINAL_BIT_EXIT", scan))
         # Exit1-DR -> Update-DR -> Select-DR -> Select-IR -> Test-Logic-Reset.
         # This is TAP state synchronization; it does not reset/reconfigure FPGA logic.
-        commands.append(_tms_command((1, 1, 1, 1, 1), read=False))
+        commands.append(_tms_command((1, 1, 1, 1, 1), read=False, scan=scan))
         tms_full.extend((0,) * (len(pattern) - 1) + (1,) + (1,) * 5)
         tdi_full.extend(pattern + (0,) * 5)
 
-    append_scan(tdi_a, True)
+    append_scan(tdi_a, "A")
     # From Test-Logic-Reset: Idle, Select-DR, Capture-DR, Shift-DR.
     second_entry = (0, 1, 0, 0)
-    commands.append(_tms_command(second_entry, read=False))
+    commands.append(_tms_command(second_entry, read=False, scan="B"))
     tms_full.extend(second_entry)
     tdi_full.extend((0,) * len(second_entry))
-    append_scan(tdi_b, False)
+    append_scan(tdi_b, "B")
     tck_count = sum(c.tck_count for c in commands)
+    scan_a_commands = tuple(c for c in commands if c.scan == "A")
+    scan_b_commands = tuple(c for c in commands if c.scan == "B")
+    scan_a_tck_count = sum(c.tck_count for c in scan_a_commands)
+    scan_b_tck_count = sum(c.tck_count for c in scan_b_commands)
     contract = hashlib.sha256(
         b"FTDI-AN108:MPSSE:idle-low;0x4b=tms-lsb-falling-no-read;"
         b"0x6b=tms-lsb-falling-in-rising;0x39=byte-lsb-out-falling-in-rising;"
@@ -270,8 +279,25 @@ def build_plan() -> DiscoveryPlan:
     tx_material = (b"tms=" + bytes(tms_full) + b"\ntdi=" + bytes(tdi_full) + b"\n" +
                    b"commands=" + b"".join(len(c.write).to_bytes(4, "big") + c.write for c in commands) +
                    b"\nclock=100000;idle=low;order=lsb;sample=rising;change=falling;dual-signature-scan")
-    return DiscoveryPlan(tuple(commands), (tdi_a, tdi_b), tuple(tms_full), tuple(tdi_full), tck_count,
+    return DiscoveryPlan(tuple(commands), scan_a_commands, scan_b_commands, (tdi_a, tdi_b),
+                         tuple(tms_full), tuple(tdi_full), scan_a_tck_count, scan_b_tck_count, tck_count,
                          hashlib.sha256(tx_material).hexdigest(), contract)
+
+
+def scan_transaction_sha256(commands: tuple[Command, ...]) -> str:
+    material = bytearray(b"FK0957-MPSSE-SCAN-MANIFEST-v1\0")
+    for command in commands:
+        label = command.label.encode("ascii")
+        scan = (command.scan or "").encode("ascii")
+        material.extend(len(command.write).to_bytes(4, "big"))
+        material.extend(command.write)
+        material.extend(command.read_bytes.to_bytes(4, "big"))
+        material.extend(command.tck_count.to_bytes(4, "big"))
+        material.extend(len(label).to_bytes(2, "big"))
+        material.extend(label)
+        material.extend(len(scan).to_bytes(2, "big"))
+        material.extend(scan)
+    return hashlib.sha256(bytes(material)).hexdigest()
 
 
 def raw_tdo_bits(byte_reads: bytes, final_tms_read: bytes) -> str:

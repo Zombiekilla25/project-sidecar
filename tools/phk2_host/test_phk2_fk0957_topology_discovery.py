@@ -109,11 +109,22 @@ class TopologyDiscoveryTests(unittest.TestCase):
         plan = topo.build_plan()
         self.assertEqual(topo.MPSSE_SETUP, bytes.fromhex("97 8a 86 2b 01 85 80 08 0b"))
         self.assertEqual(plan.tck_count, 1177)
+        self.assertEqual(plan.scan_a_tck_count, 591)
+        self.assertEqual(plan.scan_b_tck_count, 586)
         self.assertEqual(len(plan.tdi_bits), 1177)
         self.assertEqual(len(plan.tms_bits), 1177)
         self.assertEqual([c.write[0] for c in plan.commands if c.tck_count],
                          [0x4B, 0x4B, 0x39, 0x6B, 0x4B, 0x4B, 0x39, 0x6B, 0x4B])
         self.assertEqual(topo.CAPTURE_BITS, 577)
+        self.assertEqual(len(plan.tdi_scans[0]), 577)
+        self.assertEqual(len(plan.tdi_scans[1]), 577)
+        self.assertEqual(plan.scan_a_commands[0].write, bytes.fromhex("4b 06 5f"))
+        self.assertEqual(plan.scan_a_commands[1].write, bytes.fromhex("4b 01 00"))
+        self.assertEqual(plan.scan_b_commands[0].write, bytes.fromhex("4b 03 02"))
+        self.assertEqual(plan.scan_a_commands[2].write[:3], bytes.fromhex("39 47 00"))
+        self.assertEqual(plan.scan_b_commands[1].write[:3], bytes.fromhex("39 47 00"))
+        self.assertEqual(topo.scan_transaction_sha256(plan.scan_a_commands),
+                         "81f0fb9eefad365e50d8cdbe855274bdf408104158ac193a50798e0aaba778f2")
         pattern = topo.tdi_pattern()
         windows = [tuple(pattern[i:i + topo.DEBRUIJN_ORDER]) for i in range(topo.MAX_DEFAULT_DR_BITS)]
         self.assertEqual(len(windows), len(set(windows)))
