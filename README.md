@@ -26,11 +26,20 @@ Retained production captures were recovered and replayed against a production-ba
 
 An **initial synthesis baseline** for the first fully combinational work-generation design completed for the VU33P family. It used approximately 327,854 LUTs (74.57%), 1,372 DSPs (47.64%), 2,202 flip-flops, and no BRAM or URAM. This is a resource measurement for an unoptimized architecture, not a routed design. Timing analysis did not complete, and the measurement wrapper was unsuitable for placement and routing. The result motivated a sequential, time-multiplexed keyed-BLAKE3/work-generation architecture.
 
+### PHK2 pre-live physical-qualification hardening
+
+The PHK2 first-silicon control path has advanced from general offline closure into a fail-closed pre-live qualification flow. The current software separates offline qualification from physical evidence, requires explicit owner-approved physical limits and methods, and keeps unqualified physical cases blocked.
+
+A single-target descriptor identity path was added for the first physical canary. It is designed to refuse ambiguous or peer-device access, exposes no programming/reset/JTAG capability in the descriptor-only backend, and keeps evidence signing local to the trusted host. Remote acquisition was split from local validation/signing so private signing material is never required on the hardware host. SSH host authentication, source/hash pinning, replay protection, symlink/hardlink refusal, and atomic evidence output have been independently exercised in offline tests.
+
+The first live descriptor attempt correctly stopped before device access when the remote environment did not contain the expected checkout. A no-checkout ephemeral collector/bundle mode has since been implemented so the reviewed acquisition payload can be transmitted and executed without trusting a remote repository. Independent adversarial audit of that new mode is in progress. No PHK2 JTAG, BSCAN qualification, FPGA programming, reset, or silicon-performance claim follows from this work.
+
 ### Next steps
 
-1. Resolve the PHK1 identify-phase evidence/attestation preflight mismatch, then separately authorize and run the one-card diagnostic silicon canary.
-2. Develop and verify the resource-efficient sequential PHK2 work generator against the CPU golden model.
-3. Synthesize PHK2 behind a realistic interface, then measure routing and timing before any silicon qualification or scaling decision.
+1. Complete the independent audit of the PHK2 no-checkout ephemeral descriptor-acquisition path, then perform the separately authorized single-card descriptor-only identity observation.
+2. Finish owner approval of PHK2 physical measurement limits/methods and the authoritative read-only BSCAN observation contract before any deeper physical qualification.
+3. Continue the resource-efficient sequential PHK2 work-generator path and physical-design work behind a realistic interface before making any silicon-performance or scaling claim.
+4. Resolve the remaining PHK1 identify-phase evidence/attestation preflight mismatch before its separately authorized one-card diagnostic canary.
 
 ## Qualification boundaries
 
