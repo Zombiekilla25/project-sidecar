@@ -24,12 +24,26 @@ TARGET_SUFFIX = "0957"
 EXPECTED_ADAPTER_SERIAL = "153300000957A"
 EXPECTED_CARD_ID = "153300000957"
 OBSERVER_PATH = Path(__file__).resolve()
-# No physical discovery backend has passed independent review in this tree.
-# Adding a backend requires review of its complete source and an explicit pin
-# here; a caller-supplied digest alone is not a trust decision.
-REVIEWED_BACKENDS: Mapping[str, str] = {}
+# Descriptor-only backend reviewed from its exact source commit. The source
+# file hashes bind the legacy implementation used as reference; they do not
+# authorize the legacy MPSSE implementation itself.
+_FK0957_BACKEND_SPEC = "phk2_fk0957_readonly_backend:create_backend"
+REVIEWED_BACKENDS: Mapping[str, str] = {
+    _FK0957_BACKEND_SPEC: "407b92354823c2ef336ba7ac8af456be44a19147e43023cdc9cf2c380ebb9570",
+}
+REVIEWED_BACKEND_SOURCE_PINS: Mapping[str, Mapping[str, Any]] = {
+    _FK0957_BACKEND_SPEC: {
+        "source_commit": "e2feedcfde44563854a3cf41fe4526c231ed385b",
+        "source_file_hashes": {
+            "tools/phk1_raw_bscan/usb_identity.hpp": "916e436168d4a7cf057e1019a06f0b2207d9122246e7bae22a73121549eb2fcb",
+            "tools/phk1_raw_bscan/usb_selection.cpp": "6bd03fd54b2a94d0a056c3eb155b6c50cdc65a530eae752aeb93f5fedf41df48",
+            "tools/phk1_raw_bscan/libftdi_io.cpp": "4b61ff5c78f6c666e5888d56ffda885edf6923fc4d72b361b75b6e56ca949194",
+            "tools/phk1_raw_bscan/identify_only.cpp": "31260a7c6a3ac437bcfc1dcd6e8914d700c74ab26600a1bdb7c2b957e9e4d117",
+        },
+    },
+}
 READ_ONLY_METHODS = frozenset({"select_exact", "open_selected", "observe", "close"})
-FORBIDDEN_METHODS = frozenset({"write", "register_write", "program", "configure", "reset", "reconfigure", "tap_update", "workload_change", "service_change"})
+FORBIDDEN_METHODS = frozenset({"write", "write_exact", "read_exact", "register_write", "program", "configure", "reset", "reconfigure", "tap_update", "shift_ir", "shift_dr", "mpsse", "send_command", "workload_change", "service_change"})
 
 
 class Refusal(RuntimeError):
@@ -103,6 +117,17 @@ def _validate_backend(backend: Any) -> None:
         raise Refusal("backend identity is incomplete")
     if not re.fullmatch(r"[0-9a-f]{64}", identity["sha256"]):
         raise Refusal("backend source hash is malformed")
+    if (not isinstance(identity.get("source_commit"), str) or
+            not re.fullmatch(r"[0-9a-f]{40}", identity["source_commit"])):
+        raise Refusal("backend source commit pin is missing or malformed")
+    try:
+        file_hashes = json.loads(identity.get("source_file_hashes", ""))
+    except (TypeError, ValueError) as exc:
+        raise Refusal("backend source-file hash inventory is malformed") from exc
+    if not isinstance(file_hashes, dict) or any(
+            not isinstance(k, str) or not isinstance(v, str) or
+            not re.fullmatch(r"[0-9a-f]{64}", v) for k, v in file_hashes.items()):
+        raise Refusal("backend source-file hash inventory is incomplete")
     if getattr(backend, "SINGLE_DEVICE_SERIAL_SCOPE", None) is not True:
         raise Refusal("backend cannot guarantee exact single-device serial scoping before open")
 
@@ -208,7 +233,18 @@ def _load_reviewed_backend(spec: str, expected_sha256: str) -> Any:
     factory = getattr(module, object_name, None)
     if not callable(factory):
         raise Refusal("reviewed backend factory is missing")
-    return factory()
+    backend = factory()
+    source_pin = REVIEWED_BACKEND_SOURCE_PINS.get(spec)
+    if source_pin is None:
+        raise Refusal("backend has no exact reviewed source commit/file pin")
+    try:
+        pinned_hashes = json.loads(backend.BACKEND_IDENTITY["source_file_hashes"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise Refusal("backend source-file hashes are unavailable") from exc
+    if (backend.BACKEND_IDENTITY.get("source_commit") != source_pin["source_commit"] or
+            pinned_hashes != source_pin["source_file_hashes"]):
+        raise Refusal("backend source commit or reference-file hashes differ from reviewed pin")
+    return backend
 
 
 def main(argv: list[str] | None = None) -> int:

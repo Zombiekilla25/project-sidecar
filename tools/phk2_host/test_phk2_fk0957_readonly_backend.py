@@ -8,6 +8,7 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from phk2_fk0957_identity_observer import Refusal, TargetSelector
+import phk2_fk0957_identity_observer as observer
 from phk2_fk0957_readonly_backend import (
     Device, FK0957ReadOnlyBackend, SUPPORTED_TARGET_SELECTOR,
 )
@@ -76,6 +77,11 @@ class BackendTests(unittest.TestCase):
         self.assertIn("usb_selection.cpp", backend.BACKEND_IDENTITY["source_file_hashes"])
         self.assertEqual(backend.BACKEND_IDENTITY["supported_target_selector"],
                          __import__("json").dumps(SUPPORTED_TARGET_SELECTOR, sort_keys=True, separators=(",", ":")))
+
+    def test_backend_hash_mismatch_refuses(self):
+        with self.assertRaises(Refusal):
+            observer._load_reviewed_backend(
+                "phk2_fk0957_readonly_backend:create_backend", "0" * 64)
 
     def test_attempted_forbidden_methods_are_not_exposed(self):
         backend = self.backend(target())

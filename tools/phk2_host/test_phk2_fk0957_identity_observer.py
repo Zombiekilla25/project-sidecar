@@ -46,7 +46,8 @@ class FakeTransport:
 class FakeBackend:
     METHOD_ACCESS = {"select_exact": "READ_ONLY", "open_selected": "READ_ONLY",
                      "observe": "READ_ONLY", "close": "READ_ONLY"}
-    BACKEND_IDENTITY = {"name": "fake-reviewed", "version": "1", "sha256": "a" * 64}
+    BACKEND_IDENTITY = {"name": "fake-reviewed", "version": "1", "sha256": "a" * 64,
+                        "source_commit": "b" * 40, "source_file_hashes": "{}"}
     SINGLE_DEVICE_SERIAL_SCOPE = True
 
     def __init__(self, *, serial=EXPECTED_ADAPTER_SERIAL, card=EXPECTED_CARD_ID,
