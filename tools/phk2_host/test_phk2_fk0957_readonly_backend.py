@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from phk2_fk0957_identity_observer import Refusal, TargetSelector
 import phk2_fk0957_identity_observer as observer
 from phk2_fk0957_readonly_backend import (
-    Device, FK0957ReadOnlyBackend, SUPPORTED_TARGET_SELECTOR,
+    BackendRefusal, Device, FK0957ReadOnlyBackend, SUPPORTED_TARGET_SELECTOR,
     SysfsCatalog,
 )
 
@@ -49,12 +49,14 @@ class BackendTests(unittest.TestCase):
         self.assertEqual(selected.adapter_serial, "153300000957A")
 
     def test_no_match_refuses(self):
-        with self.assertRaises(Refusal):
+        with self.assertRaises(BackendRefusal) as caught:
             self.backend().select_exact(TargetSelector())
+        self.assertEqual(caught.exception.refusal_code, "NO_MATCHING_TARGET")
 
     def test_wrong_serial_refuses(self):
-        with self.assertRaises(Refusal):
+        with self.assertRaises(BackendRefusal) as caught:
             self.backend(target(serial="153300000958A")).select_exact(TargetSelector())
+        self.assertEqual(caught.exception.refusal_code, "EXPECTED_SERIAL_NOT_FOUND")
 
     def test_missing_serial_refuses(self):
         with self.assertRaises(Refusal):
@@ -64,28 +66,47 @@ class BackendTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             (root / "9-1").mkdir()
-            with self.assertRaisesRegex(Refusal, "metadata incomplete: 9-1"):
+            with self.assertRaises(BackendRefusal) as caught:
                 SysfsCatalog(root).enumerate_fk()
+            self.assertEqual(caught.exception.refusal_code, "INCOMPLETE_DESCRIPTOR_METADATA")
 
     def test_duplicate_match_refuses(self):
-        with self.assertRaises(Refusal):
+        with self.assertRaises(BackendRefusal) as caught:
             self.backend(target(), target()).select_exact(TargetSelector())
+        self.assertEqual(caught.exception.refusal_code, "MULTIPLE_MATCHING_TARGETS")
 
     def test_fk0957_plus_another_fk_refuses_as_ambiguous(self):
-        with self.assertRaises(Refusal):
+        with self.assertRaises(BackendRefusal) as caught:
             self.backend(target(), target(serial="153300000711A", usb_path="1-4.2")).select_exact(TargetSelector())
+        self.assertEqual(caught.exception.refusal_code, "UNEXPECTED_PEER_DEVICE")
 
     def test_wrong_ftdi_interface_refuses(self):
-        with self.assertRaises(Refusal):
+        with self.assertRaises(BackendRefusal) as caught:
             self.backend(target(interface_name="B", interface_number="01")).select_exact(TargetSelector())
+        self.assertEqual(caught.exception.refusal_code, "INCOMPLETE_DESCRIPTOR_METADATA")
+
+    def test_selector_and_target_mapping_refusal_codes(self):
+        bad_selector = TargetSelector(adapter_serial="bad")
+        with self.assertRaises(BackendRefusal) as caught:
+            self.backend(target()).select_exact(bad_selector)
+        self.assertEqual(caught.exception.refusal_code, "SOURCE_PROVENANCE_MISMATCH")
+        with mock.patch.dict(SUPPORTED_TARGET_SELECTOR, {"card_id": ""}):
+            with self.assertRaises(BackendRefusal) as caught:
+                self.backend(target()).select_exact(TargetSelector())
+        self.assertEqual(caught.exception.refusal_code, "TARGET_MAPPING_MISSING")
+        with mock.patch.dict(SUPPORTED_TARGET_SELECTOR, {"card_id": "153300000958"}):
+            with self.assertRaises(BackendRefusal) as caught:
+                self.backend(target()).select_exact(TargetSelector())
+        self.assertEqual(caught.exception.refusal_code, "TARGET_MAPPING_AMBIGUOUS")
 
     def test_serial_change_after_resolution_refuses_before_open(self):
         catalog = FakeCatalog([target()])
         backend = FK0957ReadOnlyBackend(catalog)
         selected = backend.select_exact(TargetSelector())
         catalog.devices[:] = [replace(target(), serial="153300000958A")]
-        with self.assertRaises(Refusal):
+        with self.assertRaises(BackendRefusal) as caught:
             backend.open_selected(selected)
+        self.assertEqual(caught.exception.refusal_code, "DESCRIPTOR_READ_FAILED")
         self.assertEqual(catalog.open_calls, [])
 
     def test_backend_hash_is_computed_and_source_pins_present(self):

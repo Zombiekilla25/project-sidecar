@@ -30,7 +30,7 @@ OBSERVER_PATH = Path(__file__).resolve()
 # authorize the legacy MPSSE implementation itself.
 _FK0957_BACKEND_SPEC = "phk2_fk0957_readonly_backend:create_backend"
 REVIEWED_BACKENDS: Mapping[str, str] = {
-    _FK0957_BACKEND_SPEC: "977511315676f531352197432547fe6a0ad74acc46bc727c19eed67a6f3097a9",
+    _FK0957_BACKEND_SPEC: "46dd16ddb2429dc63a26e052bc37facc0ce569adb18bd0f5f44ffeaeb885bf75",
 }
 REVIEWED_BACKEND_PATHS: Mapping[str, str] = {
     _FK0957_BACKEND_SPEC: "tools/phk2_host/phk2_fk0957_readonly_backend.py",

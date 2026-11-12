@@ -728,15 +728,85 @@ class RemoteOrchestratorTests(unittest.TestCase):
                   b"FK0957_DIAG BACKEND_SOURCE_VERIFIED=YES\n"
                   b"FK0957_DIAG COLLECTOR_STARTED=YES\n"
                   b"FK0957_DIAG COLLECTOR_RETURNED=YES\n"
+                  b"FK0957_DIAG COLLECTOR_REFUSAL_CODE=NO_MATCHING_TARGET\n"
                   b"FK0957_DIAG REMOTE_PHASE=COLLECTOR_RETURNED\n"
                   b"FK0957_DIAG SSH_ERROR_CLASS=COLLECTOR_REFUSED\n")
-        fake = FakeSSH(b"", stderr=stderr, returncode=2)
+        failure = remote.canonical({"status": "REFUSED", "phase": "COLLECTOR",
+            "refusal_code": "NO_MATCHING_TARGET", "cards_opened": 0,
+            "second_card_opened": False, "write_count": 0, "reset_count": 0,
+            "program_count": 0, "jtag_operations": 0}) + b"\n"
+        fake = FakeSSH(failure, stderr=stderr, returncode=2)
         with self.assertRaises(remote.Refusal) as caught:
             remote.acquire_and_sign(Path("missing-key"), known_hosts_path=self.known_hosts_path,
                 runner=fake, expected_hostname="testbox", ephemeral=True)
         self.assertIn("SSH_RETURN_CODE=2", str(caught.exception))
         self.assertIn("REMOTE_PHASE=COLLECTOR_RETURNED", str(caught.exception))
         self.assertIn("SSH_ERROR_CLASS=COLLECTOR_REFUSED", str(caught.exception))
+        self.assertIn("COLLECTOR_REFUSAL_CODE=NO_MATCHING_TARGET", str(caught.exception))
+        self.assertEqual(len(fake.calls), 1)
+
+    def test_every_collector_refusal_code_is_strictly_validated(self):
+        for code in sorted(remote.COLLECTOR_REFUSAL_CODES):
+            record = {"status": "REFUSED", "phase": "COLLECTOR", "refusal_code": code,
+                      "cards_opened": 0, "second_card_opened": False,
+                      "write_count": 0, "reset_count": 0, "program_count": 0,
+                      "jtag_operations": 0}
+            with self.subTest(code=code):
+                raw = remote.canonical(record) + b"\n"
+                self.assertEqual(remote._parse_collector_failure_envelope(raw, returncode=2), record)
+                self.assertIsNone(remote._parse_collector_failure_envelope(raw, returncode=0))
+
+    def test_collector_failure_envelopes_fail_closed_on_all_invalid_forms(self):
+        base = {"status": "REFUSED", "phase": "COLLECTOR", "refusal_code": "INTERNAL_REFUSAL",
+                "cards_opened": 0, "second_card_opened": False,
+                "write_count": 0, "reset_count": 0, "program_count": 0,
+                "jtag_operations": 0}
+        attacks = {
+            "forged_PASS": remote.canonical(unsigned()) + b"\n",
+            "unknown_code": remote.canonical(dict(base, refusal_code="EXECUTE_COMMAND")) + b"\n",
+            "extra_field": remote.canonical(dict(base, arbitrary="secret")) + b"\n",
+            "malformed_json": b"{not-json}\n",
+            "conflicting_cards": remote.canonical(dict(base, cards_opened=1)) + b"\n",
+            "write_nonzero": remote.canonical(dict(base, write_count=1)) + b"\n",
+            "reset_nonzero": remote.canonical(dict(base, reset_count=1)) + b"\n",
+            "program_nonzero": remote.canonical(dict(base, program_count=1)) + b"\n",
+            "jtag_nonzero": remote.canonical(dict(base, jtag_operations=1)) + b"\n",
+            "multiple_records": remote.canonical(base) + b"\n" + remote.canonical(base) + b"\n",
+            "partial_record": remote.canonical(base)[:-1],
+        }
+        for label, raw in attacks.items():
+            with self.subTest(label=label):
+                self.assertIsNone(remote._parse_collector_failure_envelope(raw, returncode=2))
+        self.assertIsNone(remote._parse_collector_failure_envelope(
+            remote.canonical(base) + b"\n", returncode=0))
+
+    def test_collector_failure_envelope_requires_matching_ordered_diagnostics_and_is_never_evidence(self):
+        record = {"status": "REFUSED", "phase": "COLLECTOR", "refusal_code": "DESCRIPTOR_READ_FAILED",
+                  "cards_opened": 0, "second_card_opened": False,
+                  "write_count": 0, "reset_count": 0, "program_count": 0,
+                  "jtag_operations": 0}
+        stdout = remote.canonical(record) + b"\n"
+        markers = ["REMOTE_RUNNER_STARTED", "BUNDLE_RECEIVED", "BUNDLE_HASH_VERIFIED",
+                   "MANIFEST_VERIFIED", "COLLECTOR_SOURCE_VERIFIED", "BACKEND_SOURCE_VERIFIED",
+                   "COLLECTOR_STARTED", "COLLECTOR_RETURNED"]
+        stderr = b"".join(f"FK0957_DIAG {name}=YES\n".encode() for name in markers)
+        stderr += (b"FK0957_DIAG COLLECTOR_REFUSAL_CODE=DESCRIPTOR_READ_FAILED\n"
+                   b"FK0957_DIAG REMOTE_PHASE=COLLECTOR_RETURNED\n"
+                   b"FK0957_DIAG SSH_ERROR_CLASS=COLLECTOR_REFUSED\n")
+        message = remote._remote_failure_message(2, stderr, stdout)
+        self.assertIn("COLLECTOR_REFUSAL_CODE=DESCRIPTOR_READ_FAILED", message)
+        self.assertIn("SSH_RETURN_CODE=2", message)
+        self.assertIsNone(remote._parse_collector_failure_envelope(stdout, returncode=0))
+
+        forged = remote.canonical(unsigned()) + b"\n"
+        message = remote._remote_failure_message(2, stderr, forged)
+        self.assertIn("SSH_ERROR_CLASS=UNEXPECTED_REMOTE_EXIT", message)
+        self.assertNotIn("COLLECTOR_REFUSAL_CODE=", message)
+
+        injected = stderr + b"secret=must-not-appear\n"
+        message = remote._remote_failure_message(2, injected, stdout)
+        self.assertNotIn("secret=must-not-appear", message)
+        self.assertNotIn("COLLECTOR_REFUSAL_CODE=", message)
 
     def test_forged_or_malformed_phase_markers_are_discarded(self):
         attacks = (
@@ -791,6 +861,18 @@ class RemoteOrchestratorTests(unittest.TestCase):
                     runner=fake, expected_hostname="testbox", ephemeral=True)
         self.assertIn("SSH_ERROR_CLASS=JSON_PARSE_FAILED", str(caught.exception))
         self.assertIn("REMOTE_PHASE=STDOUT_RECORD_RECEIVED", str(caught.exception))
+
+    def test_main_never_writes_a_collector_failure_to_the_evidence_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "evidence.json"
+            with mock.patch.object(remote, "acquire_and_sign",
+                                   side_effect=remote.Refusal("SSH_RETURN_CODE=2 SSH_ERROR_CLASS=COLLECTOR_REFUSED")), \
+                 mock.patch.object(remote, "write_evidence_atomic") as write_atomic:
+                with self.assertRaises(SystemExit):
+                    remote.main(["--signing-key", "unused.pem", "--known-hosts", str(self.known_hosts_path),
+                                 "--output", str(output), "--expected-hostname", "testbox", "--ephemeral"])
+            write_atomic.assert_not_called()
+            self.assertFalse(output.exists())
 
     def test_ephemeral_signing_binds_bundle_hash_commit_nonce_and_local_key_only(self):
         from cryptography.hazmat.primitives import serialization
@@ -912,7 +994,10 @@ class RemoteOrchestratorTests(unittest.TestCase):
             expected_backend_sha256=metadata["backend_source_sha256"],
             expected_nonce=metadata["session_nonce"])
         members.pop("runner.py")
-        secret = b"collection refused: private-device-detail-must-not-escape"
+        envelope = remote.canonical({"status": "REFUSED", "phase": "COLLECTOR",
+            "refusal_code": "INTERNAL_REFUSAL", "cards_opened": 0,
+            "second_card_opened": False, "write_count": 0, "reset_count": 0,
+            "program_count": 0, "jtag_operations": 0}) + b"\n"
         captured = io.StringIO()
         with contextlib.redirect_stderr(captured):
             with self.assertRaises(bundle_runner.RemoteDiagnosticError) as caught:
@@ -922,12 +1007,70 @@ class RemoteOrchestratorTests(unittest.TestCase):
                     backend_hash=metadata["backend_source_sha256"],
                     session_nonce=metadata["session_nonce"],
                     process_runner=lambda argv, **kwargs: subprocess.CompletedProcess(
-                        argv, 2, b"", secret))
+                        argv, 2, envelope, b""))
         self.assertEqual(caught.exception.phase, "COLLECTOR_RETURNED")
         self.assertEqual(caught.exception.error_class, "COLLECTOR_REFUSED")
-        self.assertNotIn(secret.decode(), captured.getvalue())
+        self.assertEqual(caught.exception.refusal_code, "INTERNAL_REFUSAL")
+        self.assertNotIn("collection refused:", captured.getvalue())
         self.assertIn("FK0957_DIAG COLLECTOR_STARTED=YES", captured.getvalue())
         self.assertIn("FK0957_DIAG COLLECTOR_RETURNED=YES", captured.getvalue())
+
+    def test_runner_accepts_each_canonical_collector_refusal_code_only_on_nonzero_exit(self):
+        import contextlib
+        raw, metadata = self.make_bundle()
+        manifest, members = bundle_tools.inspect_bundle(raw,
+            expected_bundle_sha256=metadata["bundle_sha256"],
+            expected_source_commit=metadata["source_commit"],
+            expected_collector_sha256=metadata["collector_source_sha256"],
+            expected_backend_sha256=metadata["backend_source_sha256"],
+            expected_nonce=metadata["session_nonce"])
+        members.pop("runner.py")
+        for code in sorted(bundle_runner.COLLECTOR_REFUSAL_CODES):
+            envelope = remote.canonical({"status": "REFUSED", "phase": "COLLECTOR",
+                "refusal_code": code, "cards_opened": 0, "second_card_opened": False,
+                "write_count": 0, "reset_count": 0, "program_count": 0,
+                "jtag_operations": 0}) + b"\n"
+            with self.subTest(code=code), contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(bundle_runner.RemoteDiagnosticError) as caught:
+                    bundle_runner.run_payload(manifest, members,
+                        expected_commit=metadata["source_commit"],
+                        collector_hash=metadata["collector_source_sha256"],
+                        backend_hash=metadata["backend_source_sha256"],
+                        session_nonce=metadata["session_nonce"],
+                        process_runner=lambda argv, **kwargs: subprocess.CompletedProcess(
+                            argv, 2, envelope, b""))
+                self.assertEqual(caught.exception.error_class, "COLLECTOR_REFUSED")
+                self.assertEqual(caught.exception.refusal_code, code)
+                self.assertEqual(caught.exception.failure_envelope, envelope)
+            self.assertIsNone(bundle_runner.parse_collector_failure_envelope(envelope, returncode=0))
+
+    def test_runner_rejects_forged_malformed_conflicting_and_injected_failure_records(self):
+        valid = {"status": "REFUSED", "phase": "COLLECTOR", "refusal_code": "INTERNAL_REFUSAL",
+                 "cards_opened": 0, "second_card_opened": False,
+                 "write_count": 0, "reset_count": 0, "program_count": 0,
+                 "jtag_operations": 0}
+        forged_pass = remote.canonical(unsigned()) + b"\n"
+        variants = [
+            forged_pass,
+            remote.canonical(dict(valid, refusal_code="UNKNOWN_CODE")) + b"\n",
+            remote.canonical(dict(valid, extra="value")) + b"\n",
+            b"{malformed}\n",
+            remote.canonical(dict(valid, cards_opened=1)) + b"\n",
+            remote.canonical(dict(valid, write_count=1)) + b"\n",
+            remote.canonical(dict(valid, reset_count=1)) + b"\n",
+            remote.canonical(dict(valid, program_count=1)) + b"\n",
+            remote.canonical(dict(valid, jtag_operations=1)) + b"\n",
+            remote.canonical(valid) + b"\n" + remote.canonical(valid) + b"\n",
+            remote.canonical(valid)[:-1],
+        ]
+        for index, raw in enumerate(variants):
+            with self.subTest(index=index):
+                self.assertIsNone(bundle_runner.parse_collector_failure_envelope(
+                    raw, returncode=2, stderr=b""))
+        secret = b"remote-secret-must-not-escape"
+        encoded = remote.canonical(valid) + b"\n"
+        self.assertIsNone(bundle_runner.parse_collector_failure_envelope(
+            encoded, returncode=2, stderr=secret))
 
     def test_collector_temp_replacement_cannot_change_executed_bytes(self):
         with tempfile.TemporaryDirectory() as d:

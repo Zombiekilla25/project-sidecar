@@ -42,9 +42,9 @@ EXPECTED_FIELDS = {
 }
 ZERO_FIELDS = ("WRITE_COUNT", "RESET_COUNT", "PROGRAM_COUNT", "JTAG_OPERATIONS")
 SOURCE_COMMIT_PIN = "e2feedcfde44563854a3cf41fe4526c231ed385b"
-OBSERVER_PIN = "0bed50e3fec1eedcabada9fda2f05f1d90e586c3d8b8dc5364a2c7f5a3e09f90"
+OBSERVER_PIN = "e6afea8706df6c9c9855ddf7ca86d8054b3c1fb759f06d1aca77b2431d549210"
 BUNDLE_BUILDER_PIN = "a60d4bb57fea4e9441bf9a89476e286da16e12d4b9bd9cf7c7df8178a41c3438"
-BUNDLE_RUNNER_PIN = "2e1512d577596b15c9d11be95537b6bd80e0c3aac924ff1c825a4e5afa0e0b75"
+BUNDLE_RUNNER_PIN = "f3ec77f8d92800249b210db1bd78628dd8db1979c9c4904a9118e070d32e6918"
 
 
 def _load_pinned_bundle_builder():
@@ -71,11 +71,17 @@ class Refusal(RuntimeError):
 
 
 _REMOTE_DIAG_PREFIX = "FK0957_DIAG "
+COLLECTOR_REFUSAL_CODES = frozenset({
+    "NO_MATCHING_TARGET", "MULTIPLE_MATCHING_TARGETS", "INCOMPLETE_DESCRIPTOR_METADATA",
+    "EXPECTED_SERIAL_NOT_FOUND", "UNEXPECTED_PEER_DEVICE", "BACKEND_PIN_MISMATCH",
+    "TARGET_MAPPING_MISSING", "TARGET_MAPPING_AMBIGUOUS", "SOURCE_PROVENANCE_MISMATCH",
+    "DESCRIPTOR_READ_FAILED", "INTERNAL_REFUSAL",
+})
 _REMOTE_DIAG_KEYS = {
     "REMOTE_RUNNER_STARTED", "BUNDLE_RECEIVED", "BUNDLE_HASH_VERIFIED",
     "MANIFEST_VERIFIED", "COLLECTOR_SOURCE_VERIFIED", "BACKEND_SOURCE_VERIFIED",
     "COLLECTOR_STARTED", "COLLECTOR_RETURNED", "STDOUT_RECORD_RECEIVED",
-    "REMOTE_PHASE", "SSH_ERROR_CLASS",
+    "COLLECTOR_REFUSAL_CODE", "REMOTE_PHASE", "SSH_ERROR_CLASS",
 }
 _REMOTE_PHASES = {
     "REMOTE_RUNNER_STARTED", "BUNDLE_RECEIVED", "BUNDLE_HASH_VERIFIED", "MANIFEST_VERIFIED",
@@ -96,7 +102,7 @@ _REMOTE_PROGRESS = (
 
 
 def _parse_remote_diagnostics(stderr) -> tuple[dict[str, str], bool]:
-    """Accept only bounded diagnostic records; never return or print raw stderr."""
+    """Accept only bounded ordered diagnostic records; raw stderr is never returned."""
     if not stderr:
         return {}, True
     if isinstance(stderr, str):
@@ -119,23 +125,33 @@ def _parse_remote_diagnostics(stderr) -> tuple[dict[str, str], bool]:
         key, sep, value = item.partition("=")
         if not sep or key not in _REMOTE_DIAG_KEYS or key in records:
             return {}, False
-        allowed = (value == "YES" if key not in ("REMOTE_PHASE", "SSH_ERROR_CLASS") else
-                   value in (_REMOTE_PHASES if key == "REMOTE_PHASE" else _REMOTE_ERROR_CLASSES))
+        if key == "COLLECTOR_REFUSAL_CODE":
+            allowed = value in COLLECTOR_REFUSAL_CODES
+        elif key == "REMOTE_PHASE":
+            allowed = value in _REMOTE_PHASES
+        elif key == "SSH_ERROR_CLASS":
+            allowed = value in _REMOTE_ERROR_CLASSES
+        else:
+            allowed = value == "YES"
         if not allowed:
             return {}, False
         records[key] = value
-    # Markers are useful only as a verified protocol prefix. Discard all of
-    # them if a remote stream skips/reorders phases or has an inconsistent
-    # terminal failure record; otherwise forged partial output can claim a
-    # later acquisition phase than the process reached.
     progress = [key for key in _REMOTE_PROGRESS if records.get(key) == "YES"]
-    if list(records.keys())[:len(progress)] != list(_REMOTE_PROGRESS[:len(progress)]):
-        return {}, False
     if any(records.get(key) != "YES" for key in records if key in _REMOTE_PROGRESS):
         return {}, False
+    if progress != list(_REMOTE_PROGRESS[:len(progress)]):
+        return {}, False
+    progress_in_stream = [key for key in records if key in _REMOTE_PROGRESS]
+    if progress_in_stream != progress:
+        return {}, False
+    refusal_code = records.get("COLLECTOR_REFUSAL_CODE")
     terminal = [key for key in records if key in ("REMOTE_PHASE", "SSH_ERROR_CLASS")]
     if terminal:
-        if terminal != ["REMOTE_PHASE", "SSH_ERROR_CLASS"]:
+        expected = list(progress)
+        if refusal_code is not None:
+            expected.append("COLLECTOR_REFUSAL_CODE")
+        expected.extend(("REMOTE_PHASE", "SSH_ERROR_CLASS"))
+        if list(records) != expected or terminal != ["REMOTE_PHASE", "SSH_ERROR_CLASS"]:
             return {}, False
         phase = records["REMOTE_PHASE"]
         last_progress = progress[-1] if progress else None
@@ -147,7 +163,39 @@ def _parse_remote_diagnostics(stderr) -> tuple[dict[str, str], bool]:
                 return {}, False
         elif phase != last_progress:
             return {}, False
+        is_collector_refusal = records["SSH_ERROR_CLASS"] == "COLLECTOR_REFUSED"
+        if (is_collector_refusal != (refusal_code is not None) or
+                (refusal_code is not None and
+                 (phase != "COLLECTOR_RETURNED" or last_progress != "COLLECTOR_RETURNED"))):
+            return {}, False
+    elif refusal_code is not None or list(records) != progress:
+        return {}, False
     return records, True
+
+
+def _parse_collector_failure_envelope(stdout, *, returncode: int) -> dict | None:
+    """Strictly validate a refusal envelope only on a nonzero process exit."""
+    if returncode == 0 or not isinstance(stdout, bytes) or not stdout or len(stdout) > 4096:
+        return None
+    if not stdout.endswith(b"\n") or stdout.count(b"\n") != 1:
+        return None
+    try:
+        value = json.loads(stdout.decode("utf-8"), object_pairs_hook=_unique_pairs,
+                           parse_constant=lambda _: (_ for _ in ()).throw(ValueError("nonfinite")))
+    except (UnicodeError, ValueError):
+        return None
+    fields = {"status", "phase", "refusal_code", "cards_opened", "second_card_opened",
+              "write_count", "reset_count", "program_count", "jtag_operations"}
+    if not isinstance(value, dict) or set(value) != fields or canonical(value) + b"\n" != stdout:
+        return None
+    if (value["status"] != "REFUSED" or value["phase"] != "COLLECTOR" or
+            value["refusal_code"] not in COLLECTOR_REFUSAL_CODES or
+            type(value["cards_opened"]) is not int or value["cards_opened"] != 0 or
+            type(value["second_card_opened"]) is not bool or value["second_card_opened"] is not False or
+            any(type(value[key]) is not int or value[key] != 0
+                for key in ("write_count", "reset_count", "program_count", "jtag_operations"))):
+        return None
+    return value
 
 
 def _classify_ssh_error(stderr) -> str:
@@ -160,12 +208,24 @@ def _classify_ssh_error(stderr) -> str:
     return "UNEXPECTED_REMOTE_EXIT"
 
 
-def _remote_failure_message(returncode, stderr) -> str:
+def _remote_failure_message(returncode, stderr, stdout=b"") -> str:
     records, clean = _parse_remote_diagnostics(stderr)
     error_class = records.get("SSH_ERROR_CLASS") or _classify_ssh_error(stderr)
     if not clean:
         records = {}
         error_class = _classify_ssh_error(stderr)
+    failure = _parse_collector_failure_envelope(stdout, returncode=returncode)
+    if stdout:
+        if (failure is None or not clean or
+                records.get("SSH_ERROR_CLASS") != "COLLECTOR_REFUSED" or
+                records.get("REMOTE_PHASE") != "COLLECTOR_RETURNED" or
+                records.get("COLLECTOR_REFUSAL_CODE") != failure["refusal_code"]):
+            records = {}
+            failure = None
+            error_class = "UNEXPECTED_REMOTE_EXIT"
+    elif records.get("COLLECTOR_REFUSAL_CODE") is not None:
+        records = {}
+        error_class = "UNEXPECTED_REMOTE_EXIT"
     phase = records.get("REMOTE_PHASE")
     if phase is None:
         phase = next((name for name in (
@@ -176,13 +236,14 @@ def _remote_failure_message(returncode, stderr) -> str:
             "SSH_TRANSPORT" if returncode == 255 else "REMOTE_PYTHON_STARTUP")
     summary = [f"SSH_RETURN_CODE={returncode}", f"SSH_ERROR_CLASS={error_class}",
                f"REMOTE_PHASE={phase}"]
+    if failure is not None:
+        summary.append("COLLECTOR_REFUSAL_CODE=" + failure["refusal_code"])
     for key in ("REMOTE_RUNNER_STARTED", "BUNDLE_RECEIVED", "BUNDLE_HASH_VERIFIED",
                 "MANIFEST_VERIFIED", "COLLECTOR_SOURCE_VERIFIED", "BACKEND_SOURCE_VERIFIED",
                 "COLLECTOR_STARTED", "COLLECTOR_RETURNED", "STDOUT_RECORD_RECEIVED"):
         if key in records:
             summary.append(f"{key}={records[key]}")
     return "remote unsigned acquisition failed (" + " ".join(summary) + ")"
-
 
 def canonical(value) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
@@ -645,7 +706,10 @@ def acquire_and_sign(key_path: Path, *, known_hosts_path: Path, runner: Callable
     stderr = getattr(result, "stderr", b"")
     diagnostics, clean_diagnostics = _parse_remote_diagnostics(stderr)
     if returncode != 0:
-        raise Refusal(_remote_failure_message(returncode, stderr))
+        remote_stdout = getattr(result, "stdout", b"")
+        if isinstance(remote_stdout, str):
+            remote_stdout = remote_stdout.encode("utf-8", "replace")
+        raise Refusal(_remote_failure_message(returncode, stderr, remote_stdout))
     if not clean_diagnostics or diagnostics.get("SSH_ERROR_CLASS") or diagnostics.get("REMOTE_PHASE"):
         raise Refusal(_remote_failure_message(returncode, stderr))
     raw = result.stdout if isinstance(result.stdout, bytes) else str(result.stdout).encode()
@@ -744,7 +808,7 @@ def verify_signed(evidence: dict, public_key) -> bool:
 
 # Updated to the reviewed collector bytes after implementation; prevents a
 # mutable collector replacement from being sent to the authorized host.
-COLLECTOR_PIN = "9ccf8a4370790b90628b51e8e84ba70c9dc888bac11c37c7dbfb61174e84af95"
+COLLECTOR_PIN = "af7b4fa6371516e4747bed2a0b03ec2ed2afd305c2cba94b536f0494e14ab87a"
 
 
 def main(argv=None) -> int:

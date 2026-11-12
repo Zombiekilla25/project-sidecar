@@ -20,6 +20,13 @@ from phk2_fk0957_identity_observer import (
     EXPECTED_ADAPTER_SERIAL, EXPECTED_CARD_ID, Refusal, Selection, TargetSelector,
 )
 
+
+class BackendRefusal(Refusal):
+    """A bounded refusal category for descriptor-only selection failures."""
+    def __init__(self, refusal_code: str):
+        self.refusal_code = refusal_code
+        super().__init__(refusal_code)
+
 BACKEND_VERSION = "1.0.0"
 # Origin of the reviewed descriptor-only backend. The live evidence separately
 # records the full current repository commit; sha256 below binds this exact
@@ -97,7 +104,7 @@ class SysfsCatalog:
     def enumerate_fk(self) -> list[Device]:
         devices: list[Device] = []
         if not self.root.is_dir():
-            raise Refusal("USB descriptor catalog is unavailable")
+            raise BackendRefusal("DESCRIPTOR_READ_FAILED")
         for node in sorted(self.root.iterdir()):
             if ":" in node.name or not node.is_dir():
                 continue
@@ -116,19 +123,25 @@ class SysfsCatalog:
                 # buses above 8 too. Silently skipping an unreadable candidate
                 # could hide a peer and make the remaining FK look unique.
                 if re.match(r"^[0-9]+-", node.name):
-                    raise Refusal(f"USB candidate metadata incomplete: {node.name}")
+                    raise BackendRefusal("INCOMPLETE_DESCRIPTOR_METADATA")
                 continue
             if vid != "0403" or pid != "6010" or manufacturer != "Xilinx" or product != "SQRL FK":
                 continue
             interfaces = sorted(self.root.glob(f"{node.name}:1.*"))
+            if not interfaces:
+                raise BackendRefusal("INCOMPLETE_DESCRIPTOR_METADATA")
+            found_target_interface = False
             for intf in interfaces:
                 try:
                     number = (intf / "bInterfaceNumber").read_text().strip().lower().zfill(2)
                 except OSError as exc:
-                    raise Refusal(f"FTDI interface metadata incomplete: {intf.name}") from exc
+                    raise BackendRefusal("INCOMPLETE_DESCRIPTOR_METADATA") from exc
                 if number == "00":
+                    found_target_interface = True
                     devices.append(Device(vid, pid, serial, manufacturer, product,
                                           f"{bus}-{devpath}", number, "A", str(node.resolve())))
+            if not found_target_interface:
+                raise BackendRefusal("INCOMPLETE_DESCRIPTOR_METADATA")
         return devices
 
 
@@ -142,10 +155,14 @@ class _DescriptorTransport:
 
     def observe(self) -> Mapping[str, object]:
         if self._closed:
-            raise Refusal("descriptor view is closed")
+            raise BackendRefusal("DESCRIPTOR_READ_FAILED")
         current = self._catalog.enumerate_fk()
-        if len(current) != 1 or current[0] != self._record:
-            raise Refusal("FK0957 USB identity changed or became ambiguous after resolution")
+        if not current:
+            raise BackendRefusal("NO_MATCHING_TARGET")
+        if len(current) > 1:
+            raise BackendRefusal("MULTIPLE_MATCHING_TARGETS")
+        if current[0] != self._record:
+            raise BackendRefusal("DESCRIPTOR_READ_FAILED")
         return {
             "adapter_identity": {
                 "vid": self._record.vid, "pid": self._record.pid,
@@ -191,32 +208,55 @@ class FK0957ReadOnlyBackend:
         }
 
     def select_exact(self, selector: TargetSelector) -> Selection:
-        selector.validate()
+        try:
+            selector.validate()
+        except Refusal as exc:
+            raise BackendRefusal("SOURCE_PROVENANCE_MISMATCH") from exc
         devices = self._catalog.enumerate_fk()
         # Refuse any peer FK adapter, even if the requested serial is present.
         # This avoids treating family enumeration as an implicit multi-target
         # permission and leaves no peer-selection ambiguity.
-        if len(devices) != 1:
-            raise Refusal(f"expected exactly one FK adapter in scope; found {len(devices)}")
+        if not devices:
+            raise BackendRefusal("NO_MATCHING_TARGET")
+        if len(devices) > 1:
+            expected_serial_count = sum(device.serial == selector.adapter_serial for device in devices)
+            if expected_serial_count == 1:
+                raise BackendRefusal("UNEXPECTED_PEER_DEVICE")
+            raise BackendRefusal("MULTIPLE_MATCHING_TARGETS")
         device = devices[0]
         expected = SUPPORTED_TARGET_SELECTOR
-        if (device.serial != selector.adapter_serial or device.vid != expected["vid"] or
-                device.pid != expected["pid"] or device.manufacturer != expected["manufacturer"] or
-                device.product != expected["product"] or device.interface_name != "A" or
-                device.interface_number != "00"):
-            raise Refusal("exact FK0957 FTDI interface identity mismatch")
+        if device.serial != selector.adapter_serial:
+            raise BackendRefusal("EXPECTED_SERIAL_NOT_FOUND")
+        if (device.vid != expected["vid"] or device.pid != expected["pid"] or
+                device.manufacturer != expected["manufacturer"] or device.product != expected["product"] or
+                device.interface_name != "A" or device.interface_number != "00"):
+            raise BackendRefusal("INCOMPLETE_DESCRIPTOR_METADATA")
+        if not expected.get("card_id"):
+            raise BackendRefusal("TARGET_MAPPING_MISSING")
+        if expected["card_id"] != selector.card_id:
+            raise BackendRefusal("TARGET_MAPPING_AMBIGUOUS")
         # Re-resolve immediately before returning the token; transport open is
         # deliberately absent from this backend.
         confirm = self._catalog.enumerate_fk()
+        if not confirm:
+            raise BackendRefusal("NO_MATCHING_TARGET")
+        if len(confirm) > 1:
+            raise BackendRefusal("UNEXPECTED_PEER_DEVICE")
         if confirm != [device]:
-            raise Refusal("FK0957 identity changed during pre-open resolution")
+            raise BackendRefusal("DESCRIPTOR_READ_FAILED")
         return Selection(device.serial, EXPECTED_CARD_ID, selector.serial_suffix,
                          1, True, False, device.token())
 
     def open_selected(self, selection: Selection) -> _DescriptorTransport:
         current = self._catalog.enumerate_fk()
-        if len(current) != 1 or current[0].token() != selection.endpoint_token:
-            raise Refusal("selected FTDI/interface changed before descriptor observation")
+        if not current:
+            raise BackendRefusal("NO_MATCHING_TARGET")
+        if len(current) > 1:
+            if any(device.serial == selection.adapter_serial for device in current):
+                raise BackendRefusal("UNEXPECTED_PEER_DEVICE")
+            raise BackendRefusal("MULTIPLE_MATCHING_TARGETS")
+        if current[0].token() != selection.endpoint_token:
+            raise BackendRefusal("DESCRIPTOR_READ_FAILED")
         # No USB handle, interface claim, JTAG, or MPSSE transport is opened.
         return _DescriptorTransport(current[0], self._catalog)
 

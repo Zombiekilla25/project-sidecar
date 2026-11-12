@@ -12,6 +12,16 @@ import sys
 import tempfile
 
 _DIAG_PREFIX = "FK0957_DIAG "
+COLLECTOR_REFUSAL_CODES = frozenset({
+    "NO_MATCHING_TARGET", "MULTIPLE_MATCHING_TARGETS", "INCOMPLETE_DESCRIPTOR_METADATA",
+    "EXPECTED_SERIAL_NOT_FOUND", "UNEXPECTED_PEER_DEVICE", "BACKEND_PIN_MISMATCH",
+    "TARGET_MAPPING_MISSING", "TARGET_MAPPING_AMBIGUOUS", "SOURCE_PROVENANCE_MISMATCH",
+    "DESCRIPTOR_READ_FAILED", "INTERNAL_REFUSAL",
+})
+COLLECTOR_FAILURE_FIELDS = frozenset({
+    "status", "phase", "refusal_code", "cards_opened", "second_card_opened",
+    "write_count", "reset_count", "program_count", "jtag_operations",
+})
 
 
 def _diag(name: str, value: str = "YES") -> None:
@@ -19,10 +29,38 @@ def _diag(name: str, value: str = "YES") -> None:
 
 
 class RemoteDiagnosticError(RuntimeError):
-    def __init__(self, phase: str, error_class: str):
+    def __init__(self, phase: str, error_class: str, *, refusal_code: str | None = None,
+                 failure_envelope: bytes | None = None):
         self.phase = phase
         self.error_class = error_class
+        self.refusal_code = refusal_code
+        self.failure_envelope = failure_envelope
         super().__init__(error_class)
+
+
+def parse_collector_failure_envelope(raw: bytes, *, returncode: int, stderr: bytes = b"") -> dict | None:
+    """Accept only one canonical refusal record on a nonzero, silent child exit."""
+    if returncode == 0 or stderr or not isinstance(raw, bytes) or not raw or len(raw) > 4096:
+        return None
+    if not raw.endswith(b"\n") or raw.count(b"\n") != 1:
+        return None
+    try:
+        value = json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_pairs,
+                           parse_constant=lambda _: (_ for _ in ()).throw(ValueError("nonfinite")))
+    except (UnicodeError, ValueError):
+        return None
+    if not isinstance(value, dict) or set(value) != COLLECTOR_FAILURE_FIELDS:
+        return None
+    if _canonical(value) + b"\n" != raw:
+        return None
+    if (value["status"] != "REFUSED" or value["phase"] != "COLLECTOR" or
+            value["refusal_code"] not in COLLECTOR_REFUSAL_CODES or
+            type(value["cards_opened"]) is not int or value["cards_opened"] != 0 or
+            type(value["second_card_opened"]) is not bool or value["second_card_opened"] is not False or
+            any(type(value[name]) is not int or value[name] != 0
+                for name in ("write_count", "reset_count", "program_count", "jtag_operations"))):
+        return None
+    return value
 
 
 
@@ -108,10 +146,13 @@ def run_payload(manifest: dict, members: dict[str, bytes], *, expected_commit: s
             raise RemoteDiagnosticError("COLLECTOR_STARTED", "REMOTE_PYTHON_FAILED") from exc
         _diag("COLLECTOR_RETURNED")
         if result.returncode != 0:
-            collector_refusal = (isinstance(result.stderr, bytes) and
-                                 b"collection refused:" in result.stderr[:1024].lower())
-            error_class = "COLLECTOR_REFUSED" if collector_refusal else "REMOTE_PYTHON_FAILED"
-            raise RemoteDiagnosticError("COLLECTOR_RETURNED", error_class)
+            failure = parse_collector_failure_envelope(
+                result.stdout, returncode=result.returncode, stderr=result.stderr)
+            if failure is None:
+                raise RemoteDiagnosticError("COLLECTOR_RETURNED", "REMOTE_PYTHON_FAILED")
+            raise RemoteDiagnosticError("COLLECTOR_RETURNED", "COLLECTOR_REFUSED",
+                                        refusal_code=failure["refusal_code"],
+                                        failure_envelope=result.stdout)
         if result.stderr:
             raise RemoteDiagnosticError("COLLECTOR_RETURNED", "RUNNER_FAILED")
         raw = result.stdout
@@ -125,6 +166,8 @@ def run_payload(manifest: dict, members: dict[str, bytes], *, expected_commit: s
                 raise ValueError("noncanonical JSON")
         except Exception as exc:
             raise RemoteDiagnosticError("STDOUT_RECORD_RECEIVED", "JSON_PARSE_FAILED") from exc
+        if isinstance(value, dict) and value.get("status") == "REFUSED":
+            raise RemoteDiagnosticError("STDOUT_RECORD_RECEIVED", "JSON_PARSE_FAILED")
     except Exception as exc:
         failure = exc
     try:
@@ -162,8 +205,12 @@ if __name__ == "__main__":
     try:
         main()
     except RemoteDiagnosticError as exc:
+        if exc.refusal_code is not None:
+            _diag("COLLECTOR_REFUSAL_CODE", exc.refusal_code)
         _diag("REMOTE_PHASE", exc.phase)
         _diag("SSH_ERROR_CLASS", exc.error_class)
+        if exc.failure_envelope is not None:
+            sys.stdout.buffer.write(exc.failure_envelope)
         raise SystemExit(2)
     except Exception as exc:
         _diag("REMOTE_PHASE", "RUNNER_FAILED")
