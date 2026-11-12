@@ -100,29 +100,54 @@ def _sha(data: bytes) -> str:
 
 
 def _safe_source_pin(path: Path) -> tuple[bytes, dict]:
-    path = Path(path)
-    before = path.lstat()
-    if (not stat.S_ISREG(before.st_mode) or stat.S_ISLNK(before.st_mode) or
-            before.st_uid != os.getuid() or before.st_nlink != 1 or
-            before.st_mode & 0o177 or not before.st_mode & 0o400):
-        raise RuntimeError("known_hosts must be owner-only, regular, and singly linked")
-    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0))
+    fd, data, identity = orchestrator._read_pinned_known_hosts(Path(path))
     try:
-        opened = os.fstat(fd)
-        if (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino):
-            raise RuntimeError("known_hosts changed during diagnostic validation")
-        chunks = []
-        while True:
-            block = os.read(fd, 65536)
-            if not block:
-                break
-            chunks.append(block)
-            if sum(map(len, chunks)) > 1024 * 1024:
-                raise RuntimeError("known_hosts is oversized")
-        data = b"".join(chunks)
+        info = os.fstat(fd)
+        return data, {**identity, "device": info.st_dev, "inode": info.st_ino}
     finally:
         os.close(fd)
-    return data, orchestrator._parse_pinned_host_key(data)
+
+
+def _open_private_temp_dir(path: Path) -> tuple[int, tuple[int, int]]:
+    path = Path(path)
+    if not path.is_absolute() or path.parent != Path("/tmp") or not path.name.startswith("fk0957-stage-pin-"):
+        raise RuntimeError("temporary pin directory has an unsafe path")
+    parent = Path("/tmp").lstat()
+    if (stat.S_ISLNK(parent.st_mode) or not stat.S_ISDIR(parent.st_mode) or
+            parent.st_uid not in (0, os.getuid()) or not parent.st_mode & stat.S_ISVTX):
+        raise RuntimeError("temporary pin parent is not a protected sticky directory")
+    before = path.lstat()
+    if (stat.S_ISLNK(before.st_mode) or not stat.S_ISDIR(before.st_mode) or
+            before.st_uid != os.getuid() or stat.S_IMODE(before.st_mode) != 0o700):
+        raise RuntimeError("temporary pin directory is not private and owner-controlled")
+    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
+    fd = os.open(path, flags)
+    opened = os.fstat(fd)
+    identity = (opened.st_dev, opened.st_ino)
+    if (identity != (before.st_dev, before.st_ino) or opened.st_uid != os.getuid() or
+            stat.S_IMODE(opened.st_mode) != 0o700):
+        os.close(fd)
+        raise RuntimeError("temporary pin directory changed during validation")
+    return fd, identity
+
+
+def _write_private_pin(dir_fd: int, data: bytes) -> tuple[int, int]:
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
+    fd = os.open("known_hosts", flags, 0o600, dir_fd=dir_fd)
+    try:
+        offset = 0
+        while offset < len(data):
+            offset += os.write(fd, data[offset:])
+        os.fsync(fd)
+        info = os.fstat(fd)
+        path_info = os.stat("known_hosts", dir_fd=dir_fd, follow_symlinks=False)
+        if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != os.getuid() or
+                stat.S_IMODE(info.st_mode) != 0o600 or
+                (info.st_dev, info.st_ino) != (path_info.st_dev, path_info.st_ino)):
+            raise RuntimeError("temporary known_hosts copy is not a private single-link file")
+        return info.st_dev, info.st_ino
+    finally:
+        os.close(fd)
 
 
 def remote_command(*, bundle_sha256: str, source_commit: str, collector_sha256: str,
@@ -178,7 +203,8 @@ def _sanitize(text: bytes) -> str:
     return re.sub(r"[^A-Za-z0-9 ._:/@=-]", "?", decoded)[:240]
 
 
-def run_diagnostic(known_hosts_path: Path, *, runner=subprocess.run, output=None) -> dict:
+def run_diagnostic(known_hosts_path: Path, *, runner=subprocess.run, output=None,
+                   temp_factory=tempfile.TemporaryDirectory) -> dict:
     emit = print if output is None else lambda value: print(value, file=output)
     emit("COLLECTOR_INVOKED=NO")
     emit("USB_ACCESS=NO")
@@ -202,16 +228,24 @@ def run_diagnostic(known_hosts_path: Path, *, runner=subprocess.run, output=None
     emit("BUNDLE_CONSTRUCTED=YES")
     emit("BUNDLE_SHA256=" + metadata["bundle_sha256"])
     source_bytes, source_identity = _safe_source_pin(Path(known_hosts_path))
-    temp = tempfile.TemporaryDirectory(prefix="fk0957-stage-pin-", dir="/tmp")
+    temp = temp_factory(prefix="fk0957-stage-pin-", dir="/tmp")
+    successful_result = None
     try:
-        os.chmod(temp.name, 0o700)
+        temp_fd, temp_dir_identity = _open_private_temp_dir(Path(temp.name))
         safe_path = Path(temp.name) / "known_hosts"
-        safe_path.write_bytes(source_bytes)
-        os.chmod(safe_path, 0o600)
+        try:
+            copy_identity = _write_private_pin(temp_fd, source_bytes)
+        finally:
+            os.close(temp_fd)
         check_fd, copied, identity = orchestrator._read_pinned_known_hosts(safe_path)
-        os.close(check_fd)
-        if copied != source_bytes or identity != source_identity:
-            raise RuntimeError("protected host-key copy differs from the supplied pin")
+        try:
+            check_info = os.fstat(check_fd)
+            if (copied != source_bytes or identity != {k: v for k, v in source_identity.items()
+                                                       if k not in ("device", "inode")} or
+                    (check_info.st_dev, check_info.st_ino) != copy_identity):
+                raise RuntimeError("protected host-key copy differs from the supplied pin")
+        finally:
+            os.close(check_fd)
         remote = remote_command(
             bundle_sha256=metadata["bundle_sha256"],
             source_commit=metadata["source_commit"],
@@ -229,6 +263,19 @@ def run_diagnostic(known_hosts_path: Path, *, runner=subprocess.run, output=None
         source_check, current_identity = _safe_source_pin(Path(known_hosts_path))
         if source_check != source_bytes or current_identity != source_identity:
             raise RuntimeError("supplied known_hosts changed before diagnostic SSH")
+        temp_check_fd, current_temp_dir_identity = _open_private_temp_dir(Path(temp.name))
+        try:
+            check_fd, copied, identity = orchestrator._read_pinned_known_hosts(safe_path)
+            try:
+                check_info = os.fstat(check_fd)
+                if (current_temp_dir_identity != temp_dir_identity or copied != source_bytes or
+                        identity != {k: v for k, v in source_identity.items() if k not in ("device", "inode")} or
+                        (check_info.st_dev, check_info.st_ino) != copy_identity):
+                    raise RuntimeError("protected host-key copy changed before diagnostic SSH")
+            finally:
+                os.close(check_fd)
+        finally:
+            os.close(temp_check_fd)
         env = {"PATH": "/usr/bin:/bin", "HOME": "/nonexistent", "LC_ALL": "C", "LANG": "C"}
         try:
             result = runner(cmd, input=bundle, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -278,22 +325,24 @@ def run_diagnostic(known_hosts_path: Path, *, runner=subprocess.run, output=None
                    all(phases.get(k) == ("NO" if k in ("COLLECTOR_INVOKED", "USB_ACCESS", "HARDWARE_ACCESS") else "YES")
                        for k in expected))
         if success:
-            emit("FAILURE_PHASE=none")
-            return {"failure_phase": "none", "ssh_rc": result.returncode,
+            successful_result = {"failure_phase": "none", "ssh_rc": result.returncode,
+                                 "bundle_sha256": metadata["bundle_sha256"], "phases": phases}
+        else:
+            if failure_phase is None and result.returncode != 0 and phases.get("REMOTE_RUNNER_STARTED") != "YES":
+                failure_phase = "SSH_TRANSPORT"
+            if failure_phase is None:
+                sequence = ("REMOTE_RUNNER_STARTED", "REMOTE_BUNDLE_RECEIVED",
+                            "REMOTE_BUNDLE_HASH_VERIFIED", "REMOTE_BUNDLE_MANIFEST_VERIFIED", "COLLECTOR_SOURCE_VERIFIED",
+                            "BACKEND_SOURCE_VERIFIED", "OBSERVER_SOURCE_VERIFIED", "RUNNER_SOURCE_VERIFIED")
+                failure_phase = next((n for n in sequence if phases.get(n) != "YES"),
+                                     "REMOTE_DIAGNOSTIC_RESPONSE")
+            emit("FAILURE_PHASE=" + failure_phase)
+            return {"failure_phase": failure_phase, "ssh_rc": result.returncode,
                     "bundle_sha256": metadata["bundle_sha256"], "phases": phases}
-        if failure_phase is None and result.returncode != 0 and phases.get("REMOTE_RUNNER_STARTED") != "YES":
-            failure_phase = "SSH_TRANSPORT"
-        if failure_phase is None:
-            sequence = ("REMOTE_RUNNER_STARTED", "REMOTE_BUNDLE_RECEIVED",
-                        "REMOTE_BUNDLE_HASH_VERIFIED", "REMOTE_BUNDLE_MANIFEST_VERIFIED", "COLLECTOR_SOURCE_VERIFIED",
-                        "BACKEND_SOURCE_VERIFIED", "OBSERVER_SOURCE_VERIFIED", "RUNNER_SOURCE_VERIFIED")
-            failure_phase = next((n for n in sequence if phases.get(n) != "YES"),
-                                 "REMOTE_DIAGNOSTIC_RESPONSE")
-        emit("FAILURE_PHASE=" + failure_phase)
-        return {"failure_phase": failure_phase, "ssh_rc": result.returncode,
-                "bundle_sha256": metadata["bundle_sha256"], "phases": phases}
     finally:
         temp.cleanup()
+    emit("FAILURE_PHASE=none")
+    return successful_result
 
 
 def main(argv=None) -> int:
