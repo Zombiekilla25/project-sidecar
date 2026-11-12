@@ -1,0 +1,202 @@
+{
+  "schema": "PHK2-FK0957-CASE-B-QUALIFICATION-SPEC-v1",
+  "status": "SPECIFICATION_TEMPLATE_ONLY_NOT_APPROVED_NOT_EXECUTABLE",
+  "case": {
+    "case_id": {
+      "value": "33",
+      "classification": "KNOWN_FROM_EXISTING_EVIDENCE"
+    },
+    "matrix_name": {
+      "value": "clock_interaction_no_unsafe",
+      "classification": "KNOWN_FROM_EXISTING_EVIDENCE"
+    },
+    "matrix_result": {
+      "value": "UNRESOLVED",
+      "classification": "KNOWN_FROM_EXISTING_EVIDENCE"
+    },
+    "matrix_detail": {
+      "value": "bscan_tck rise-fall Partial Common Node Timed (unsafe)",
+      "classification": "KNOWN_FROM_EXISTING_EVIDENCE"
+    },
+    "source_record": {
+      "commit": "6ad11b72fc62a452195245984b69f236d4d3b315",
+      "qualification_record_sha256": "25b875c707aaa1ee43ec1da064b3fec0b2297aed87be4aacb2c7c2260b26c90e",
+      "matrix_sha256": "286209989a3984f9d20243df645621e29cbbeaa3b8508f4a9ab1029afefedd94",
+      "classification": "KNOWN_FROM_EXISTING_EVIDENCE"
+    }
+  },
+  "design_binding": {
+    "source_commit": "5f65f0ec8900ecaae3c498223bef0efb2542c047",
+    "source_tree_hash": "dcc879775d80e07ab41bc9af955a29a3fd8ba6f9",
+    "routed_dcp_sha256": "0bd52785662a3c38f68667f85c75acdef33c109502794610669ab8e1cf61e9af",
+    "routed_evidence_commit": "e89810b832ee7c1909bd92c449f33abb26b6882e",
+    "target_part": "xcvu33p-fsvh2104-2-e",
+    "qualification_status": "38/40; Case B unresolved",
+    "classification": "KNOWN_FROM_EXISTING_EVIDENCE",
+    "required_physical_image_identity": {
+      "expected_bitstream_or_loaded_image_sha256": null,
+      "observed_loaded_image_sha256": null,
+      "classification": "REQUIRES_QUALIFICATION_OWNER_APPROVAL_AND_PHYSICAL_OBSERVATION",
+      "note": "The routed DCP hash is known but is not a bitstream or proof of the image currently loaded on FK0957."
+    }
+  },
+  "target_identity": {
+    "historical_expected_tuple": {
+      "canary_name": "FK0957",
+      "board_id": "153300000957",
+      "jtag_adapter_serial": "153300000957A",
+      "supplemental_usb_serial": "153300000957",
+      "fpga_dna": "4000000001295d813c80a445",
+      "idcode": "04b69093",
+      "target_part": "xcvu33p-fsvh2104-2-e",
+      "classification": "KNOWN_FROM_EXISTING_EVIDENCE"
+    },
+    "fresh_signed_observation": {
+      "board_id": null,
+      "jtag_adapter_serial": null,
+      "supplemental_usb_serial_if_available": null,
+      "jtag_chain_topology": null,
+      "idcode": null,
+      "fpga_dna": null,
+      "target_part": null,
+      "loaded_image_sha256": null,
+      "bridge_elf_sha256": null,
+      "bridge_build_id": null,
+      "service_config_sha256": null,
+      "classification": "REQUIRES_PHYSICAL_OBSERVATION"
+    },
+    "one_card_scope": 1
+  },
+  "historical_design_observations": {
+    "bscan_instances": [
+      {"instance": "u_user1", "jtag_chain": 1, "role_in_source": "result FIFO read/output path"},
+      {"instance": "u_user2", "jtag_chain": 2, "role_in_source": "command/input path; shifted bytes can reach decoder/core"},
+      {"instance": "u_user3", "jtag_chain": 3, "role_in_source": "synchronized status shift output path"}
+    ],
+    "user3_source_behavior": "Six status flags are synchronized through two stages, loaded into the low bits of a 32-bit shift register on capture, shifted toward TDO, and TDI is not consumed by this source path.",
+    "classification": "KNOWN_FROM_EXISTING_EVIDENCE_SOURCE_LEVEL_ONLY",
+    "qualification_limit": "These RTL facts do not establish loaded-image identity, instruction opcode/register encoding, real-device response, non-mutation in the deployed image, or approval of a physical test."
+  },
+  "tap_procedure": {
+    "initial_tap_state": {
+      "value": null,
+      "classification": "REQUIRES_QUALIFICATION_OWNER_APPROVAL"
+    },
+    "initialization_or_reset_sequence": {
+      "tms_vector": null,
+      "cycle_count": null,
+      "expected_transition_table": null,
+      "classification": "REQUIRES_QUALIFICATION_OWNER_APPROVAL"
+    },
+    "instruction_and_register_selection": {
+      "selected_bscan_chain": null,
+      "instruction_name": null,
+      "instruction_register_width_bits": null,
+      "instruction_opcode_bits_lsb_first": null,
+      "selected_data_register": null,
+      "classification": "REQUIRES_QUALIFICATION_OWNER_APPROVAL"
+    },
+    "complete_sequence": {
+      "tms_bits_lsb_first": null,
+      "tdi_bits_lsb_first": null,
+      "cycle_count": null,
+      "expected_tap_transition_per_cycle": null,
+      "expected_initial_state": null,
+      "expected_final_state": null,
+      "classification": "REQUIRES_QUALIFICATION_OWNER_APPROVAL"
+    },
+    "expected_response": {
+      "tdo_bits_or_observation_value": null,
+      "bit_order_and_capture_edge": null,
+      "expected_state_transition": null,
+      "permitted_variation_or_mask": null,
+      "acceptance_rule": null,
+      "source_of_expected_values": null,
+      "classification": "REQUIRES_QUALIFICATION_OWNER_APPROVAL_AND_PHYSICAL_OBSERVATION",
+      "note": "No expected BSCAN response or permitted variation is supplied by the existing Case B matrix. Do not substitute a simulated value or infer a literal from RTL."
+    },
+    "read_only_safety_proof": {
+      "no_command_or_workload_mutation": null,
+      "no_fifo_consumption_or_state_change_outside_declared_observation": null,
+      "no_configuration_or_programming_instruction": null,
+      "classification": "REQUIRES_QUALIFICATION_OWNER_APPROVAL"
+    }
+  },
+  "physical_correlation": {
+    "observation_method_and_probe_points": null,
+    "adapter_tck_measurement_point": null,
+    "bscan_event_or_response_measurement_point": null,
+    "shared_capture_timebase_and_sync_method": null,
+    "capture_window_and_trigger": null,
+    "expected_tck_to_bscan_relationship": null,
+    "correlation_acceptance_thresholds": null,
+    "instrument_identity_calibration_and_uncertainty": null,
+    "raw_capture_format": null,
+    "classification": "REQUIRES_QUALIFICATION_OWNER_APPROVAL_AND_PHYSICAL_OBSERVATION"
+  },
+  "authorization_and_session": {
+    "operation": "PHK2_PHYSICAL_TCK_CLOSURE_CASE_B",
+    "card_scope": 1,
+    "case_id": "33",
+    "source_tree_and_route_hashes": "must bind design_binding exactly",
+    "loaded_image_sha256": null,
+    "bridge_elf_and_service_config_hashes": null,
+    "approved_tap_method_hash": null,
+    "capture_backend_hash": null,
+    "operator_id": null,
+    "authorization_id": null,
+    "issued_utc": null,
+    "expires_utc": null,
+    "session_nonce": null,
+    "ed25519_trust_root_id_and_sha256": null,
+    "classification": "REQUIRES_QUALIFICATION_OWNER_APPROVAL"
+  },
+  "replay_and_provenance": {
+    "requirement": "Reject stale, replayed, cross-session, simulated, unsigned, or mismatched captures.",
+    "software_binding": "Current validators require trusted-role Ed25519 signatures, fresh capture time, exact Case B ID and v5.1 qualification-record hash, current session nonce, nonempty raw bytes with matching SHA256, and hash-matched physical clock-correlation bytes.",
+    "current_bscan_gate": "The immutable Case B binding must contain an approved observation schema and exact expected observation; those fields are absent and the validator refuses.",
+    "current_trust_root": null,
+    "current_capture_backend": null,
+    "classification": "KNOWN_FROM_EXISTING_EVIDENCE_SOFTWARE_GATES; TRUST_ROOT_AND_BACKEND_REQUIRE_APPROVAL"
+  },
+  "raw_evidence_and_cryptographic_provenance": {
+    "raw_tap_transcript_schema_and_version": null,
+    "raw_bscan_observation_format": null,
+    "raw_physical_tck_capture_format": null,
+    "canonicalization_and_hash_algorithm": "SHA-256 for evidence artifact hashes; current signed wrappers use canonical JSON and Ed25519",
+    "required_signature_roles": ["authorization", "identity", "peer", "capture"],
+    "trusted_key_store_sha256": null,
+    "hash_chain_journal_required": true,
+    "native_capture_and_derived_summary_linkage": null,
+    "synthetic_fixture_promotes": false,
+    "classification": "KNOWN_FROM_EXISTING_EVIDENCE_AND_REQUIRES_OWNER_APPROVED_FORMAT"
+  },
+  "abort_and_recovery": {
+    "known_abort_conditions": [
+      "Any card, adapter, chain, image, route, bridge, authorization, peer, or hash mismatch.",
+      "Expired authorization, changed session nonce, stale or replayed evidence, or signature/provenance failure.",
+      "Unexpected TAP state, instruction, TDO/observation value, transition, clock count, or timing/correlation result.",
+      "Any workload/image mutation, disconnect, extra client, journal/capture failure, or uncertain idle/close state."
+    ],
+    "retries_or_reconnects": false,
+    "fpga_programming": false,
+    "workload_change": false,
+    "recovery_rule": "Stop immediately; do not retry, reconnect, reset, program, or change workload. Preserve lock and evidence and use a separately authorized recovery owner if final state is uncertain.",
+    "case_specific_thresholds": null,
+    "classification": "KNOWN_FROM_EXISTING_RUNBOOK; CASE_SPECIFIC_LIMITS_REQUIRE_QUALIFICATION_OWNER_APPROVAL"
+  },
+  "software_compatibility_gate": {
+    "case_b_method_schema": "ops/phk2/PHK2_FK0957_CASE_B_METHOD_SCHEMA.json defines a future owner-approved method record; it contains no TAP vector or expected response.",
+    "case_b_method_parser": "tools/phk2_host/phk2_case_b_method.py validates structural completeness, TAP FSM consistency, immutable v5.1 binding, owner signature, target/session/authorization binding, and capture provenance. No method is currently pinned, so validation refuses.",
+    "approved_bscan_schema_present_in_immutable_binding": false,
+    "approved_expected_observation_present_in_immutable_binding": false,
+    "required_before_execution": "Qualification owner must approve and pin the exact method hash and expected observation in the immutable Case B record; then independently review tests for that exact sequence and response. Keep physical execution disabled until then.",
+    "classification": "KNOWN_FROM_EXISTING_SOFTWARE"
+  },
+  "execution": {
+    "case_b_status": "UNQUALIFIED",
+    "physical_execution_authorized": false,
+    "hardware_accessed": false,
+    "expected_values_fabricated": false
+  }
+}

@@ -691,8 +691,11 @@ def validate_physical_capture_package(*, trusted_keys: dict[str, dict[str, Any]]
                                       waveform_wrapper: dict[str, Any], tap_wrapper: dict[str, Any],
                                       binding: V51Binding, expected_idcode: str,
                                       expected_session_nonce: str,
+                                      case_b_method_record: dict[str, Any] | None = None,
+                                      authorization_payload: dict[str, Any] | None = None,
+                                      expected_target_identity: dict[str, Any] | None = None,
                                       now: datetime | None = None) -> dict[str, Any]:
-    """Parse both signed raw captures; no producer PASS field is trusted."""
+    """Parse signed captures against immutable qualification and approved method."""
     wave_payload, wave_raw = validate_signed_capture(
         waveform_wrapper, trusted_keys, expected_role="capture", expected_case_id=CASE_A_ID,
         expected_record_sha256=binding.qualification_record_sha256,
@@ -705,18 +708,14 @@ def validate_physical_capture_package(*, trusted_keys: dict[str, dict[str, Any]]
         tap_wrapper, trusted_keys, expected_role="capture", expected_case_id=CASE_B_ID,
         expected_record_sha256=binding.qualification_record_sha256,
         expected_session_nonce=expected_session_nonce, now=now)
-    tap = parse_tap_transcript(tap_raw, expected_idcode)
-    correlation_hash = tap_payload.get("physical_clock_correlation_sha256")
-    try:
-        correlation_artifact = base64.b64decode(tap_payload["physical_clock_correlation_b64"], validate=True)
-    except (KeyError, TypeError, ValueError) as exc:
-        raise Refusal("Case B correlation artifact is missing or malformed") from exc
-    if (not correlation_artifact or not isinstance(correlation_hash, str) or
-            not re.fullmatch(r"[0-9a-f]{64}", correlation_hash) or
-            _sha(correlation_artifact) != correlation_hash):
-        raise Refusal("Case B lacks hash-verified physical TCK/BSCAN clock correlation evidence")
-    if not binding.case_b.get("approved_bscan_observation_schema") or not binding.case_b.get("approved_expected_observation"):
-        raise Refusal("Case B has no immutable matrix-approved BSCAN observation method")
+    from phk2_case_b_method import (parse_case_b_transcript,
+                                    validate_approved_case_b_method_record)
+    validated_method = validate_approved_case_b_method_record(
+        case_b_method_record, binding=binding, trusted_keys=trusted_keys,
+        expected_target_identity=expected_target_identity or {},
+        authorization_payload=authorization_payload or {}, session_nonce=expected_session_nonce, now=now)
+    tap = parse_case_b_transcript(tap_raw, tap_payload, validated_method,
+                                  session_nonce=expected_session_nonce)
     if (tap_payload.get("fpga_programming") is not False or
             tap_payload.get("workload_changed") is not False or
             tap_payload.get("settck_used_as_measurement") is not False):
@@ -888,7 +887,8 @@ def master_pretransport_gate(*, repo: str | Path, closure_manifest: dict[str, An
                              session_nonce: str, qualification_hash: str,
                              bridge_sha256: str, endpoint_target_identity_sha256: str,
                              candidate_image_sha256: str,
-                             state_revalidator: Callable[[], dict[str, str]]) -> Any:
+                             state_revalidator: Callable[[], dict[str, str]],
+                             signed_case_b_method_record: dict[str, Any] | None = None) -> Any:
     if (not isinstance(trusted_keys, TrustedKeyStore) or PINNED_TRUST_STORE_SHA256 is None or
             trusted_keys.verified_sha256 != PINNED_TRUST_STORE_SHA256):
         raise Refusal("no operator-approved cryptographic trust root is pinned for physical authorization")
@@ -1193,7 +1193,18 @@ def master_pretransport_gate(*, repo: str | Path, closure_manifest: dict[str, An
                 result = validate_physical_capture_package(
                     trusted_keys=trusted_keys, waveform_wrapper=self.__case_a_wrapper,
                     tap_wrapper=wrapper, binding=binding, expected_idcode=binding.expected_idcode,
-                    expected_session_nonce=self.__claims["session_nonce"])
+                    expected_session_nonce=self.__claims["session_nonce"],
+                    case_b_method_record=signed_case_b_method_record,
+                    authorization_payload=auth,
+                    expected_target_identity={
+                        "card_id": card_payload.get("observed_card_id"),
+                        "adapter_id": card_payload.get("observed_adapter_id"),
+                        "fpga_dna": card_payload.get("observed_fpga_dna"),
+                        "idcode": card_payload.get("observed_idcode"),
+                        "target_part": card_payload.get("observed_target_part"),
+                        "jtag_chain_topology": card_payload.get("observed_jtag_chain_topology"),
+                        "loaded_image_sha256": candidate_image_sha256,
+                    })
                 self.__case_b_complete = True
                 self.__journal.append("CASE_B_CAPTURED", {
                     "case_id": CASE_B_ID,

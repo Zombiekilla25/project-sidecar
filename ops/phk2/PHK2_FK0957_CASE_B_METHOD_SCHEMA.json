@@ -1,0 +1,548 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:phk2:fk0957:case-b:approved-method:v1",
+  "title": "Owner-approved PHK2 FK0957 Case-B BSCAN method",
+  "description": "Structural contract only. It contains no approved method, TAP vector, response, or default. A signed method must also be pinned by the immutable Case-B qualification binding.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "provenance",
+    "synthetic_fixture",
+    "approval_status",
+    "case_id",
+    "qualification_record_sha256",
+    "method_sha256",
+    "approved_utc",
+    "expires_utc",
+    "method"
+  ],
+  "properties": {
+    "schema": {
+      "const": "PHK2-FK0957-CASE-B-APPROVED-METHOD-v1"
+    },
+    "provenance": {
+      "const": "QUALIFICATION_OWNER_APPROVED"
+    },
+    "synthetic_fixture": {
+      "const": false
+    },
+    "approval_status": {
+      "const": "APPROVED"
+    },
+    "case_id": {
+      "const": "33"
+    },
+    "qualification_record_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "method_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "approved_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "method": {
+      "$ref": "#/$defs/method"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "bitVector": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "integer",
+        "enum": [
+          0,
+          1
+        ]
+      }
+    },
+    "tapState": {
+      "enum": [
+        "TEST_LOGIC_RESET",
+        "RUN_TEST_IDLE",
+        "SELECT_DR_SCAN",
+        "CAPTURE_DR",
+        "SHIFT_DR",
+        "EXIT1_DR",
+        "PAUSE_DR",
+        "EXIT2_DR",
+        "UPDATE_DR",
+        "SELECT_IR_SCAN",
+        "CAPTURE_IR",
+        "SHIFT_IR",
+        "EXIT1_IR",
+        "PAUSE_IR",
+        "EXIT2_IR",
+        "UPDATE_IR"
+      ]
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from",
+        "tms",
+        "to"
+      ],
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/tapState"
+        },
+        "tms": {
+          "type": "integer",
+          "enum": [
+            0,
+            1
+          ]
+        },
+        "to": {
+          "$ref": "#/$defs/tapState"
+        }
+      }
+    },
+    "method": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "case_id",
+        "qualification_record_sha256",
+        "source_commit",
+        "source_tree_hash",
+        "routed_dcp_sha256",
+        "loaded_image_sha256",
+        "target_part",
+        "target_identity",
+        "tap",
+        "read_only",
+        "read_only_proof",
+        "physical_tck_correlation",
+        "acquisition_provenance",
+        "authorization_binding",
+        "validity",
+        "evidence_contract"
+      ],
+      "properties": {
+        "schema": {
+          "const": "PHK2-FK0957-CASE-B-METHOD-v1"
+        },
+        "case_id": {
+          "const": "33"
+        },
+        "qualification_record_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "source_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "source_tree_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "routed_dcp_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "loaded_image_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "target_part": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "card_id",
+            "adapter_id",
+            "fpga_dna",
+            "idcode",
+            "target_part",
+            "jtag_chain_topology",
+            "loaded_image_sha256"
+          ],
+          "properties": {
+            "card_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "adapter_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "fpga_dna": {
+              "type": "string",
+              "minLength": 1
+            },
+            "idcode": {
+              "type": "string",
+              "minLength": 1
+            },
+            "target_part": {
+              "type": "string",
+              "minLength": 1
+            },
+            "jtag_chain_topology": {
+              "type": "string",
+              "minLength": 1
+            },
+            "loaded_image_sha256": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        },
+        "tap": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "initial_state",
+            "reset_procedure",
+            "selection",
+            "tms_vector",
+            "tdi_vector",
+            "cycle_count",
+            "expected_transitions",
+            "final_state",
+            "expected_response"
+          ],
+          "properties": {
+            "initial_state": {
+              "$ref": "#/$defs/tapState"
+            },
+            "reset_procedure": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "description",
+                "tms_vector",
+                "tdi_vector",
+                "cycle_count",
+                "expected_transitions",
+                "final_state"
+              ],
+              "properties": {
+                "description": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "tms_vector": {
+                  "$ref": "#/$defs/bitVector"
+                },
+                "tdi_vector": {
+                  "$ref": "#/$defs/bitVector"
+                },
+                "cycle_count": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "expected_transitions": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "$ref": "#/$defs/transition"
+                  }
+                },
+                "final_state": {
+                  "$ref": "#/$defs/tapState"
+                }
+              }
+            },
+            "selection": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "bscan_chain",
+                "instruction_name",
+                "ir_width_bits",
+                "ir_opcode_bits_lsb_first",
+                "data_register_name"
+              ],
+              "properties": {
+                "bscan_chain": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ]
+                },
+                "instruction_name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "ir_width_bits": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "ir_opcode_bits_lsb_first": {
+                  "$ref": "#/$defs/bitVector"
+                },
+                "data_register_name": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "tms_vector": {
+              "$ref": "#/$defs/bitVector"
+            },
+            "tdi_vector": {
+              "$ref": "#/$defs/bitVector"
+            },
+            "cycle_count": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "expected_transitions": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/transition"
+              }
+            },
+            "final_state": {
+              "$ref": "#/$defs/tapState"
+            },
+            "expected_response": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "tdo_bits",
+                "mask_bits",
+                "bit_order",
+                "sample_edge",
+                "permitted_variation"
+              ],
+              "properties": {
+                "tdo_bits": {
+                  "$ref": "#/$defs/bitVector"
+                },
+                "mask_bits": {
+                  "$ref": "#/$defs/bitVector"
+                },
+                "bit_order": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sample_edge": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "permitted_variation": {
+                  "type": [
+                    "object",
+                    "null"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "read_only": {
+          "const": true
+        },
+        "read_only_proof": {
+          "type": "object",
+          "required": [
+            "reference",
+            "sha256",
+            "approval_id"
+          ],
+          "properties": {
+            "reference": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "approval_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "physical_tck_correlation": {
+          "type": "object",
+          "required": [
+            "method",
+            "tck_measurement_point",
+            "bscan_observation_point",
+            "shared_capture_timebase",
+            "capture_window",
+            "acceptance_criteria"
+          ],
+          "properties": {
+            "method": {
+              "type": "string",
+              "minLength": 1
+            },
+            "tck_measurement_point": {
+              "type": "string",
+              "minLength": 1
+            },
+            "bscan_observation_point": {
+              "type": "string",
+              "minLength": 1
+            },
+            "shared_capture_timebase": {
+              "type": "string",
+              "minLength": 1
+            },
+            "capture_window": {
+              "type": "string",
+              "minLength": 1
+            },
+            "acceptance_criteria": {
+              "type": "object",
+              "minProperties": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "acquisition_provenance": {
+          "type": "object",
+          "required": [
+            "capture_backend_sha256",
+            "capture_software_identity",
+            "instrument_identity",
+            "calibration_identity",
+            "native_capture_format",
+            "signing_role"
+          ],
+          "properties": {
+            "capture_backend_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "capture_software_identity": {
+              "type": "string",
+              "minLength": 1
+            },
+            "instrument_identity": {
+              "type": "string",
+              "minLength": 1
+            },
+            "calibration_identity": {
+              "type": "string",
+              "minLength": 1
+            },
+            "native_capture_format": {
+              "type": "string",
+              "minLength": 1
+            },
+            "signing_role": {
+              "const": "capture"
+            }
+          },
+          "additionalProperties": false
+        },
+        "authorization_binding": {
+          "type": "object",
+          "required": [
+            "operation",
+            "card_scope",
+            "case_id",
+            "qualification_record_sha256",
+            "loaded_image_sha256",
+            "bridge_sha256",
+            "method_sha256",
+            "trust_root_sha256"
+          ],
+          "properties": {
+            "operation": {
+              "const": "PHK2_PHYSICAL_TCK_CLOSURE_CASE_B"
+            },
+            "card_scope": {
+              "const": 1
+            },
+            "case_id": {
+              "const": "33"
+            },
+            "qualification_record_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "loaded_image_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "bridge_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "method_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "trust_root_sha256": {
+              "$ref": "#/$defs/sha256"
+            }
+          },
+          "additionalProperties": false
+        },
+        "validity": {
+          "type": "object",
+          "required": [
+            "issued_utc",
+            "expires_utc",
+            "target_session_nonce"
+          ],
+          "properties": {
+            "issued_utc": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "expires_utc": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "target_session_nonce": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "evidence_contract": {
+          "type": "object",
+          "required": [
+            "raw_tap_sha256",
+            "raw_tck_capture_sha256",
+            "raw_bscan_observation_sha256",
+            "correlation_artifact_sha256",
+            "journal_sha256",
+            "journal_entry_sha256"
+          ],
+          "properties": {
+            "raw_tap_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "raw_tck_capture_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "raw_bscan_observation_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "correlation_artifact_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "journal_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "journal_entry_sha256": {
+              "$ref": "#/$defs/sha256"
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  }
+}

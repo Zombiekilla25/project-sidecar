@@ -368,7 +368,7 @@ class PhysicalCloseGuardTests(unittest.TestCase):
 
         missing_corr = capture(CASE_B_ID, tap_json(), **{k: v for k, v in tap_extra.items()
             if k != "physical_clock_correlation_b64"})
-        with self.assertRaisesRegex(Refusal, "correlation artifact"):
+        with self.assertRaisesRegex(Refusal, "no immutable matrix-approved"):
             validate_physical_capture_package(trusted_keys=roots, waveform_wrapper=wave_wrapper,
                 tap_wrapper=missing_corr, binding=self.binding, expected_idcode=self.binding.expected_idcode,
                 expected_session_nonce=nonce, now=datetime.fromisoformat(now))
