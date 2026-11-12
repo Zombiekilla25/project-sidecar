@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import stat
 from datetime import datetime, timezone, timedelta
 import fcntl
 import hmac
@@ -53,6 +54,46 @@ def canonical(value) -> bytes:
 
 def sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def _read_signing_key(path: Path) -> bytes:
+    """Read a private key only from a regular, single-link, non-symlink file."""
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
+    fd = os.open(path, flags)
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+            raise Refusal("signing key must be a regular file with one link")
+        with os.fdopen(fd, "rb", closefd=False) as stream:
+            return stream.read()
+    finally:
+        os.close(fd)
+
+
+def write_evidence_atomic(path: Path, data: bytes) -> None:
+    """Replace the named output atomically without following its final symlink."""
+    path = Path(path)
+    parent = path.parent
+    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_CLOEXEC", 0)
+    dir_fd = os.open(parent, flags)
+    temp_name = f".{path.name}.{secrets.token_hex(16)}.tmp"
+    try:
+        fd = os.open(temp_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+                     0o600, dir_fd=dir_fd)
+        try:
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(data)
+                stream.flush()
+                os.fsync(stream.fileno())
+        except BaseException:
+            try:
+                os.unlink(temp_name, dir_fd=dir_fd)
+            except OSError:
+                pass
+            raise
+        os.replace(temp_name, path.name, src_dir_fd=dir_fd, dst_dir_fd=dir_fd)
+    finally:
+        os.close(dir_fd)
 
 
 def validate_unsigned(raw: bytes, *, collector_hash: str, backend_hash: str,
@@ -319,7 +360,7 @@ def acquire_and_sign(key_path: Path, *, known_hosts_path: Path, runner: Callable
     try:
         from cryptography.hazmat.primitives import serialization
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-        key = serialization.load_pem_private_key(key_path.read_bytes(), password=None)
+        key = serialization.load_pem_private_key(_read_signing_key(key_path), password=None)
         if not isinstance(key, Ed25519PrivateKey):
             raise TypeError("not Ed25519")
         signature = key.sign(encoded)
@@ -395,7 +436,7 @@ def main(argv=None) -> int:
         evidence = acquire_and_sign(args.signing_key, known_hosts_path=args.known_hosts,
                                     expected_hostname=args.expected_hostname,
                                     remote_repo=args.remote_repo)
-        args.output.write_bytes(canonical(evidence) + b"\n")
+        write_evidence_atomic(args.output, canonical(evidence) + b"\n")
     except (Refusal, OSError) as exc:
         parser.error(str(exc))
     return 0

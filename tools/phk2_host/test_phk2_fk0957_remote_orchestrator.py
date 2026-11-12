@@ -245,6 +245,32 @@ class RemoteOrchestratorTests(unittest.TestCase):
             remote.acquire_and_sign(Path("/definitely/not/a/key"), known_hosts_path=self.known_hosts_path, runner=fake, expected_hostname="testbox", remote_repo="/remote")
         self.assertEqual(len(fake.calls), 1)
 
+    def test_signing_key_symlink_and_hardlink_are_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            key = root / "key.pem"
+            key.write_bytes(b"not a key")
+            alias = root / "alias.pem"
+            alias.symlink_to(key)
+            with self.assertRaises(OSError):
+                remote._read_signing_key(alias)
+            hard = root / "hard.pem"
+            hard.hardlink_to(key)
+            with self.assertRaises(remote.Refusal):
+                remote._read_signing_key(key)
+
+    def test_atomic_evidence_write_replaces_symlink_without_touching_target(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            target = root / "target"
+            target.write_bytes(b"preserve")
+            output = root / "evidence.json"
+            output.symlink_to(target)
+            remote.write_evidence_atomic(output, b"evidence\n")
+            self.assertFalse(output.is_symlink())
+            self.assertEqual(output.read_bytes(), b"evidence\n")
+            self.assertEqual(target.read_bytes(), b"preserve")
+
     def test_invalid_remote_output_refuses_before_attempting_key_read(self):
         fake = FakeSSH(b'{"schema":"partial"}\n')
         with self.assertRaises(remote.Refusal):
