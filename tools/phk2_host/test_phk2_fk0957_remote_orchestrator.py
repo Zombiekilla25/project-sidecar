@@ -610,12 +610,19 @@ class RemoteOrchestratorTests(unittest.TestCase):
             hostile = ("from pathlib import Path\nPath(" + repr(str(marker)) + ").write_text('bad')\n")
             for name in ("sitecustomize.py", "usercustomize.py", "json.py", "socket.py"):
                 (root / name).write_text(hostile)
+            user_site = (root / "user-base" / "lib" /
+                         f"python{sys.version_info.major}.{sys.version_info.minor}" / "site-packages")
+            user_site.mkdir(parents=True)
+            (user_site / "userpoison.py").write_text(hostile)
             proc = subprocess.run([sys.executable, "-I", "-S", "-c",
-                                   "import json; print(json.__file__)"], cwd=root,
+                                   "import importlib.util, json; print(json.__file__); print(importlib.util.find_spec('userpoison'))"], cwd=root,
                                   env={"PATH": os.environ.get("PATH", "/usr/bin:/bin"),
-                                       "PYTHONPATH": str(root)}, capture_output=True, text=True, timeout=10)
+                                       "PYTHONPATH": str(root), "PYTHONHOME": str(root / "hostile-pythonhome"),
+                                       "PYTHONUSERBASE": str(root / "user-base")},
+                                  capture_output=True, text=True, timeout=10)
             self.assertEqual(proc.returncode, 0, proc.stderr)
             self.assertNotIn(str(root), proc.stdout)
+            self.assertTrue(proc.stdout.rstrip().endswith("None"))
             self.assertFalse(marker.exists())
 
     def test_isolated_bootstrap_verifies_bundle_before_exec_with_hostile_environment(self):
@@ -677,6 +684,35 @@ class RemoteOrchestratorTests(unittest.TestCase):
             key.public_key().verify(bytes.fromhex(signed["signature_hex"]),
                                     remote.canonical(signed["payload"]))
 
+    def test_ephemeral_source_commit_ignores_git_environment_redirects(self):
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            evil_repo = root / "evil-repo"
+            subprocess.run(["git", "init", str(evil_repo)], check=True, capture_output=True)
+            subprocess.run(["git", "-C", str(evil_repo), "-c", "user.name=Audit",
+                            "-c", "user.email=audit@example.invalid", "commit", "--allow-empty", "-m", "evil"],
+                           check=True, capture_output=True)
+            evil_commit = subprocess.run(["git", "-C", str(evil_repo), "rev-parse", "HEAD"],
+                                         check=True, capture_output=True, text=True).stdout.strip()
+            key_path = root / "key.pem"
+            key = Ed25519PrivateKey.generate()
+            key_path.write_bytes(key.private_bytes(serialization.Encoding.PEM,
+                serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
+            fake = FakeSSH(lambda cmd: wire(unsigned(session_nonce=cmd[-1].split()[-1],
+                                                      collector_hash=remote.COLLECTOR_PIN)))
+            hostile_env = {"GIT_DIR": str(evil_repo / ".git"),
+                           "GIT_WORK_TREE": str(root), "GIT_CONFIG_COUNT": "1",
+                           "GIT_CONFIG_KEY_0": "core.worktree", "GIT_CONFIG_VALUE_0": str(root)}
+            with mock.patch.dict(os.environ, hostile_env, clear=False):
+                signed = remote.acquire_and_sign(key_path, known_hosts_path=self.known_hosts_path,
+                    runner=fake, expected_hostname="testbox", ephemeral=True)
+            recorded = signed["payload"]["provenance"]["execution_source_commit"]
+            self.assertNotEqual(recorded, evil_commit)
+            self.assertEqual(recorded, subprocess.run(["git", "-C", str(remote.REPO), "rev-parse", "HEAD"],
+                check=True, capture_output=True, text=True).stdout.strip())
+
     def test_ephemeral_remote_rejects_wrong_nonce_and_stderr_before_signing(self):
         fake = FakeSSH(lambda cmd: wire(unsigned(session_nonce="0" * 64)))
         with self.assertRaises(remote.Refusal):
@@ -706,6 +742,63 @@ class RemoteOrchestratorTests(unittest.TestCase):
                     session_nonce=metadata["session_nonce"], temp_factory=lambda **_: LinkedTemp(),
                     process_runner=lambda *a, **k: subprocess.CompletedProcess(a[0], 0, b'{"ok":true}\n', b""))
             self.assertEqual(list(target.iterdir()), [])
+
+    def test_collector_temp_replacement_cannot_change_executed_bytes(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            marker_verified = root / "verified-ran"
+            marker_replacement = root / "replacement-ran"
+            collector_rel = bundle_tools.COLLECTOR_REL
+            backend_rel = bundle_tools.BACKEND_REL
+            observer_rel = bundle_tools.OBSERVER_REL
+            collector_bytes = ("from pathlib import Path\nPath(" + repr(str(marker_verified)) +
+                              ").write_text('verified')\nprint('{\\\"source\\\":\\\"verified\\\"}')\n").encode()
+            backend_bytes, observer_bytes = b"pinned-backend", b"pinned-observer"
+            nonce, commit = "a" * 64, "b" * 40
+            files = {collector_rel: collector_bytes, backend_rel: backend_bytes,
+                     observer_rel: observer_bytes}
+            hashes = {name: hashlib.sha256(content).hexdigest() for name, content in files.items()}
+            manifest = {"source_commit": commit, "session_nonce": nonce,
+                        "collector_source_sha256": hashes[collector_rel],
+                        "backend_source_sha256": hashes[backend_rel], "files": hashes}
+            real_run = subprocess.run
+
+            def replace_before_exec(argv, **kwargs):
+                bundle_root = Path(kwargs["env"]["FK0957_BUNDLE_ROOT"])
+                collector_path = bundle_root / collector_rel
+                collector_path.write_text(
+                    "from pathlib import Path\nPath(" + repr(str(marker_replacement)) +
+                    ").write_text('replacement')\nprint('{\\\"source\\\":\\\"replacement\\\"}')\n")
+                self.assertEqual(argv[3], "-c")
+                self.assertEqual(kwargs["input"], collector_bytes)
+                return real_run(argv, **kwargs)
+
+            raw = bundle_runner.run_payload(manifest, files, expected_commit=commit,
+                collector_hash=hashes[collector_rel], backend_hash=hashes[backend_rel],
+                session_nonce=nonce, process_runner=replace_before_exec)
+            self.assertEqual(json.loads(raw), {"source": "verified"})
+            self.assertTrue(marker_verified.exists())
+            self.assertFalse(marker_replacement.exists())
+
+    def test_collector_bundle_directory_does_not_shadow_stdlib_imports(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            for relative in bundle_tools.PAYLOAD_RELS:
+                destination = root / relative
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes((remote.REPO / relative).read_bytes())
+            marker = root / "shadow-import-ran"
+            (root / "tools/phk2_host/dataclasses.py").write_text(
+                "from pathlib import Path\nPath(" + repr(str(marker)) + ").write_text('shadow')\n"
+                "raise RuntimeError('bundle path shadowed dataclasses')\n")
+            collector = root / bundle_tools.COLLECTOR_REL
+            proc = subprocess.run([sys.executable, "-I", "-S", "-c",
+                "import sys; exec(compile(sys.stdin.buffer.read(), '<collector-test>', 'exec'))",
+                remote.COLLECTOR_PIN, "c" * 64], input=collector.read_bytes(), cwd=root,
+                env={"PATH": "/usr/bin:/bin", "FK0957_TARGET": "", "FK0957_BUNDLE_ROOT": str(root)},
+                capture_output=True, timeout=10)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertFalse(marker.exists())
 
     def test_remote_temp_cleanup_failure_emits_no_stdout(self):
         raw_bundle, metadata = self.make_bundle()

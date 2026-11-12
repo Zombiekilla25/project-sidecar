@@ -35,9 +35,6 @@ if backend_hash != BACKEND_PIN:
     raise RuntimeError("remote backend source pin mismatch")
 if hashlib.sha256(observer_bytes).hexdigest() != OBSERVER_PIN:
     raise RuntimeError("remote observer source pin mismatch")
-sys.path.insert(0, str(HERE))
-
-
 def execute_verified_module(name: str, path: Path, source: bytes):
     module = types.ModuleType(name)
     module.__file__ = str(path)

@@ -78,11 +78,15 @@ def run_payload(manifest: dict, members: dict[str, bytes], *, expected_commit: s
             raise RuntimeError("ephemeral directory is unsafe, shared, or not empty")
         for name in sorted(members):
             _write_member(root, name, members[name])
-        collector_path = root / collector_rel
+        collector_bytes = members[collector_rel]
+        # Execute the same in-memory bytes whose digest was checked above.
+        # Running a temporary pathname here would reopen a replaceable file
+        # after verification and permit a temp-file TOCTOU substitution.
+        bootstrap = "import sys; exec(compile(sys.stdin.buffer.read(), '<fk0957-verified-collector>', 'exec'))"
         env = {"FK0957_TARGET": "FK0957", "FK0957_BUNDLE_ROOT": str(root)}
-        result = process_runner([sys.executable, "-I", "-S", str(collector_path), collector_hash,
-                                 session_nonce], cwd=str(root), env=env,
-                                stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+        result = process_runner([sys.executable, "-I", "-S", "-c", bootstrap,
+                                 collector_hash, session_nonce], cwd=str(root), env=env,
+                                input=collector_bytes, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, check=False, timeout=20)
         if result.returncode != 0 or result.stderr:
             raise RuntimeError("bundled descriptor collector failed or wrote stderr")

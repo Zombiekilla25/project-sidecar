@@ -44,7 +44,7 @@ ZERO_FIELDS = ("WRITE_COUNT", "RESET_COUNT", "PROGRAM_COUNT", "JTAG_OPERATIONS")
 SOURCE_COMMIT_PIN = "e2feedcfde44563854a3cf41fe4526c231ed385b"
 OBSERVER_PIN = "0bed50e3fec1eedcabada9fda2f05f1d90e586c3d8b8dc5364a2c7f5a3e09f90"
 BUNDLE_BUILDER_PIN = "cffd66c469aae018e1be637431b5e8dabb52958281d0893772f92b48e04e2655"
-BUNDLE_RUNNER_PIN = "c49fa88c3a9d4ab8bcd583e737e489716fd555d6c2a568a4e026967441a8b9d7"
+BUNDLE_RUNNER_PIN = "dcf9cd53430f98034ab189951c059d93a08b12f5e073622c3b2aebb5588cfbde"
 
 
 def _load_pinned_bundle_builder():
@@ -396,7 +396,10 @@ def acquire_and_sign(key_path: Path, *, known_hosts_path: Path, runner: Callable
         try:
             execution_source_commit = subprocess.run(
                 ["git", "-C", str(REPO), "rev-parse", "HEAD"], check=True,
-                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True).stdout.strip()
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+                env={"PATH": "/usr/bin:/bin", "HOME": "/nonexistent", "LC_ALL": "C",
+                     "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null",
+                     "GIT_CONFIG_SYSTEM": "/dev/null"}).stdout.strip()
         except (OSError, subprocess.CalledProcessError) as exc:
             raise Refusal("local execution source commit unavailable") from exc
         runner_bytes = (HERE / "phk2_fk0957_ephemeral_runner.py").read_bytes()
@@ -545,7 +548,7 @@ def verify_signed(evidence: dict, public_key) -> bool:
 
 # Updated to the reviewed collector bytes after implementation; prevents a
 # mutable collector replacement from being sent to the authorized host.
-COLLECTOR_PIN = "d24fe214f3d9279f72018448ba3b33b53f946a4d2f41cbc1ca066eff3d24dc51"
+COLLECTOR_PIN = "9ccf8a4370790b90628b51e8e84ba70c9dc888bac11c37c7dbfb61174e84af95"
 
 
 def main(argv=None) -> int:
