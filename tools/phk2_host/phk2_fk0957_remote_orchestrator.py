@@ -56,28 +56,58 @@ def sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def _open_path_parent(path: Path) -> tuple[int, str]:
+    """Walk a path's parent without following any symlink component."""
+    path = Path(path)
+    if not path.name or path.name in (".", "..") or ".." in path.parts:
+        raise Refusal("path must not contain parent-directory traversal")
+    directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_CLOEXEC", 0)
+    nofollow_flags = directory_flags | getattr(os, "O_NOFOLLOW", 0)
+    absolute = path.is_absolute()
+    fd = os.open("/" if absolute else ".", directory_flags)
+    try:
+        for part in path.parent.parts:
+            if part in ("", "/", "."):
+                continue
+            next_fd = os.open(part, nofollow_flags, dir_fd=fd)
+            os.close(fd)
+            fd = next_fd
+        return fd, path.name
+    except BaseException:
+        os.close(fd)
+        raise
+
+
 def _read_signing_key(path: Path) -> bytes:
     """Read a private key only from a regular, single-link, non-symlink file."""
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
-    fd = os.open(path, flags)
+    parent_fd, name = _open_path_parent(path)
     try:
-        info = os.fstat(fd)
-        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
-            raise Refusal("signing key must be a regular file with one link")
-        with os.fdopen(fd, "rb", closefd=False) as stream:
-            return stream.read()
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
+        fd = os.open(name, flags, dir_fd=parent_fd)
+        try:
+            info = os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+                raise Refusal("signing key must be a regular file with one link")
+            with os.fdopen(fd, "rb", closefd=False) as stream:
+                return stream.read()
+        finally:
+            os.close(fd)
     finally:
-        os.close(fd)
+        os.close(parent_fd)
 
 
 def write_evidence_atomic(path: Path, data: bytes) -> None:
     """Replace the named output atomically without following its final symlink."""
     path = Path(path)
-    parent = path.parent
-    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_CLOEXEC", 0)
-    dir_fd = os.open(parent, flags)
+    dir_fd, output_name = _open_path_parent(path)
     temp_name = f".{path.name}.{secrets.token_hex(16)}.tmp"
     try:
+        try:
+            existing = os.stat(output_name, dir_fd=dir_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            existing = None
+        if existing is not None and stat.S_ISLNK(existing.st_mode):
+            raise Refusal("evidence output must not be a symlink")
         fd = os.open(temp_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
                      0o600, dir_fd=dir_fd)
         try:
@@ -91,7 +121,7 @@ def write_evidence_atomic(path: Path, data: bytes) -> None:
             except OSError:
                 pass
             raise
-        os.replace(temp_name, path.name, src_dir_fd=dir_fd, dst_dir_fd=dir_fd)
+        os.replace(temp_name, output_name, src_dir_fd=dir_fd, dst_dir_fd=dir_fd)
     finally:
         os.close(dir_fd)
 

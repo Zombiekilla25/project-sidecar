@@ -259,17 +259,39 @@ class RemoteOrchestratorTests(unittest.TestCase):
             with self.assertRaises(remote.Refusal):
                 remote._read_signing_key(key)
 
-    def test_atomic_evidence_write_replaces_symlink_without_touching_target(self):
+    def test_signing_key_through_symlinked_parent_is_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            real = root / "real"
+            real.mkdir()
+            (real / "key.pem").write_bytes(b"secret")
+            alias = root / "alias"
+            alias.symlink_to(real, target_is_directory=True)
+            with self.assertRaises(OSError):
+                remote._read_signing_key(alias / "key.pem")
+
+    def test_atomic_evidence_write_refuses_symlink_without_touching_target(self):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             target = root / "target"
             target.write_bytes(b"preserve")
             output = root / "evidence.json"
             output.symlink_to(target)
-            remote.write_evidence_atomic(output, b"evidence\n")
-            self.assertFalse(output.is_symlink())
-            self.assertEqual(output.read_bytes(), b"evidence\n")
+            with self.assertRaises(remote.Refusal):
+                remote.write_evidence_atomic(output, b"evidence\n")
+            self.assertTrue(output.is_symlink())
             self.assertEqual(target.read_bytes(), b"preserve")
+
+    def test_atomic_evidence_write_refuses_symlinked_parent(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            real = root / "real"
+            real.mkdir()
+            alias = root / "alias"
+            alias.symlink_to(real, target_is_directory=True)
+            with self.assertRaises(OSError):
+                remote.write_evidence_atomic(alias / "evidence.json", b"evidence\n")
+            self.assertFalse((real / "evidence.json").exists())
 
     def test_invalid_remote_output_refuses_before_attempting_key_read(self):
         fake = FakeSSH(b'{"schema":"partial"}\n')
