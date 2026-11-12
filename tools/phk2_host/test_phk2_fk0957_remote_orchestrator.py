@@ -293,6 +293,54 @@ class RemoteOrchestratorTests(unittest.TestCase):
                 remote.write_evidence_atomic(alias / "evidence.json", b"evidence\n")
             self.assertFalse((real / "evidence.json").exists())
 
+    def test_atomic_evidence_write_creates_and_replaces_regular_output(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            output = root / "evidence.json"
+            remote.write_evidence_atomic(output, b"first\n")
+            self.assertEqual(output.read_bytes(), b"first\n")
+            remote.write_evidence_atomic(output, b"second\n")
+            self.assertEqual(output.read_bytes(), b"second\n")
+            self.assertEqual(output.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(sorted(p.name for p in root.iterdir()), ["evidence.json"])
+
+    def test_output_replaced_with_symlink_during_write_is_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            target = root / "target"
+            target.write_bytes(b"preserve")
+            output = root / "evidence.json"
+            output.write_bytes(b"previous evidence")
+            original_fsync = remote.os.fsync
+            def replace_during_fsync(fd):
+                original_fsync(fd)
+                output.unlink()
+                output.symlink_to(target)
+            with mock.patch.object(remote.os, "fsync", side_effect=replace_during_fsync):
+                with self.assertRaises(remote.Refusal):
+                    remote.write_evidence_atomic(output, b"evidence\n")
+            self.assertTrue(output.is_symlink())
+            self.assertEqual(target.read_bytes(), b"preserve")
+            self.assertEqual(sorted(p.name for p in root.iterdir()), ["evidence.json", "target"])
+
+    def test_parent_directory_replaced_during_write_is_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            parent = root / "out"
+            parent.mkdir()
+            output = parent / "evidence.json"
+            original_fsync = remote.os.fsync
+            def replace_parent_during_fsync(fd):
+                original_fsync(fd)
+                parent.rename(root / "moved-out")
+                parent.mkdir()
+            with mock.patch.object(remote.os, "fsync", side_effect=replace_parent_during_fsync):
+                with self.assertRaises(remote.Refusal):
+                    remote.write_evidence_atomic(output, b"evidence\n")
+            self.assertFalse(output.exists())
+            self.assertEqual(list((root / "moved-out").iterdir()), [])
+            self.assertEqual(list(parent.iterdir()), [])
+
     def test_invalid_remote_output_refuses_before_attempting_key_read(self):
         fake = FakeSSH(b'{"schema":"partial"}\n')
         with self.assertRaises(remote.Refusal):

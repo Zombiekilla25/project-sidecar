@@ -101,6 +101,7 @@ def write_evidence_atomic(path: Path, data: bytes) -> None:
     path = Path(path)
     dir_fd, output_name = _open_path_parent(path)
     temp_name = f".{path.name}.{secrets.token_hex(16)}.tmp"
+    temp_created = False
     try:
         try:
             existing = os.stat(output_name, dir_fd=dir_fd, follow_symlinks=False)
@@ -108,21 +109,43 @@ def write_evidence_atomic(path: Path, data: bytes) -> None:
             existing = None
         if existing is not None and stat.S_ISLNK(existing.st_mode):
             raise Refusal("evidence output must not be a symlink")
+        if existing is not None and not stat.S_ISREG(existing.st_mode):
+            raise Refusal("evidence output must be a regular file")
+        initial_identity = None if existing is None else (existing.st_dev, existing.st_ino)
         fd = os.open(temp_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
                      0o600, dir_fd=dir_fd)
+        temp_created = True
         try:
             with os.fdopen(fd, "wb") as stream:
                 stream.write(data)
                 stream.flush()
                 os.fsync(stream.fileno())
         except BaseException:
+            raise
+        check_dir_fd, _ = _open_path_parent(path)
+        try:
+            original_dir, current_dir = os.fstat(dir_fd), os.fstat(check_dir_fd)
+            if (original_dir.st_dev, original_dir.st_ino) != (current_dir.st_dev, current_dir.st_ino):
+                raise Refusal("evidence output parent changed during write")
+        finally:
+            os.close(check_dir_fd)
+        try:
+            current = os.stat(output_name, dir_fd=dir_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            current = None
+        if current is not None and stat.S_ISLNK(current.st_mode):
+            raise Refusal("evidence output became a symlink during write")
+        current_identity = None if current is None else (current.st_dev, current.st_ino)
+        if current_identity != initial_identity:
+            raise Refusal("evidence output changed during write")
+        os.replace(temp_name, output_name, src_dir_fd=dir_fd, dst_dir_fd=dir_fd)
+        temp_created = False
+    finally:
+        if temp_created:
             try:
                 os.unlink(temp_name, dir_fd=dir_fd)
             except OSError:
                 pass
-            raise
-        os.replace(temp_name, output_name, src_dir_fd=dir_fd, dst_dir_fd=dir_fd)
-    finally:
         os.close(dir_fd)
 
 
