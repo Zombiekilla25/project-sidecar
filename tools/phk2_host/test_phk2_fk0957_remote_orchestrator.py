@@ -696,6 +696,9 @@ class RemoteOrchestratorTests(unittest.TestCase):
                 capture_output=True, timeout=10)
             self.assertNotEqual(bad.returncode, 0)
             self.assertEqual(bad.stdout, b"")
+            self.assertIn(b"FK0957_DIAG REMOTE_PHASE=BUNDLE_RECEIVED", bad.stderr)
+            self.assertIn(b"FK0957_DIAG SSH_ERROR_CLASS=BUNDLE_HASH_FAILED", bad.stderr)
+            self.assertNotIn(b"COLLECTOR_STARTED", bad.stderr)
 
     def test_ephemeral_remote_stderr_and_partial_stdout_refuse(self):
         key = Path(self.pin_dir.name) / "not-read.pem"
@@ -706,6 +709,54 @@ class RemoteOrchestratorTests(unittest.TestCase):
                 remote.acquire_and_sign(key, runner=fake, **common)
             self.assertTrue(fake.calls[0][1]["input"].startswith(b"PK\x03\x04"))
 
+    def test_remote_failure_diagnostics_retain_rc_phase_and_redact_raw_stderr(self):
+        secret = b"credential=never-print-this"
+        fake = FakeSSH(b"", stderr=b"Permission denied (publickey); " + secret, returncode=255)
+        with self.assertRaises(remote.Refusal) as caught:
+            remote.acquire_and_sign(Path("missing-key"), known_hosts_path=self.known_hosts_path,
+                runner=fake, expected_hostname="testbox", ephemeral=True)
+        message = str(caught.exception)
+        self.assertIn("SSH_RETURN_CODE=255", message)
+        self.assertIn("SSH_ERROR_CLASS=SSH_AUTH_FAILED", message)
+        self.assertNotIn(secret.decode(), message)
+
+        stderr = (b"FK0957_DIAG REMOTE_RUNNER_STARTED=YES\n"
+                  b"FK0957_DIAG BUNDLE_RECEIVED=YES\n"
+                  b"FK0957_DIAG BUNDLE_HASH_VERIFIED=YES\n"
+                  b"FK0957_DIAG REMOTE_PHASE=COLLECTOR_RETURNED\n"
+                  b"FK0957_DIAG SSH_ERROR_CLASS=COLLECTOR_REFUSED\n")
+        fake = FakeSSH(b"", stderr=stderr, returncode=2)
+        with self.assertRaises(remote.Refusal) as caught:
+            remote.acquire_and_sign(Path("missing-key"), known_hosts_path=self.known_hosts_path,
+                runner=fake, expected_hostname="testbox", ephemeral=True)
+        self.assertIn("SSH_RETURN_CODE=2", str(caught.exception))
+        self.assertIn("REMOTE_PHASE=COLLECTOR_RETURNED", str(caught.exception))
+        self.assertIn("SSH_ERROR_CLASS=COLLECTOR_REFUSED", str(caught.exception))
+
+    def test_precollector_bundle_failure_refuses_before_evidence_validation_or_signing(self):
+        stderr = (b"FK0957_DIAG REMOTE_RUNNER_STARTED=YES\n"
+                  b"FK0957_DIAG BUNDLE_RECEIVED=YES\n"
+                  b"FK0957_DIAG REMOTE_PHASE=BUNDLE_RECEIVED\n"
+                  b"FK0957_DIAG SSH_ERROR_CLASS=BUNDLE_HASH_FAILED\n")
+        fake = FakeSSH(b"", stderr=stderr, returncode=2)
+        with mock.patch.object(remote, "validate_unsigned", side_effect=AssertionError("evidence validation reached")), \
+             mock.patch.object(remote, "_read_signing_key", side_effect=AssertionError("signing reached")):
+            with self.assertRaises(remote.Refusal) as caught:
+                remote.acquire_and_sign(Path("missing-key"), known_hosts_path=self.known_hosts_path,
+                    runner=fake, expected_hostname="testbox", ephemeral=True)
+        self.assertIn("REMOTE_PHASE=BUNDLE_RECEIVED", str(caught.exception))
+        self.assertEqual(len(fake.calls), 1)
+        self.assertTrue(fake.calls[0][1]["input"].startswith(b"PK\x03\x04"))
+
+    def test_malformed_remote_stdout_fails_closed_with_bounded_diagnostic(self):
+        fake = FakeSSH(b"not-json\n")
+        with mock.patch.object(remote, "_read_signing_key", side_effect=AssertionError("signing reached")):
+            with self.assertRaises(remote.Refusal) as caught:
+                remote.acquire_and_sign(Path("missing-key"), known_hosts_path=self.known_hosts_path,
+                    runner=fake, expected_hostname="testbox", ephemeral=True)
+        self.assertIn("SSH_ERROR_CLASS=JSON_PARSE_FAILED", str(caught.exception))
+        self.assertIn("REMOTE_PHASE=STDOUT_RECORD_RECEIVED", str(caught.exception))
+
     def test_ephemeral_signing_binds_bundle_hash_commit_nonce_and_local_key_only(self):
         from cryptography.hazmat.primitives import serialization
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -715,8 +766,14 @@ class RemoteOrchestratorTests(unittest.TestCase):
             key_bytes = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
                                           serialization.NoEncryption())
             key_path.write_bytes(key_bytes)
+            diagnostic_stderr = b"".join(
+                f"FK0957_DIAG {phase}=YES\n".encode() for phase in (
+                    "REMOTE_RUNNER_STARTED", "BUNDLE_RECEIVED", "BUNDLE_HASH_VERIFIED",
+                    "MANIFEST_VERIFIED", "COLLECTOR_SOURCE_VERIFIED", "BACKEND_SOURCE_VERIFIED",
+                    "COLLECTOR_STARTED", "COLLECTOR_RETURNED", "STDOUT_RECORD_RECEIVED"))
             fake = FakeSSH(lambda cmd: wire(unsigned(session_nonce=cmd[-1].split()[-1],
-                                                      collector_hash=remote.COLLECTOR_PIN)))
+                                                      collector_hash=remote.COLLECTOR_PIN)),
+                           stderr=diagnostic_stderr)
             signed = remote.acquire_and_sign(key_path, known_hosts_path=self.known_hosts_path, runner=fake,
                 expected_hostname="testbox", ephemeral=True)
             cmd, kwargs = fake.calls[0]
@@ -789,6 +846,53 @@ class RemoteOrchestratorTests(unittest.TestCase):
                     session_nonce=metadata["session_nonce"], temp_factory=lambda **_: LinkedTemp(),
                     process_runner=lambda *a, **k: subprocess.CompletedProcess(a[0], 0, b'{"ok":true}\n', b""))
             self.assertEqual(list(target.iterdir()), [])
+
+    def test_bundle_precollector_failure_does_not_start_collector_process(self):
+        raw, metadata = self.make_bundle()
+        manifest, members = bundle_tools.inspect_bundle(raw,
+            expected_bundle_sha256=metadata["bundle_sha256"],
+            expected_source_commit=metadata["source_commit"],
+            expected_collector_sha256=metadata["collector_source_sha256"],
+            expected_backend_sha256=metadata["backend_source_sha256"],
+            expected_nonce=metadata["session_nonce"])
+        members.pop("runner.py")
+        members[bundle_tools.BACKEND_REL] += b"# tampered"
+        invoked = []
+        with self.assertRaises(RuntimeError):
+            bundle_runner.run_payload(manifest, members,
+                expected_commit=metadata["source_commit"],
+                collector_hash=metadata["collector_source_sha256"],
+                backend_hash=metadata["backend_source_sha256"],
+                session_nonce=metadata["session_nonce"],
+                process_runner=lambda *a, **k: invoked.append((a, k)))
+        self.assertEqual(invoked, [])
+
+    def test_collector_refusal_diagnostic_does_not_forward_remote_stderr(self):
+        import contextlib
+        raw, metadata = self.make_bundle()
+        manifest, members = bundle_tools.inspect_bundle(raw,
+            expected_bundle_sha256=metadata["bundle_sha256"],
+            expected_source_commit=metadata["source_commit"],
+            expected_collector_sha256=metadata["collector_source_sha256"],
+            expected_backend_sha256=metadata["backend_source_sha256"],
+            expected_nonce=metadata["session_nonce"])
+        members.pop("runner.py")
+        secret = b"collection refused: private-device-detail-must-not-escape"
+        captured = io.StringIO()
+        with contextlib.redirect_stderr(captured):
+            with self.assertRaises(bundle_runner.RemoteDiagnosticError) as caught:
+                bundle_runner.run_payload(manifest, members,
+                    expected_commit=metadata["source_commit"],
+                    collector_hash=metadata["collector_source_sha256"],
+                    backend_hash=metadata["backend_source_sha256"],
+                    session_nonce=metadata["session_nonce"],
+                    process_runner=lambda argv, **kwargs: subprocess.CompletedProcess(
+                        argv, 2, b"", secret))
+        self.assertEqual(caught.exception.phase, "COLLECTOR_RETURNED")
+        self.assertEqual(caught.exception.error_class, "COLLECTOR_REFUSED")
+        self.assertNotIn(secret.decode(), captured.getvalue())
+        self.assertIn("FK0957_DIAG COLLECTOR_STARTED=YES", captured.getvalue())
+        self.assertIn("FK0957_DIAG COLLECTOR_RETURNED=YES", captured.getvalue())
 
     def test_collector_temp_replacement_cannot_change_executed_bytes(self):
         with tempfile.TemporaryDirectory() as d:

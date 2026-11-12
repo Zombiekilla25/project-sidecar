@@ -166,7 +166,6 @@ def inspect_bundle(bundle: bytes, *, expected_bundle_sha256: str, expected_sourc
 
 
 BOOTSTRAP_BODY = r'''import hashlib,io,json,sys,zipfile
-from pathlib import PurePosixPath
 MAX=4*1024*1024
 EXPECTED_NAMES=__EXPECTED_NAMES__
 def pairs(items):
@@ -175,28 +174,51 @@ def pairs(items):
   if k in d: raise ValueError("duplicate manifest key")
   d[k]=v
  return d
-raw=sys.stdin.buffer.read(MAX+1)
-if len(raw)>MAX or hashlib.sha256(raw).hexdigest()!=sys.argv[2]: raise SystemExit(2)
-z=zipfile.ZipFile(io.BytesIO(raw),"r")
-infos=z.infolist(); names=[i.filename for i in infos]
-if names!=EXPECTED_NAMES or len(names)!=len(set(names)): raise SystemExit(2)
-for i in infos:
- mode=i.external_attr>>16
- if i.is_dir() or (mode & 0o170000)!=0o100000 or i.file_size>MAX: raise SystemExit(2)
-mraw=z.read("manifest.json"); m=json.loads(mraw.decode("utf-8"),object_pairs_hook=pairs)
-if json.dumps(m,sort_keys=True,separators=(",",":"),ensure_ascii=False,allow_nan=False).encode()!=mraw: raise SystemExit(2)
-if set(m)!={"schema","version","source_commit","session_nonce","collector_source_sha256","backend_source_sha256","observer_source_sha256","runner_source_sha256","files"}: raise SystemExit(2)
-if (m["schema"]!="fk0957-ephemeral-execution-bundle" or m["version"]!=1 or m["source_commit"]!=sys.argv[3] or m["collector_source_sha256"]!=sys.argv[4] or m["backend_source_sha256"]!=sys.argv[5] or m["session_nonce"]!=sys.argv[6]): raise SystemExit(2)
-members={n:z.read(n) for n in EXPECTED_NAMES if n not in ("manifest.json","runner.py")}
-if set(members)!=set(m["files"]): raise SystemExit(2)
-for n,b in members.items():
- if hashlib.sha256(b).hexdigest()!=m["files"].get(n): raise SystemExit(2)
-runner=z.read("runner.py")
-if hashlib.sha256(runner).hexdigest()!=m["runner_source_sha256"] or hashlib.sha256(members["tools/phk2_host/phk2_fk0957_remote_collector.py"]).hexdigest()!=sys.argv[4] or hashlib.sha256(members["tools/phk2_host/phk2_fk0957_readonly_backend.py"]).hexdigest()!=sys.argv[5]: raise SystemExit(2)
-ns={"__name__":"__main__","__file__":"<fk0957-ephemeral-runner>","BUNDLE_MANIFEST":m,"BUNDLE_MEMBERS":members,"EXPECTED_COMMIT":sys.argv[3],"EXPECTED_COLLECTOR_SHA256":sys.argv[4],"EXPECTED_BACKEND_SHA256":sys.argv[5],"EXPECTED_SESSION_NONCE":sys.argv[6]}
-exec(compile(runner,"<fk0957-ephemeral-runner>","exec"),ns)
+def diag(k,v="YES"):
+ print("FK0957_DIAG "+k+"="+v,file=sys.stderr,flush=True)
+def fail(error):
+ diag("REMOTE_PHASE",phase)
+ diag("SSH_ERROR_CLASS",error)
+ raise SystemExit(2)
+phase="REMOTE_RUNNER_STARTED"
+diag(phase)
+try:
+ if len(sys.argv)!=7 or sys.argv[1]!="FK0957-BUNDLE": fail("BUNDLE_FRAMING_FAILED")
+ raw=sys.stdin.buffer.read(MAX+1)
+ phase="BUNDLE_RECEIVED"; diag(phase)
+ if len(raw)>MAX: fail("BUNDLE_FRAMING_FAILED")
+ if hashlib.sha256(raw).hexdigest()!=sys.argv[2]: fail("BUNDLE_HASH_FAILED")
+ phase="BUNDLE_HASH_VERIFIED"; diag(phase)
+ z=zipfile.ZipFile(io.BytesIO(raw),"r")
+ infos=z.infolist(); names=[i.filename for i in infos]
+ if names!=EXPECTED_NAMES or len(names)!=len(set(names)): fail("BUNDLE_FRAMING_FAILED")
+ for i in infos:
+  mode=i.external_attr>>16
+  if i.is_dir() or (mode & 0o170000)!=0o100000 or i.file_size>MAX: fail("BUNDLE_FRAMING_FAILED")
+ mraw=z.read("manifest.json"); m=json.loads(mraw.decode("utf-8"),object_pairs_hook=pairs)
+ if json.dumps(m,sort_keys=True,separators=(",",":"),ensure_ascii=False,allow_nan=False).encode()!=mraw: fail("BUNDLE_FRAMING_FAILED")
+ if set(m)!={"schema","version","source_commit","session_nonce","collector_source_sha256","backend_source_sha256","observer_source_sha256","runner_source_sha256","files"}: fail("BUNDLE_FRAMING_FAILED")
+ if (m["schema"]!="fk0957-ephemeral-execution-bundle" or m["version"]!=1 or m["source_commit"]!=sys.argv[3] or m["collector_source_sha256"]!=sys.argv[4] or m["backend_source_sha256"]!=sys.argv[5] or m["session_nonce"]!=sys.argv[6]): fail("BUNDLE_FRAMING_FAILED")
+ members={n:z.read(n) for n in names if n not in ("manifest.json","runner.py")}
+ if set(members)!=set(m["files"]): fail("BUNDLE_FRAMING_FAILED")
+ for n,b in members.items():
+  if hashlib.sha256(b).hexdigest()!=m["files"].get(n): fail("BUNDLE_HASH_FAILED")
+ runner=z.read("runner.py")
+ if hashlib.sha256(runner).hexdigest()!=m["runner_source_sha256"]: fail("BUNDLE_HASH_FAILED")
+ phase="MANIFEST_VERIFIED"; diag(phase)
+ collector="tools/phk2_host/phk2_fk0957_remote_collector.py"
+ backend="tools/phk2_host/phk2_fk0957_readonly_backend.py"
+ if hashlib.sha256(members[collector]).hexdigest()!=sys.argv[4]: fail("BUNDLE_HASH_FAILED")
+ phase="COLLECTOR_SOURCE_VERIFIED"; diag(phase)
+ if hashlib.sha256(members[backend]).hexdigest()!=sys.argv[5]: fail("BUNDLE_HASH_FAILED")
+ phase="BACKEND_SOURCE_VERIFIED"; diag(phase)
+ ns={"__name__":"__main__","__file__":"<fk0957-ephemeral-runner>","BUNDLE_MANIFEST":m,"BUNDLE_MEMBERS":members,"EXPECTED_COMMIT":sys.argv[3],"EXPECTED_COLLECTOR_SHA256":sys.argv[4],"EXPECTED_BACKEND_SHA256":sys.argv[5],"EXPECTED_SESSION_NONCE":sys.argv[6]}
+ exec(compile(runner,"<fk0957-ephemeral-runner>","exec"),ns)
+except SystemExit:
+ raise
+except Exception:
+ fail("BUNDLE_FRAMING_FAILED")
 '''
-
 
 def remote_command(*, bundle_sha256: str, source_commit: str, collector_sha256: str,
                    backend_sha256: str, session_nonce: str) -> str:

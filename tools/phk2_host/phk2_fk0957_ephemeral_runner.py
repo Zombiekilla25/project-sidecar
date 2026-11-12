@@ -11,6 +11,20 @@ import subprocess
 import sys
 import tempfile
 
+_DIAG_PREFIX = "FK0957_DIAG "
+
+
+def _diag(name: str, value: str = "YES") -> None:
+    print(f"{_DIAG_PREFIX}{name}={value}", file=sys.stderr, flush=True)
+
+
+class RemoteDiagnosticError(RuntimeError):
+    def __init__(self, phase: str, error_class: str):
+        self.phase = phase
+        self.error_class = error_class
+        super().__init__(error_class)
+
+
 
 def _canonical(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
@@ -84,19 +98,33 @@ def run_payload(manifest: dict, members: dict[str, bytes], *, expected_commit: s
         # after verification and permit a temp-file TOCTOU substitution.
         bootstrap = "import sys; exec(compile(sys.stdin.buffer.read(), '<fk0957-verified-collector>', 'exec'))"
         env = {"FK0957_TARGET": "FK0957", "FK0957_BUNDLE_ROOT": str(root)}
-        result = process_runner([sys.executable, "-I", "-S", "-c", bootstrap,
-                                 collector_hash, session_nonce], cwd=str(root), env=env,
-                                input=collector_bytes, stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE, check=False, timeout=20)
-        if result.returncode != 0 or result.stderr:
-            raise RuntimeError("bundled descriptor collector failed or wrote stderr")
+        _diag("COLLECTOR_STARTED")
+        try:
+            result = process_runner([sys.executable, "-I", "-S", "-c", bootstrap,
+                                     collector_hash, session_nonce], cwd=str(root), env=env,
+                                    input=collector_bytes, stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE, check=False, timeout=20)
+        except Exception as exc:
+            raise RemoteDiagnosticError("COLLECTOR_STARTED", "REMOTE_PYTHON_FAILED") from exc
+        _diag("COLLECTOR_RETURNED")
+        if result.returncode != 0:
+            collector_refusal = (isinstance(result.stderr, bytes) and
+                                 b"collection refused:" in result.stderr[:1024].lower())
+            error_class = "COLLECTOR_REFUSED" if collector_refusal else "REMOTE_PYTHON_FAILED"
+            raise RemoteDiagnosticError("COLLECTOR_RETURNED", error_class)
+        if result.stderr:
+            raise RemoteDiagnosticError("COLLECTOR_RETURNED", "RUNNER_FAILED")
         raw = result.stdout
         if not isinstance(raw, bytes) or len(raw) > 16384 or not raw.endswith(b"\n"):
-            raise RuntimeError("bundled collector output is incomplete")
-        value = json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_pairs,
-                           parse_constant=lambda _: (_ for _ in ()).throw(ValueError("nonfinite")))
-        if _canonical(value) + b"\n" != raw:
-            raise RuntimeError("bundled collector output is not canonical JSON")
+            raise RemoteDiagnosticError("COLLECTOR_RETURNED", "JSON_PARSE_FAILED")
+        _diag("STDOUT_RECORD_RECEIVED")
+        try:
+            value = json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_pairs,
+                               parse_constant=lambda _: (_ for _ in ()).throw(ValueError("nonfinite")))
+            if _canonical(value) + b"\n" != raw:
+                raise ValueError("noncanonical JSON")
+        except Exception as exc:
+            raise RemoteDiagnosticError("STDOUT_RECORD_RECEIVED", "JSON_PARSE_FAILED") from exc
     except Exception as exc:
         failure = exc
     try:
@@ -106,6 +134,8 @@ def run_payload(manifest: dict, members: dict[str, bytes], *, expected_commit: s
     if root.exists() or root.is_symlink():
         failure = failure or RuntimeError("ephemeral directory remains after cleanup")
     if failure:
+        if isinstance(failure, RemoteDiagnosticError):
+            raise failure
         raise RuntimeError(str(failure)) from failure
     if stdout is not None:
         stdout.write(raw)
@@ -122,6 +152,7 @@ def _unique_pairs(pairs):
 
 
 def main():
+    # The isolated bootstrap has already emitted its verified phase markers.
     run_payload(BUNDLE_MANIFEST, BUNDLE_MEMBERS, expected_commit=EXPECTED_COMMIT,
                 collector_hash=EXPECTED_COLLECTOR_SHA256, backend_hash=EXPECTED_BACKEND_SHA256,
                 session_nonce=EXPECTED_SESSION_NONCE, stdout=sys.stdout.buffer)
@@ -130,6 +161,11 @@ def main():
 if __name__ == "__main__":
     try:
         main()
+    except RemoteDiagnosticError as exc:
+        _diag("REMOTE_PHASE", exc.phase)
+        _diag("SSH_ERROR_CLASS", exc.error_class)
+        raise SystemExit(2)
     except Exception as exc:
-        print(f"ephemeral acquisition refused: {exc}", file=sys.stderr)
+        _diag("REMOTE_PHASE", "RUNNER_FAILED")
+        _diag("SSH_ERROR_CLASS", "RUNNER_FAILED")
         raise SystemExit(2)

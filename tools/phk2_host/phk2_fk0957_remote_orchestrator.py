@@ -43,8 +43,8 @@ EXPECTED_FIELDS = {
 ZERO_FIELDS = ("WRITE_COUNT", "RESET_COUNT", "PROGRAM_COUNT", "JTAG_OPERATIONS")
 SOURCE_COMMIT_PIN = "e2feedcfde44563854a3cf41fe4526c231ed385b"
 OBSERVER_PIN = "0bed50e3fec1eedcabada9fda2f05f1d90e586c3d8b8dc5364a2c7f5a3e09f90"
-BUNDLE_BUILDER_PIN = "cffd66c469aae018e1be637431b5e8dabb52958281d0893772f92b48e04e2655"
-BUNDLE_RUNNER_PIN = "dcf9cd53430f98034ab189951c059d93a08b12f5e073622c3b2aebb5588cfbde"
+BUNDLE_BUILDER_PIN = "a60d4bb57fea4e9441bf9a89476e286da16e12d4b9bd9cf7c7df8178a41c3438"
+BUNDLE_RUNNER_PIN = "2e1512d577596b15c9d11be95537b6bd80e0c3aac924ff1c825a4e5afa0e0b75"
 
 
 def _load_pinned_bundle_builder():
@@ -68,6 +68,91 @@ ephemeral_remote_command = _bundle_builder.remote_command
 
 class Refusal(RuntimeError):
     pass
+
+
+_REMOTE_DIAG_PREFIX = "FK0957_DIAG "
+_REMOTE_DIAG_KEYS = {
+    "REMOTE_RUNNER_STARTED", "BUNDLE_RECEIVED", "BUNDLE_HASH_VERIFIED",
+    "MANIFEST_VERIFIED", "COLLECTOR_SOURCE_VERIFIED", "BACKEND_SOURCE_VERIFIED",
+    "COLLECTOR_STARTED", "COLLECTOR_RETURNED", "STDOUT_RECORD_RECEIVED",
+    "REMOTE_PHASE", "SSH_ERROR_CLASS",
+}
+_REMOTE_PHASES = {
+    "REMOTE_RUNNER_STARTED", "BUNDLE_RECEIVED", "BUNDLE_HASH_VERIFIED", "MANIFEST_VERIFIED",
+    "COLLECTOR_SOURCE_VERIFIED", "BACKEND_SOURCE_VERIFIED", "COLLECTOR_STARTED",
+    "COLLECTOR_RETURNED", "STDOUT_RECORD_RECEIVED", "RUNNER_FAILED", "SSH_TRANSPORT",
+    "REMOTE_PYTHON_STARTUP",
+}
+_REMOTE_ERROR_CLASSES = {
+    "HOST_KEY_REJECTED", "SSH_AUTH_FAILED", "REMOTE_PYTHON_FAILED", "BUNDLE_FRAMING_FAILED",
+    "BUNDLE_HASH_FAILED", "RUNNER_FAILED", "COLLECTOR_REFUSED", "JSON_PARSE_FAILED",
+    "UNEXPECTED_REMOTE_EXIT",
+}
+
+
+def _parse_remote_diagnostics(stderr) -> tuple[dict[str, str], bool]:
+    """Accept only bounded diagnostic records; never return or print raw stderr."""
+    if not stderr:
+        return {}, True
+    if isinstance(stderr, str):
+        raw = stderr.encode("utf-8", "replace")
+    elif isinstance(stderr, bytes):
+        raw = stderr
+    else:
+        return {}, False
+    if len(raw) > 4096:
+        return {}, False
+    records = {}
+    try:
+        lines = raw.decode("ascii").splitlines()
+    except UnicodeDecodeError:
+        return {}, False
+    for line in lines:
+        if not line.startswith(_REMOTE_DIAG_PREFIX):
+            return records, False
+        item = line[len(_REMOTE_DIAG_PREFIX):]
+        key, sep, value = item.partition("=")
+        if not sep or key not in _REMOTE_DIAG_KEYS or key in records:
+            return records, False
+        allowed = (value == "YES" if key not in ("REMOTE_PHASE", "SSH_ERROR_CLASS") else
+                   value in (_REMOTE_PHASES if key == "REMOTE_PHASE" else _REMOTE_ERROR_CLASSES))
+        if not allowed:
+            return records, False
+        records[key] = value
+    return records, True
+
+
+def _classify_ssh_error(stderr) -> str:
+    raw = stderr if isinstance(stderr, bytes) else str(stderr or "").encode("utf-8", "replace")
+    lowered = raw[:4096].lower()
+    if b"host key verification failed" in lowered or b"remote host identification has changed" in lowered:
+        return "HOST_KEY_REJECTED"
+    if b"permission denied" in lowered or b"too many authentication failures" in lowered:
+        return "SSH_AUTH_FAILED"
+    return "UNEXPECTED_REMOTE_EXIT"
+
+
+def _remote_failure_message(returncode, stderr) -> str:
+    records, clean = _parse_remote_diagnostics(stderr)
+    error_class = records.get("SSH_ERROR_CLASS") or _classify_ssh_error(stderr)
+    if not clean:
+        error_class = _classify_ssh_error(stderr)
+    phase = records.get("REMOTE_PHASE")
+    if phase is None:
+        phase = next((name for name in (
+            "STDOUT_RECORD_RECEIVED", "COLLECTOR_RETURNED", "COLLECTOR_STARTED",
+            "BACKEND_SOURCE_VERIFIED", "COLLECTOR_SOURCE_VERIFIED", "MANIFEST_VERIFIED",
+            "BUNDLE_HASH_VERIFIED", "BUNDLE_RECEIVED", "REMOTE_RUNNER_STARTED")
+            if records.get(name) == "YES"),
+            "SSH_TRANSPORT" if returncode == 255 else "REMOTE_PYTHON_STARTUP")
+    summary = [f"SSH_RETURN_CODE={returncode}", f"SSH_ERROR_CLASS={error_class}",
+               f"REMOTE_PHASE={phase}"]
+    for key in ("REMOTE_RUNNER_STARTED", "BUNDLE_RECEIVED", "BUNDLE_HASH_VERIFIED",
+                "MANIFEST_VERIFIED", "COLLECTOR_SOURCE_VERIFIED", "BACKEND_SOURCE_VERIFIED",
+                "COLLECTOR_STARTED", "COLLECTOR_RETURNED", "STDOUT_RECORD_RECEIVED"):
+        if key in records:
+            summary.append(f"{key}={records[key]}")
+    return "remote unsigned acquisition failed (" + " ".join(summary) + ")"
 
 
 def canonical(value) -> bytes:
@@ -527,13 +612,21 @@ def acquire_and_sign(key_path: Path, *, known_hosts_path: Path, runner: Callable
                               pin_dir_identity, pin_file_identity)
         result = runner(cmd, input=stdin_data, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                         check=False, timeout=30, env=safe_env)
-    if getattr(result, "returncode", 1) != 0:
-        raise Refusal("remote unsigned acquisition failed")
-    if getattr(result, "stderr", b""):
-        raise Refusal("remote SSH/collector stderr must be empty")
+    returncode = getattr(result, "returncode", 1)
+    stderr = getattr(result, "stderr", b"")
+    diagnostics, clean_diagnostics = _parse_remote_diagnostics(stderr)
+    if returncode != 0:
+        raise Refusal(_remote_failure_message(returncode, stderr))
+    if not clean_diagnostics or diagnostics.get("SSH_ERROR_CLASS") or diagnostics.get("REMOTE_PHASE"):
+        raise Refusal(_remote_failure_message(returncode, stderr))
     raw = result.stdout if isinstance(result.stdout, bytes) else str(result.stdout).encode()
-    unsigned = validate_unsigned(raw, collector_hash=collector_hash, backend_hash=backend_hash,
-                                  expected_hostname=expected_hostname, session_nonce=nonce)
+    try:
+        unsigned = validate_unsigned(raw, collector_hash=collector_hash, backend_hash=backend_hash,
+                                      expected_hostname=expected_hostname, session_nonce=nonce)
+    except Refusal as exc:
+        received = "YES" if raw else "NO"
+        raise Refusal(f"unsigned evidence rejected (SSH_RETURN_CODE=0 STDOUT_RECORD_RECEIVED={received} "
+                      "SSH_ERROR_CLASS=JSON_PARSE_FAILED REMOTE_PHASE=STDOUT_RECORD_RECEIVED)") from exc
     payload = {"schema": "fk0957-signed-identity-evidence", "version": 1,
                "unsigned_evidence": unsigned,
                "provenance": {"ssh_destination": _AUTHORIZED_SSH_DESTINATION,
