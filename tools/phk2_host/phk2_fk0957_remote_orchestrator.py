@@ -18,6 +18,7 @@ import shlex
 import stat
 import subprocess
 import sys
+import types
 from typing import Callable
 
 import phk2_fk0957_identity_observer as observer
@@ -41,7 +42,28 @@ EXPECTED_FIELDS = {
 }
 ZERO_FIELDS = ("WRITE_COUNT", "RESET_COUNT", "PROGRAM_COUNT", "JTAG_OPERATIONS")
 SOURCE_COMMIT_PIN = "e2feedcfde44563854a3cf41fe4526c231ed385b"
-OBSERVER_PIN = "c73d6a8112e5d125c88cb43455ecdcffa07dd47f129c2539f571aa27b27fff25"
+OBSERVER_PIN = "0bed50e3fec1eedcabada9fda2f05f1d90e586c3d8b8dc5364a2c7f5a3e09f90"
+BUNDLE_BUILDER_PIN = "cffd66c469aae018e1be637431b5e8dabb52958281d0893772f92b48e04e2655"
+BUNDLE_RUNNER_PIN = "c49fa88c3a9d4ab8bcd583e737e489716fd555d6c2a568a4e026967441a8b9d7"
+
+
+def _load_pinned_bundle_builder():
+    path = HERE / "phk2_fk0957_ephemeral_bundle.py"
+    source = path.read_bytes()
+    if hashlib.sha256(source).hexdigest() != BUNDLE_BUILDER_PIN:
+        raise RuntimeError("ephemeral bundle builder source pin mismatch")
+    name = "_fk0957_reviewed_ephemeral_bundle"
+    module = types.ModuleType(name)
+    module.__file__ = str(path)
+    sys.modules[name] = module
+    exec(compile(source, str(path), "exec"), module.__dict__)
+    return module
+
+
+_bundle_builder = _load_pinned_bundle_builder()
+deterministic_bundle = _bundle_builder.deterministic_bundle
+inspect_bundle = _bundle_builder.inspect_bundle
+ephemeral_remote_command = _bundle_builder.remote_command
 
 
 class Refusal(RuntimeError):
@@ -349,7 +371,8 @@ def _sealed_known_hosts_fd(material: bytes) -> int:
 
 
 def acquire_and_sign(key_path: Path, *, known_hosts_path: Path, runner: Callable = subprocess.run,
-                     expected_hostname: str, remote_repo: str) -> dict:
+                     expected_hostname: str, remote_repo: str | None = None,
+                     ephemeral: bool = False) -> dict:
     if not isinstance(expected_hostname, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}", expected_hostname):
         raise Refusal("expected informational hostname is malformed")
     collector_bytes = COLLECTOR.read_bytes()
@@ -365,14 +388,48 @@ def acquire_and_sign(key_path: Path, *, known_hosts_path: Path, runner: Callable
     if collector_hash != COLLECTOR_PIN:
         raise Refusal("collector source pin mismatch")
     nonce = secrets.token_hex(32)
-    if not isinstance(remote_repo, str) or not remote_repo or "\x00" in remote_repo:
-        raise Refusal("remote repository path is missing or malformed")
+    bundle_hash = None
+    execution_source_commit = None
+    if ephemeral:
+        if remote_repo is not None:
+            raise Refusal("choose one acquisition mode")
+        try:
+            execution_source_commit = subprocess.run(
+                ["git", "-C", str(REPO), "rev-parse", "HEAD"], check=True,
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True).stdout.strip()
+        except (OSError, subprocess.CalledProcessError) as exc:
+            raise Refusal("local execution source commit unavailable") from exc
+        runner_bytes = (HERE / "phk2_fk0957_ephemeral_runner.py").read_bytes()
+        if sha(runner_bytes) != BUNDLE_RUNNER_PIN:
+            raise Refusal("ephemeral remote runner source pin mismatch")
+        try:
+            bundle, bundle_metadata = deterministic_bundle(
+                source_commit=execution_source_commit, session_nonce=nonce, source_root=REPO,
+                collector_pin=collector_hash, backend_pin=backend_hash, observer_pin=OBSERVER_PIN,
+                runner_bytes=runner_bytes)
+            bundle_hash = bundle_metadata["bundle_sha256"]
+            inspect_bundle(bundle, expected_bundle_sha256=bundle_hash,
+                           expected_source_commit=execution_source_commit,
+                           expected_collector_sha256=collector_hash,
+                           expected_backend_sha256=backend_hash, expected_nonce=nonce)
+        except Exception as exc:
+            raise Refusal("ephemeral execution bundle failed local validation") from exc
+        stdin_data = bundle
+        remote_command = ephemeral_remote_command(
+            bundle_sha256=bundle_hash, source_commit=execution_source_commit,
+            collector_sha256=collector_hash, backend_sha256=backend_hash, session_nonce=nonce)
+        execution_mode = "EPHEMERAL_REVIEWED_BUNDLE"
+    else:
+        if not isinstance(remote_repo, str) or not remote_repo or "\x00" in remote_repo:
+            raise Refusal("remote repository path is required unless ephemeral mode is selected")
+        stdin_data = collector_bytes
+        remote_command = (f"cd -- {shlex.quote(remote_repo)} && "
+                          f"FK0957_TARGET=FK0957 python3 - {collector_hash} {nonce}")
+        execution_mode = "REMOTE_CHECKOUT"
     source_fd, known_hosts_bytes, host_identity = _read_pinned_known_hosts(known_hosts_path)
     os.close(source_fd)
     pinned_hash = sha(known_hosts_bytes)
     known_hosts_fd = _sealed_known_hosts_fd(known_hosts_bytes)
-    remote_command = (f"cd -- {shlex.quote(remote_repo)} && "
-                     f"FK0957_TARGET=FK0957 python3 - {collector_hash} {nonce}")
     fd_known_hosts = f"/proc/self/fd/{known_hosts_fd}"
     cmd = [SSH_BINARY, "-F", "/dev/null", "-T",
            "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes",
@@ -389,12 +446,14 @@ def acquire_and_sign(key_path: Path, *, known_hosts_path: Path, runner: Callable
         os.close(check_fd)
         if check_bytes != known_hosts_bytes or check_identity != host_identity or sha(check_bytes) != pinned_hash:
             raise Refusal("pinned known_hosts changed between validation and SSH invocation")
-        result = runner(cmd, input=collector_bytes, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        result = runner(cmd, input=stdin_data, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                         check=False, timeout=30, env=safe_env, pass_fds=(known_hosts_fd,))
     finally:
         os.close(known_hosts_fd)
     if getattr(result, "returncode", 1) != 0:
         raise Refusal("remote unsigned acquisition failed")
+    if getattr(result, "stderr", b""):
+        raise Refusal("remote SSH/collector stderr must be empty")
     raw = result.stdout if isinstance(result.stdout, bytes) else str(result.stdout).encode()
     unsigned = validate_unsigned(raw, collector_hash=collector_hash, backend_hash=backend_hash,
                                   expected_hostname=expected_hostname, session_nonce=nonce)
@@ -406,6 +465,9 @@ def acquire_and_sign(key_path: Path, *, known_hosts_path: Path, runner: Callable
                               "pinned_known_hosts_sha256": pinned_hash,
                               "collector_reported_hostname_SELF_REPORTED": unsigned["remote_hostname"],
                               "collector_source_sha256": collector_hash, "backend_source_sha256": backend_hash,
+                              "execution_mode": execution_mode,
+                              "execution_source_commit": execution_source_commit,
+                              "execution_bundle_sha256": bundle_hash,
                               "source_commit": unsigned["source_commit"],
                               "acquisition_timestamp": unsigned["acquisition_timestamp"],
                               "session_nonce": nonce, "raw_unsigned_sha256": sha(raw)}}
@@ -436,7 +498,8 @@ def verify_signed(evidence: dict, public_key) -> bool:
     provenance = payload["provenance"]
     provenance_fields = {"ssh_destination", "ssh_host_key_algorithm", "ssh_host_key_sha256",
                          "pinned_known_hosts_sha256", "collector_reported_hostname_SELF_REPORTED",
-                         "collector_source_sha256", "backend_source_sha256",
+                         "collector_source_sha256", "backend_source_sha256", "execution_mode",
+                         "execution_source_commit", "execution_bundle_sha256",
                          "source_commit", "acquisition_timestamp", "session_nonce", "raw_unsigned_sha256"}
     if (payload["schema"] != "fk0957-signed-identity-evidence" or payload["version"] != 1 or
             not isinstance(unsigned, dict) or set(unsigned) != EXPECTED_FIELDS or
@@ -449,6 +512,9 @@ def verify_signed(evidence: dict, public_key) -> bool:
                            "collector_reported_hostname_SELF_REPORTED": unsigned.get("remote_hostname"),
                            "collector_source_sha256": unsigned.get("collector_source_sha256"),
                            "backend_source_sha256": unsigned.get("backend_source_sha256"),
+                           "execution_mode": provenance.get("execution_mode"),
+                           "execution_source_commit": provenance.get("execution_source_commit"),
+                           "execution_bundle_sha256": provenance.get("execution_bundle_sha256"),
                            "source_commit": unsigned.get("source_commit"),
                            "acquisition_timestamp": unsigned.get("acquisition_timestamp"),
                            "session_nonce": unsigned.get("session_nonce"),
@@ -460,6 +526,14 @@ def verify_signed(evidence: dict, public_key) -> bool:
             not re.fullmatch(r"SHA256:[A-Za-z0-9+/]{43}", provenance["ssh_host_key_sha256"]) or
             not re.fullmatch(r"[0-9a-f]{64}", provenance["pinned_known_hosts_sha256"])):
         raise Refusal("signed SSH host-key provenance malformed")
+    if provenance["execution_mode"] == "EPHEMERAL_REVIEWED_BUNDLE":
+        if (not isinstance(provenance["execution_source_commit"], str) or
+                not re.fullmatch(r"[0-9a-f]{40}", provenance["execution_source_commit"]) or
+                not isinstance(provenance["execution_bundle_sha256"], str) or
+                not re.fullmatch(r"[0-9a-f]{64}", provenance["execution_bundle_sha256"])):
+            raise Refusal("ephemeral bundle provenance malformed")
+    elif provenance["execution_mode"] != "REMOTE_CHECKOUT" or provenance["execution_bundle_sha256"] is not None:
+        raise Refusal("execution mode provenance malformed")
     if evidence["signature_algorithm"] != "Ed25519" or evidence["payload_sha256"] != sha(encoded):
         raise Refusal("signed evidence digest or algorithm mismatch")
     try:
@@ -471,7 +545,7 @@ def verify_signed(evidence: dict, public_key) -> bool:
 
 # Updated to the reviewed collector bytes after implementation; prevents a
 # mutable collector replacement from being sent to the authorized host.
-COLLECTOR_PIN = "4ce9604d4ea6986282b6fc468c0dda60383aebe49eed40d8f13d4e0ef7644240"
+COLLECTOR_PIN = "d24fe214f3d9279f72018448ba3b33b53f946a4d2f41cbc1ca066eff3d24dc51"
 
 
 def main(argv=None) -> int:
@@ -482,13 +556,16 @@ def main(argv=None) -> int:
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--expected-hostname", required=True,
                         help="pre-established hostname expected from the authorized SSH destination")
-    parser.add_argument("--remote-repo", required=True,
-                        help="testbench checkout containing the pinned observer and backend")
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--ephemeral", action="store_true",
+                      help="execute the deterministic reviewed bundle from SSH stdin; no remote checkout needed")
+    mode.add_argument("--remote-repo",
+                      help="legacy checkout mode: testbench checkout containing pinned observer/backend")
     args = parser.parse_args(argv)
     try:
         evidence = acquire_and_sign(args.signing_key, known_hosts_path=args.known_hosts,
                                     expected_hostname=args.expected_hostname,
-                                    remote_repo=args.remote_repo)
+                                    remote_repo=args.remote_repo, ephemeral=args.ephemeral)
         write_evidence_atomic(args.output, canonical(evidence) + b"\n")
     except (Refusal, OSError) as exc:
         parser.error(str(exc))

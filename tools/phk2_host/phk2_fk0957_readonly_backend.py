@@ -52,6 +52,12 @@ REFERENCE_FILES = (
     "tools/phk1_raw_bscan/libftdi_io.cpp",
     "tools/phk1_raw_bscan/identify_only.cpp",
 )
+REVIEWED_REFERENCE_HASHES = {
+    "tools/phk1_raw_bscan/usb_identity.hpp": "916e436168d4a7cf057e1019a06f0b2207d9122246e7bae22a73121549eb2fcb",
+    "tools/phk1_raw_bscan/usb_selection.cpp": "6bd03fd54b2a94d0a056c3eb155b6c50cdc65a530eae752aeb93f5fedf41df48",
+    "tools/phk1_raw_bscan/libftdi_io.cpp": "4b61ff5c78f6c666e5888d56ffda885edf6923fc4d72b361b75b6e56ca949194",
+    "tools/phk1_raw_bscan/identify_only.cpp": "31260a7c6a3ac437bcfc1dcd6e8914d700c74ab26600a1bdb7c2b957e9e4d117",
+}
 
 
 def _sha256(path: Path) -> str:
@@ -171,8 +177,9 @@ class FK0957ReadOnlyBackend:
     @staticmethod
     def _identity() -> Mapping[str, str]:
         path = Path(__file__).resolve()
-        repo = path.parents[2]
-        refs = {name: _sha256(repo / name) for name in REFERENCE_FILES}
+        # Preserve the reviewed legacy-source provenance without requiring or
+        # transmitting those unrelated historical implementation files.
+        refs = REVIEWED_REFERENCE_HASHES
         return {
             "name": "phk2_fk0957_sysfs_readonly",
             "version": BACKEND_VERSION,

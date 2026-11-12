@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import hashlib
 import base64
 import hmac
+import io
 import json
 import shlex
 import os
@@ -11,11 +12,14 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import zipfile
 import unittest
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import phk2_fk0957_remote_orchestrator as remote
+import phk2_fk0957_ephemeral_bundle as bundle_tools
+import phk2_fk0957_ephemeral_runner as bundle_runner
 
 
 def unsigned(collector_hash=None, backend_hash=None, session_nonce="0" * 64):
@@ -23,7 +27,7 @@ def unsigned(collector_hash=None, backend_hash=None, session_nonce="0" * 64):
         "schema": "fk0957-unsigned-descriptor-evidence", "version": 1,
         "target_selector": "FK0957", "collector_source_sha256": collector_hash or remote.COLLECTOR_PIN,
         "session_nonce": session_nonce,
-        "backend_source_sha256": backend_hash or "a189556093b915d1ab1d3f93ebcc3ef9af44f4f11c3d67d649798cbe6cb20196",
+        "backend_source_sha256": backend_hash or remote.sha(remote.BACKEND.read_bytes()),
         "source_commit": "e2feedcfde44563854a3cf41fe4526c231ed385b", "remote_hostname": "testbox",
         "acquisition_timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "ftdi_vid": "0403", "ftdi_pid": "6010", "manufacturer": "Xilinx", "product": "SQRL FK",
@@ -47,8 +51,10 @@ def hostkey_line(host="192.168.1.173", keyseed=b"A" * 32):
 
 
 class FakeSSH:
-    def __init__(self, response):
+    def __init__(self, response, *, stderr=b"", returncode=0):
         self.response = response
+        self.stderr = stderr
+        self.returncode = returncode
         self.calls = []
 
     def __call__(self, cmd, **kwargs):
@@ -57,7 +63,7 @@ class FakeSSH:
             response = self.response(cmd)
         else:
             response = self.response
-        return subprocess.CompletedProcess(cmd, 0, response, b"")
+        return subprocess.CompletedProcess(cmd, self.returncode, response, self.stderr)
 
 
 class RemoteOrchestratorTests(unittest.TestCase):
@@ -69,6 +75,18 @@ class RemoteOrchestratorTests(unittest.TestCase):
 
     def tearDown(self):
         self.pin_dir.cleanup()
+
+    def make_bundle(self, nonce="1" * 64, runner_bytes=None):
+        collector = remote.COLLECTOR.read_bytes()
+        backend = remote.BACKEND.read_bytes()
+        observer_bytes = remote.observer.OBSERVER_PATH.read_bytes()
+        return bundle_tools.deterministic_bundle(
+            source_commit=subprocess.run(["git", "-C", str(remote.REPO), "rev-parse", "HEAD"],
+                                          check=True, capture_output=True, text=True).stdout.strip(),
+            session_nonce=nonce, source_root=remote.REPO, collector_pin=remote.sha(collector),
+            backend_pin=remote.sha(backend), observer_pin=remote.sha(observer_bytes),
+            runner_bytes=(runner_bytes if runner_bytes is not None else
+                          (remote.HERE / "phk2_fk0957_ephemeral_runner.py").read_bytes()))
 
     def test_fake_remote_acquisition_signs_locally_with_no_key_material_sent(self):
         from cryptography.hazmat.primitives import serialization
@@ -190,6 +208,9 @@ class RemoteOrchestratorTests(unittest.TestCase):
                                   "collector_reported_hostname_SELF_REPORTED": u["remote_hostname"],
                                   "collector_source_sha256": u["collector_source_sha256"],
                                   "backend_source_sha256": u["backend_source_sha256"],
+                                  "execution_mode": "REMOTE_CHECKOUT",
+                                  "execution_source_commit": None,
+                                  "execution_bundle_sha256": None,
                                   "source_commit": u["source_commit"],
                                   "acquisition_timestamp": u["acquisition_timestamp"],
                                   "session_nonce": u["session_nonce"],
@@ -513,6 +534,222 @@ class RemoteOrchestratorTests(unittest.TestCase):
             with self.assertRaises(remote.Refusal):
                 remote.acquire_and_sign(key_path, known_hosts_path=self.known_hosts_path, runner=fake,
                     expected_hostname="testbox", remote_repo="/remote")
+
+    def test_ephemeral_bundle_is_deterministic_minimal_and_pinned(self):
+        first, metadata = self.make_bundle()
+        second, metadata2 = self.make_bundle()
+        self.assertEqual(first, second)
+        self.assertEqual(metadata, metadata2)
+        self.assertEqual(set(metadata["files"]), set(bundle_tools.PAYLOAD_RELS))
+        self.assertEqual(len(metadata["files"]), 3)
+        parsed, members = bundle_tools.inspect_bundle(
+            first, expected_bundle_sha256=metadata["bundle_sha256"],
+            expected_source_commit=metadata["source_commit"],
+            expected_collector_sha256=metadata["collector_source_sha256"],
+            expected_backend_sha256=metadata["backend_source_sha256"],
+            expected_nonce=metadata["session_nonce"])
+        self.assertEqual(parsed["session_nonce"], "1" * 64)
+        self.assertEqual(set(members), {*bundle_tools.PAYLOAD_RELS, "runner.py"})
+
+    def test_ephemeral_bundle_rejects_modified_truncated_extra_and_wrong_nonce(self):
+        raw, m = self.make_bundle()
+        args = dict(expected_source_commit=m["source_commit"],
+                    expected_collector_sha256=m["collector_source_sha256"],
+                    expected_backend_sha256=m["backend_source_sha256"], expected_nonce=m["session_nonce"])
+        with self.assertRaises(bundle_tools.BundleRefusal):
+            bundle_tools.inspect_bundle(raw[:-9], expected_bundle_sha256=hashlib.sha256(raw[:-9]).hexdigest(), **args)
+        changed_stream = io.BytesIO()
+        with zipfile.ZipFile(io.BytesIO(raw)) as source, zipfile.ZipFile(changed_stream, "w") as target:
+            for item in source.infolist():
+                data = source.read(item.filename)
+                if item.filename == bundle_tools.COLLECTOR_REL:
+                    data = bytes([data[0] ^ 1]) + data[1:]
+                target.writestr(item, data)
+        changed = changed_stream.getvalue()
+        with self.assertRaises(bundle_tools.BundleRefusal):
+            bundle_tools.inspect_bundle(bytes(changed), expected_bundle_sha256=hashlib.sha256(changed).hexdigest(), **args)
+        extra_stream = io.BytesIO()
+        with zipfile.ZipFile(io.BytesIO(raw)) as source, zipfile.ZipFile(extra_stream, "w") as target:
+            for item in source.infolist():
+                target.writestr(item, source.read(item.filename))
+            target.writestr("unexpected.py", b"print('unexpected')")
+        extra = extra_stream.getvalue()
+        with self.assertRaises(bundle_tools.BundleRefusal):
+            bundle_tools.inspect_bundle(extra, expected_bundle_sha256=hashlib.sha256(extra).hexdigest(), **args)
+        with self.assertRaises(bundle_tools.BundleRefusal):
+            bundle_tools.inspect_bundle(raw, expected_bundle_sha256=m["bundle_sha256"],
+                                        expected_source_commit=m["source_commit"],
+                                        expected_collector_sha256=m["collector_source_sha256"],
+                                        expected_backend_sha256=m["backend_source_sha256"],
+                                        expected_nonce="2" * 64)
+        with self.assertRaises(bundle_tools.BundleRefusal):
+            bundle_tools.inspect_bundle(raw, expected_bundle_sha256=m["bundle_sha256"],
+                                        expected_source_commit="f" * 40,
+                                        expected_collector_sha256=m["collector_source_sha256"],
+                                        expected_backend_sha256=m["backend_source_sha256"],
+                                        expected_nonce=m["session_nonce"])
+
+    def test_ephemeral_command_uses_isolated_python_and_no_remote_checkout(self):
+        raw, m = self.make_bundle()
+        command = bundle_tools.remote_command(bundle_sha256=m["bundle_sha256"],
+            source_commit=m["source_commit"], collector_sha256=m["collector_source_sha256"],
+            backend_sha256=m["backend_source_sha256"], session_nonce=m["session_nonce"])
+        self.assertIn("/usr/bin/python3 -I -S -c ", command)
+        self.assertIn("FK0957_TARGET=FK0957", command)
+        self.assertIn(m["bundle_sha256"], command)
+        self.assertNotIn("remote-repo", command)
+        with self.assertRaises(bundle_tools.BundleRefusal):
+            bundle_tools.remote_command(bundle_sha256="0" * 62 + ";id", source_commit=m["source_commit"],
+                collector_sha256=m["collector_source_sha256"], backend_sha256=m["backend_source_sha256"],
+                session_nonce=m["session_nonce"])
+
+    def test_isolated_python_ignores_hostile_pythonpath_customization_and_cwd_modules(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            marker = root / "customization-ran"
+            hostile = ("from pathlib import Path\nPath(" + repr(str(marker)) + ").write_text('bad')\n")
+            for name in ("sitecustomize.py", "usercustomize.py", "json.py", "socket.py"):
+                (root / name).write_text(hostile)
+            proc = subprocess.run([sys.executable, "-I", "-S", "-c",
+                                   "import json; print(json.__file__)"], cwd=root,
+                                  env={"PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+                                       "PYTHONPATH": str(root)}, capture_output=True, text=True, timeout=10)
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertNotIn(str(root), proc.stdout)
+            self.assertFalse(marker.exists())
+
+    def test_isolated_bootstrap_verifies_bundle_before_exec_with_hostile_environment(self):
+        bundle, metadata = self.make_bundle(runner_bytes=b"import sys\nsys.stdout.write('BUNDLE_OK')\n")
+        command = bundle_tools.remote_command(bundle_sha256=metadata["bundle_sha256"],
+            source_commit=metadata["source_commit"], collector_sha256=metadata["collector_source_sha256"],
+            backend_sha256=metadata["backend_source_sha256"], session_nonce=metadata["session_nonce"])
+        argv = shlex.split(command)
+        self.assertEqual(argv[0], "FK0957_TARGET=FK0957")
+        with tempfile.TemporaryDirectory() as d:
+            poison = Path(d)
+            marker = poison / "ran"
+            (poison / "sitecustomize.py").write_text("from pathlib import Path; Path(" + repr(str(marker)) + ").write_text('x')")
+            (poison / "zipfile.py").write_text("raise RuntimeError('shadowed stdlib')")
+            proc = subprocess.run(argv[1:], input=bundle, cwd=poison,
+                env={"PATH": "/usr/bin:/bin", "PYTHONPATH": str(poison)},
+                capture_output=True, timeout=10)
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertEqual(proc.stdout, b"BUNDLE_OK")
+            self.assertFalse(marker.exists())
+            altered = bundle[:-1] + bytes([bundle[-1] ^ 1])
+            bad = subprocess.run(argv[1:], input=altered, cwd=poison,
+                env={"PATH": "/usr/bin:/bin", "PYTHONPATH": str(poison)},
+                capture_output=True, timeout=10)
+            self.assertNotEqual(bad.returncode, 0)
+            self.assertEqual(bad.stdout, b"")
+
+    def test_ephemeral_remote_stderr_and_partial_stdout_refuse(self):
+        key = Path(self.pin_dir.name) / "not-read.pem"
+        raw, m = self.make_bundle()
+        common = dict(known_hosts_path=self.known_hosts_path, expected_hostname="testbox", ephemeral=True)
+        for fake in (FakeSSH(b"", stderr=b"injected stderr"), FakeSSH(b'{"partial":')):
+            with self.subTest(stderr=fake.stderr), self.assertRaises(remote.Refusal):
+                remote.acquire_and_sign(key, runner=fake, **common)
+            self.assertTrue(fake.calls[0][1]["input"].startswith(b"PK\x03\x04"))
+
+    def test_ephemeral_signing_binds_bundle_hash_commit_nonce_and_local_key_only(self):
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        with tempfile.TemporaryDirectory() as d:
+            key_path = Path(d) / "RGB_ONLY_SIGNING_KEY.pem"
+            key = Ed25519PrivateKey.generate()
+            key_bytes = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
+                                          serialization.NoEncryption())
+            key_path.write_bytes(key_bytes)
+            fake = FakeSSH(lambda cmd: wire(unsigned(session_nonce=cmd[-1].split()[-1],
+                                                      collector_hash=remote.COLLECTOR_PIN)))
+            signed = remote.acquire_and_sign(key_path, known_hosts_path=self.known_hosts_path, runner=fake,
+                expected_hostname="testbox", ephemeral=True)
+            cmd, kwargs = fake.calls[0]
+            self.assertIn("-I -S -c", cmd[-1])
+            self.assertTrue(kwargs["input"].startswith(b"PK\x03\x04"))
+            prov = signed["payload"]["provenance"]
+            self.assertEqual(prov["execution_mode"], "EPHEMERAL_REVIEWED_BUNDLE")
+            self.assertEqual(prov["execution_bundle_sha256"], hashlib.sha256(kwargs["input"]).hexdigest())
+            self.assertEqual(prov["execution_source_commit"], self.make_bundle()[1]["source_commit"])
+            self.assertNotIn(key_bytes, kwargs["input"])
+            self.assertNotIn(str(key_path), " ".join(cmd))
+            key.public_key().verify(bytes.fromhex(signed["signature_hex"]),
+                                    remote.canonical(signed["payload"]))
+
+    def test_ephemeral_remote_rejects_wrong_nonce_and_stderr_before_signing(self):
+        fake = FakeSSH(lambda cmd: wire(unsigned(session_nonce="0" * 64)))
+        with self.assertRaises(remote.Refusal):
+            remote.acquire_and_sign(Path("missing-key"), known_hosts_path=self.known_hosts_path,
+                                    runner=fake, expected_hostname="testbox", ephemeral=True)
+        self.assertEqual(len(fake.calls), 1)
+
+    def test_remote_temp_path_symlink_attack_refuses_without_following_target(self):
+        raw_bundle, metadata = self.make_bundle()
+        manifest, members = bundle_tools.inspect_bundle(raw_bundle,
+            expected_bundle_sha256=metadata["bundle_sha256"], expected_source_commit=metadata["source_commit"],
+            expected_collector_sha256=metadata["collector_source_sha256"],
+            expected_backend_sha256=metadata["backend_source_sha256"], expected_nonce=metadata["session_nonce"])
+        members.pop("runner.py")
+        with tempfile.TemporaryDirectory() as d:
+            target = Path(d) / "target"
+            target.mkdir(mode=0o700)
+            link = Path("/tmp") / ("fk0957-link-" + remote.secrets.token_hex(8))
+            link.symlink_to(target, target_is_directory=True)
+            class LinkedTemp:
+                name = str(link)
+                def cleanup(self):
+                    link.unlink()
+            with self.assertRaises(RuntimeError):
+                bundle_runner.run_payload(manifest, members, expected_commit=metadata["source_commit"],
+                    collector_hash=metadata["collector_source_sha256"], backend_hash=metadata["backend_source_sha256"],
+                    session_nonce=metadata["session_nonce"], temp_factory=lambda **_: LinkedTemp(),
+                    process_runner=lambda *a, **k: subprocess.CompletedProcess(a[0], 0, b'{"ok":true}\n', b""))
+            self.assertEqual(list(target.iterdir()), [])
+
+    def test_remote_temp_cleanup_failure_emits_no_stdout(self):
+        raw_bundle, metadata = self.make_bundle()
+        manifest, members = bundle_tools.inspect_bundle(raw_bundle,
+            expected_bundle_sha256=metadata["bundle_sha256"], expected_source_commit=metadata["source_commit"],
+            expected_collector_sha256=metadata["collector_source_sha256"],
+            expected_backend_sha256=metadata["backend_source_sha256"], expected_nonce=metadata["session_nonce"])
+        members.pop("runner.py")
+        real_temp = tempfile.TemporaryDirectory()
+        class BadCleanup:
+            name = real_temp.name
+            def cleanup(self):
+                real_temp.cleanup()
+                raise OSError("injected cleanup failure")
+        out = io.BytesIO()
+        with self.assertRaises(RuntimeError):
+            bundle_runner.run_payload(manifest, members, expected_commit=metadata["source_commit"],
+                collector_hash=metadata["collector_source_sha256"], backend_hash=metadata["backend_source_sha256"],
+                session_nonce=metadata["session_nonce"], temp_factory=lambda **_: BadCleanup(),
+                process_runner=lambda *a, **k: subprocess.CompletedProcess(a[0], 0, b'{"ok":true}\n', b""),
+                stdout=out)
+        self.assertEqual(out.getvalue(), b"")
+
+    def test_unexpected_import_is_refused_and_bundle_contains_no_mutator_api(self):
+        with self.assertRaises(bundle_tools.BundleRefusal):
+            bundle_tools._check_import_surface({bundle_tools.COLLECTOR_REL: b"import sitecustomize\n"})
+        backend = remote.BACKEND.read_text()
+        for forbidden in ("ftdi_write_data", "ftdi_set_bitmode", "libusb_claim_interface"):
+            self.assertNotIn(forbidden, backend)
+
+    def test_changed_collector_or_backend_mutation_capability_cannot_be_bundled(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            for relative in bundle_tools.PAYLOAD_RELS:
+                destination = root / relative
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes((remote.REPO / relative).read_bytes())
+            collector_path = root / bundle_tools.COLLECTOR_REL
+            collector_path.write_bytes(collector_path.read_bytes() + b"\ndef program(): pass\n")
+            with self.assertRaises(bundle_tools.BundleRefusal):
+                bundle_tools.deterministic_bundle(source_commit="1" * 40, session_nonce="2" * 64,
+                    source_root=root, collector_pin=remote.COLLECTOR_PIN,
+                    backend_pin=remote.sha(remote.BACKEND.read_bytes()), observer_pin=remote.OBSERVER_PIN,
+                    runner_bytes=(remote.HERE / "phk2_fk0957_ephemeral_runner.py").read_bytes())
 
 
 if __name__ == "__main__":
