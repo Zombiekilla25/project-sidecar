@@ -2,8 +2,11 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import hashlib
+import base64
+import hmac
 import json
 import shlex
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -34,6 +37,15 @@ def wire(value):
     return remote.canonical(value) + b"\n"
 
 
+def ssh_string(value):
+    return len(value).to_bytes(4, "big") + value
+
+
+def hostkey_line(host="192.168.1.173", keyseed=b"A" * 32):
+    blob = ssh_string(b"ssh-ed25519") + ssh_string(keyseed)
+    return f"{host} ssh-ed25519 {base64.b64encode(blob).decode()}\n"
+
+
 class FakeSSH:
     def __init__(self, response):
         self.response = response
@@ -49,6 +61,15 @@ class FakeSSH:
 
 
 class RemoteOrchestratorTests(unittest.TestCase):
+    def setUp(self):
+        self.pin_dir = tempfile.TemporaryDirectory()
+        self.known_hosts_path = Path(self.pin_dir.name) / "testbench.known_hosts"
+        self.known_hosts_path.write_text(hostkey_line())
+        self.known_hosts_path.chmod(0o600)
+
+    def tearDown(self):
+        self.pin_dir.cleanup()
+
     def test_fake_remote_acquisition_signs_locally_with_no_key_material_sent(self):
         from cryptography.hazmat.primitives import serialization
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -59,14 +80,27 @@ class RemoteOrchestratorTests(unittest.TestCase):
                                           serialization.NoEncryption())
             key_path.write_bytes(key_bytes)
             fake = FakeSSH(lambda cmd: wire(unsigned(session_nonce=cmd[-1].split()[-1])))
-            result = remote.acquire_and_sign(key_path, runner=fake, expected_hostname="testbox", remote_repo="/remote repo")
+            result = remote.acquire_and_sign(key_path, known_hosts_path=self.known_hosts_path, runner=fake, expected_hostname="testbox", remote_repo="/remote repo")
             cmd, kwargs = fake.calls[0]
             self.assertEqual(cmd[-2], "rmann@192.168.1.173")
+            self.assertEqual(cmd[0], "/usr/bin/ssh")
+            self.assertIn("-F", cmd)
+            self.assertIn("BatchMode=yes", cmd)
+            self.assertIn("StrictHostKeyChecking=yes", cmd)
+            self.assertIn("GlobalKnownHostsFile=/dev/null", cmd)
+            self.assertIn("HostKeyAlias=192.168.1.173", cmd)
+            self.assertTrue(any(x.startswith("UserKnownHostsFile=/proc/self/fd/") for x in cmd))
             self.assertIn("ForwardAgent=no", cmd)
             self.assertRegex(cmd[-1], rf"^cd -- '/remote repo' && FK0957_TARGET=FK0957 python3 - {remote.COLLECTOR_PIN} [0-9a-f]{{64}}$")
             self.assertEqual(kwargs["input"], remote.COLLECTOR.read_bytes())
             self.assertNotIn(key_bytes, kwargs["input"])
             self.assertNotIn(str(key_path), " ".join(cmd))
+            prov = result["payload"]["provenance"]
+            self.assertEqual(prov["ssh_destination"], remote.SSH_DESTINATION)
+            self.assertEqual(prov["ssh_host_key_algorithm"], "ssh-ed25519")
+            self.assertTrue(prov["ssh_host_key_sha256"].startswith("SHA256:"))
+            self.assertEqual(prov["pinned_known_hosts_sha256"], remote.sha(self.known_hosts_path.read_bytes()))
+            self.assertEqual(prov["collector_reported_hostname_SELF_REPORTED"], "testbox")
             canonical = remote.canonical(result["payload"])
             key.public_key().verify(bytes.fromhex(result["signature_hex"]), canonical)
 
@@ -148,7 +182,12 @@ class RemoteOrchestratorTests(unittest.TestCase):
         u = unsigned()
         payload = {"schema": "fk0957-signed-identity-evidence", "version": 1,
                    "unsigned_evidence": u,
-                   "provenance": {"ssh_target": remote.HOST, "remote_hostname": u["remote_hostname"],
+                   "provenance": {"ssh_destination": remote.SSH_DESTINATION,
+                                  "ssh_host_key_algorithm": "ssh-ed25519",
+                                  "ssh_host_key_sha256": "SHA256:" + base64.b64encode(hashlib.sha256(
+                                      base64.b64decode(hostkey_line().split()[2])).digest()).decode().rstrip("="),
+                                  "pinned_known_hosts_sha256": remote.sha(hostkey_line().encode()),
+                                  "collector_reported_hostname_SELF_REPORTED": u["remote_hostname"],
                                   "collector_source_sha256": u["collector_source_sha256"],
                                   "backend_source_sha256": u["backend_source_sha256"],
                                   "source_commit": u["source_commit"],
@@ -174,10 +213,10 @@ class RemoteOrchestratorTests(unittest.TestCase):
             key_path.write_bytes(key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
                                                    serialization.NoEncryption()))
             fake = FakeSSH(lambda cmd: wire(unsigned(session_nonce=cmd[-1].split()[-1])))
-            remote.acquire_and_sign(key_path, runner=fake, expected_hostname="testbox", remote_repo="/remote repo")
+            remote.acquire_and_sign(key_path, known_hosts_path=self.known_hosts_path, runner=fake, expected_hostname="testbox", remote_repo="/remote repo")
             cmd, kwargs = fake.calls[0]
-            self.assertEqual(set(kwargs), {"input", "stdout", "stderr", "check", "timeout", "env"})
-            self.assertTrue(set(kwargs["env"]).issubset({"PATH", "HOME"}))
+            self.assertEqual(set(kwargs), {"input", "stdout", "stderr", "check", "timeout", "env", "pass_fds"})
+            self.assertEqual(set(kwargs["env"]), {"PATH", "HOME", "LC_ALL", "LANG"})
             self.assertNotIn(b"SECRET_KEY_FILE", kwargs["input"])
             self.assertNotIn("SECRET_KEY_FILE", repr(cmd) + repr(kwargs))
 
@@ -194,7 +233,7 @@ class RemoteOrchestratorTests(unittest.TestCase):
             with self.assertRaises(remote.Refusal):
                 # This deliberately returns a wrong hostname; we only need to
                 # inspect that the path traveled as inert quoted shell text.
-                remote.acquire_and_sign(key_path, runner=fake, expected_hostname="wrong",
+                remote.acquire_and_sign(key_path, known_hosts_path=self.known_hosts_path, runner=fake, expected_hostname="wrong",
                                         remote_repo=remote_path)
             command = fake.calls[0][0][-1]
             self.assertTrue(command.startswith(f"cd -- {shlex.quote(remote_path)} && "))
@@ -203,13 +242,13 @@ class RemoteOrchestratorTests(unittest.TestCase):
     def test_private_key_unavailable_fails_after_validation_without_exposure(self):
         fake = FakeSSH(lambda cmd: wire(unsigned(session_nonce=cmd[-1].split()[-1])))
         with self.assertRaises(remote.Refusal):
-            remote.acquire_and_sign(Path("/definitely/not/a/key"), runner=fake, expected_hostname="testbox", remote_repo="/remote")
+            remote.acquire_and_sign(Path("/definitely/not/a/key"), known_hosts_path=self.known_hosts_path, runner=fake, expected_hostname="testbox", remote_repo="/remote")
         self.assertEqual(len(fake.calls), 1)
 
     def test_invalid_remote_output_refuses_before_attempting_key_read(self):
         fake = FakeSSH(b'{"schema":"partial"}\n')
         with self.assertRaises(remote.Refusal):
-            remote.acquire_and_sign(Path("missing-key"), runner=fake, expected_hostname="testbox", remote_repo="/remote")
+            remote.acquire_and_sign(Path("missing-key"), known_hosts_path=self.known_hosts_path, runner=fake, expected_hostname="testbox", remote_repo="/remote")
 
     def test_collector_is_stdlib_only_and_has_no_mutation_surface(self):
         source = remote.COLLECTOR.read_text()
@@ -233,8 +272,151 @@ class RemoteOrchestratorTests(unittest.TestCase):
         with mock.patch.object(remote, "COLLECTOR_PIN", "0" * 64):
             fake = FakeSSH(b"")
             with self.assertRaises(remote.Refusal):
-                remote.acquire_and_sign(Path("missing-key"), runner=fake, expected_hostname="testbox", remote_repo="/remote")
+                remote.acquire_and_sign(Path("missing-key"), known_hosts_path=self.known_hosts_path, runner=fake, expected_hostname="testbox", remote_repo="/remote")
             self.assertEqual(fake.calls, [])
+
+    def test_host_key_entry_must_match_fixed_ip_and_be_unambiguous(self):
+        fake = FakeSSH(b"")
+        self.known_hosts_path.write_text(hostkey_line("192.168.1.174"))
+        with self.assertRaises(remote.Refusal):
+            remote.acquire_and_sign(Path("missing-key"), known_hosts_path=self.known_hosts_path,
+                                    runner=fake, expected_hostname="testbox", remote_repo="/remote")
+        self.assertEqual(fake.calls, [])
+        self.known_hosts_path.write_text(hostkey_line() + hostkey_line(keyseed=b"B" * 32))
+        with self.assertRaises(remote.Refusal):
+            remote.acquire_and_sign(Path("missing-key"), known_hosts_path=self.known_hosts_path,
+                                    runner=fake, expected_hostname="testbox", remote_repo="/remote")
+        self.assertEqual(fake.calls, [])
+
+    def test_ssh_rejection_of_wrong_presented_host_key_never_signs(self):
+        class WrongHostKeySSH:
+            def __call__(self, cmd, **kwargs):
+                # Model OpenSSH StrictHostKeyChecking=yes rejecting a server key
+                # that does not match the one-key local pin.
+                return subprocess.CompletedProcess(cmd, 255, b"", b"Host key verification failed")
+        with self.assertRaises(remote.Refusal):
+            remote.acquire_and_sign(Path("missing-key"), known_hosts_path=self.known_hosts_path,
+                runner=WrongHostKeySSH(), expected_hostname="testbox", remote_repo="/remote")
+
+    def test_hashed_known_hosts_entry_is_supported(self):
+        salt = b"hashed-salt"
+        digest = hmac.new(salt, b"192.168.1.173", hashlib.sha1).digest()
+        token = "|1|" + base64.b64encode(salt).decode() + "|" + base64.b64encode(digest).decode()
+        self.known_hosts_path.write_text(hostkey_line(token))
+        fd, material, identity = remote._read_pinned_known_hosts(self.known_hosts_path)
+        os.close(fd)
+        self.assertEqual(material, self.known_hosts_path.read_bytes())
+        self.assertEqual(identity["algorithm"], "ssh-ed25519")
+
+    def test_symlink_missing_malformed_and_unsafe_pin_refuse(self):
+        fake = FakeSSH(b"")
+        linked = self.known_hosts_path.with_name("linked.known_hosts")
+        linked.symlink_to(self.known_hosts_path)
+        with self.assertRaises(remote.Refusal):
+            remote.acquire_and_sign(Path("missing-key"), known_hosts_path=linked,
+                                    runner=fake, expected_hostname="testbox", remote_repo="/remote")
+        with self.assertRaises(remote.Refusal):
+            remote.acquire_and_sign(Path("missing-key"), known_hosts_path=self.known_hosts_path.with_name("absent"),
+                                    runner=fake, expected_hostname="testbox", remote_repo="/remote")
+        self.known_hosts_path.write_text("not a known_hosts entry\n")
+        with self.assertRaises(remote.Refusal):
+            remote.acquire_and_sign(Path("missing-key"), known_hosts_path=self.known_hosts_path,
+                                    runner=fake, expected_hostname="testbox", remote_repo="/remote")
+        self.assertEqual(fake.calls, [])
+
+    def test_open_ssh_options_environment_and_config_are_fail_closed(self):
+        fake = FakeSSH(lambda cmd: wire(unsigned(session_nonce=cmd[-1].split()[-1])))
+        hostile = {"SSH_OPTIONS": "-o StrictHostKeyChecking=no", "SSH_CONFIG": "/tmp/evil",
+                   "SSH_AUTH_SOCK": "/tmp/agent", "GIT_SSH_COMMAND": "evil", "HOME": "/tmp/evil"}
+        with mock.patch.dict(os.environ, hostile, clear=False):
+            with tempfile.TemporaryDirectory() as d:
+                key_path = Path(d) / "key.pem"
+                from cryptography.hazmat.primitives import serialization
+                from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+                key = Ed25519PrivateKey.generate()
+                key_path.write_bytes(key.private_bytes(serialization.Encoding.PEM,
+                    serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
+                remote.acquire_and_sign(key_path, known_hosts_path=self.known_hosts_path, runner=fake,
+                                        expected_hostname="testbox", remote_repo="/remote")
+        cmd, kwargs = fake.calls[0]
+        self.assertEqual(cmd[0], remote.SSH_BINARY)
+        self.assertEqual(cmd[1:3], ["-F", "/dev/null"])
+        self.assertEqual(cmd.count("StrictHostKeyChecking=yes"), 1)
+        self.assertEqual(cmd.count("GlobalKnownHostsFile=/dev/null"), 1)
+        self.assertNotIn("StrictHostKeyChecking=no", cmd)
+        self.assertEqual(kwargs["env"], {"PATH": "/usr/bin:/bin", "HOME": "/nonexistent", "LC_ALL": "C", "LANG": "C"})
+        self.assertNotIn("shell", kwargs)
+
+    def test_destination_and_host_alias_cannot_be_overridden_by_module_aliases(self):
+        fake = FakeSSH(b"{}\n")
+        with mock.patch.object(remote, "SSH_DESTINATION", "attacker@203.0.113.9"), \
+             mock.patch.object(remote, "SSH_IP", "203.0.113.9"):
+            with self.assertRaises(remote.Refusal):
+                remote.acquire_and_sign(Path("missing-key"), known_hosts_path=self.known_hosts_path,
+                    runner=fake, expected_hostname="testbox", remote_repo="/remote")
+        cmd = fake.calls[0][0]
+        self.assertEqual(cmd[-2], "rmann@192.168.1.173")
+        self.assertIn("HostKeyAlias=192.168.1.173", cmd)
+
+    def test_group_or_world_readable_known_hosts_refuses(self):
+        self.known_hosts_path.chmod(0o644)
+        with self.assertRaises(remote.Refusal):
+            remote._read_pinned_known_hosts(self.known_hosts_path)
+
+    def test_changed_path_and_symlink_swap_cannot_change_invoked_pin(self):
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        with tempfile.TemporaryDirectory() as d:
+            key_path = Path(d) / "key.pem"
+            key = Ed25519PrivateKey.generate()
+            key_path.write_bytes(key.private_bytes(serialization.Encoding.PEM,
+                serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
+            original = self.known_hosts_path.read_bytes()
+            def mutate_after_exec(cmd, **kwargs):
+                self.known_hosts_path.unlink()
+                self.known_hosts_path.symlink_to(Path(d) / "attacker")
+                inherited = Path(f"/proc/self/fd/{kwargs['pass_fds'][0]}").read_bytes()
+                self.assertEqual(inherited, original)
+                return subprocess.CompletedProcess(cmd, 0, wire(unsigned(session_nonce=cmd[-1].split()[-1])), b"")
+            signed = remote.acquire_and_sign(key_path, known_hosts_path=self.known_hosts_path,
+                runner=mutate_after_exec, expected_hostname="testbox", remote_repo="/remote")
+            self.assertEqual(signed["payload"]["provenance"]["pinned_known_hosts_sha256"], remote.sha(original))
+
+    def test_pin_changed_between_validation_and_invocation_refuses(self):
+        fake = FakeSSH(b"")
+        original_read = remote._read_pinned_known_hosts
+        calls = 0
+        def mutate_between_reads(path):
+            nonlocal calls
+            calls += 1
+            result = original_read(path)
+            if calls == 1:
+                self.known_hosts_path.write_text(hostkey_line(keyseed=b"C" * 32))
+                self.known_hosts_path.chmod(0o600)
+            return result
+        with mock.patch.object(remote, "_read_pinned_known_hosts", side_effect=mutate_between_reads):
+            with self.assertRaises(remote.Refusal):
+                remote.acquire_and_sign(Path("missing-key"), known_hosts_path=self.known_hosts_path,
+                    runner=fake, expected_hostname="testbox", remote_repo="/remote")
+        self.assertEqual(fake.calls, [])
+
+    def test_wrong_reported_hostname_refuses_before_signing(self):
+        fake = FakeSSH(lambda cmd: wire(unsigned(session_nonce=cmd[-1].split()[-1], collector_hash=remote.COLLECTOR_PIN)))
+        with tempfile.TemporaryDirectory() as d:
+            from cryptography.hazmat.primitives import serialization
+            from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+            key_path = Path(d) / "key.pem"
+            key = Ed25519PrivateKey.generate()
+            key_path.write_bytes(key.private_bytes(serialization.Encoding.PEM,
+                serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
+            def spoof(cmd):
+                value = unsigned(session_nonce=cmd[-1].split()[-1])
+                value["remote_hostname"] = "spoofed-testbox"
+                return wire(value)
+            fake.response = spoof
+            with self.assertRaises(remote.Refusal):
+                remote.acquire_and_sign(key_path, known_hosts_path=self.known_hosts_path, runner=fake,
+                    expected_hostname="testbox", remote_repo="/remote")
 
 
 if __name__ == "__main__":

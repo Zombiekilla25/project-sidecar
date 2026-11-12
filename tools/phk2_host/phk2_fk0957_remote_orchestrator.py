@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import base64
 from datetime import datetime, timezone, timedelta
+import fcntl
+import hmac
 import hashlib
 import json
 import os
@@ -11,13 +14,19 @@ from pathlib import Path
 import re
 import secrets
 import shlex
+import stat
 import subprocess
 import sys
 from typing import Callable
 
 import phk2_fk0957_identity_observer as observer
 
-HOST = "rmann@192.168.1.173"
+_AUTHORIZED_SSH_DESTINATION = "rmann@192.168.1.173"
+_AUTHORIZED_SSH_IP = "192.168.1.173"
+# Public aliases retained for audit/tests; execution uses the authorized constants above.
+SSH_DESTINATION = _AUTHORIZED_SSH_DESTINATION
+SSH_IP = _AUTHORIZED_SSH_IP
+SSH_BINARY = "/usr/bin/ssh"
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 COLLECTOR = HERE / "phk2_fk0957_remote_collector.py"
@@ -70,10 +79,10 @@ def validate_unsigned(raw: bytes, *, collector_hash: str, backend_hash: str,
              **{name: 0 for name in ZERO_FIELDS}}
     if any(value.get(k) != v for k, v in fixed.items()):
         raise Refusal("target identity, source pin, or zero-operation counter mismatch")
-    if value["remote_hostname"] != expected_hostname:
-        raise Refusal("remote hostname mismatch")
     if not isinstance(expected_hostname, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}", expected_hostname):
         raise Refusal("hostname is malformed")
+    if value["remote_hostname"] != expected_hostname:
+        raise Refusal("collector self-reported hostname differs from expected informational hostname")
     if not isinstance(value["usb_path"], str) or not re.fullmatch(r"[0-9]+-[0-9]+(?:\.[0-9]+)*", value["usb_path"]):
         raise Refusal("USB path is missing or malformed")
     if value["source_commit"] != SOURCE_COMMIT_PIN:
@@ -101,8 +110,154 @@ def _unique_pairs(pairs):
     return result
 
 
-def acquire_and_sign(key_path: Path, *, runner: Callable = subprocess.run,
+def _read_pinned_known_hosts(path: Path) -> tuple[int, bytes, dict]:
+    """Open one owner-only pinned known_hosts inode and identify exactly one key for SSH_IP."""
+    path = Path(path)
+    if not path.is_absolute():
+        raise Refusal("pinned known_hosts path must be absolute")
+    # Refuse symlinks and writable/foreign parent directories so the validated path
+    # cannot be replaced by another local user before OpenSSH opens it.
+    parts = (path, *path.parents)
+    for item in reversed(parts[1:]):
+        try:
+            parent_st = item.lstat()
+        except OSError as exc:
+            raise Refusal("pinned known_hosts parent is unavailable") from exc
+        if not stat.S_ISDIR(parent_st.st_mode) or stat.S_ISLNK(parent_st.st_mode):
+            raise Refusal("pinned known_hosts path has a symlink or non-directory parent")
+        sticky_tmp = bool(parent_st.st_mode & stat.S_ISVTX)
+        if parent_st.st_uid not in (0, os.getuid()) or (parent_st.st_mode & 0o022 and not sticky_tmp):
+            raise Refusal("pinned known_hosts parent is not owned and protected by this user")
+    try:
+        before = path.lstat()
+        if stat.S_ISLNK(before.st_mode) or not stat.S_ISREG(before.st_mode):
+            raise Refusal("pinned known_hosts must be a regular non-symlink file")
+        if (before.st_uid != os.getuid() or before.st_nlink != 1 or before.st_mode & 0o177 or
+                not before.st_mode & 0o400):
+            raise Refusal("pinned known_hosts must be owner-only, singly linked, and owned by this user")
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0))
+    except Refusal:
+        raise
+    except OSError as exc:
+        raise Refusal("pinned known_hosts cannot be opened safely") from exc
+    try:
+        opened = os.fstat(fd)
+        after = path.lstat()
+        if (not stat.S_ISREG(opened.st_mode) or opened.st_dev != before.st_dev or opened.st_ino != before.st_ino or
+                after.st_dev != opened.st_dev or after.st_ino != opened.st_ino or opened.st_uid != os.getuid() or
+                opened.st_nlink != 1 or opened.st_mode & 0o177 or not opened.st_mode & 0o400):
+            raise Refusal("pinned known_hosts changed during validation")
+        chunks = []
+        while True:
+            chunk = os.read(fd, 65536)
+            if not chunk:
+                break
+            chunks.append(chunk)
+            if sum(map(len, chunks)) > 1024 * 1024:
+                raise Refusal("pinned known_hosts is oversized")
+        material = b"".join(chunks)
+        identity = _parse_pinned_host_key(material)
+        # OpenSSH will use this already-validated inode through the inherited FD.
+        os.lseek(fd, 0, os.SEEK_SET)
+        return fd, material, identity
+    except Exception:
+        os.close(fd)
+        raise
+
+
+def _ssh_string(data: bytes, offset: int) -> tuple[bytes, int]:
+    if offset + 4 > len(data):
+        raise ValueError("truncated SSH key blob")
+    length = int.from_bytes(data[offset:offset + 4], "big")
+    offset += 4
+    if length > len(data) - offset:
+        raise ValueError("truncated SSH key field")
+    return data[offset:offset + length], offset + length
+
+
+def _parse_pinned_host_key(material: bytes) -> dict:
+    matches = []
+    try:
+        text = material.decode("ascii")
+    except UnicodeDecodeError as exc:
+        raise Refusal("pinned known_hosts is not ASCII") from exc
+    for line_no, line in enumerate(text.splitlines(), 1):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        fields = line.split()
+        marker = ""
+        if fields[0].startswith("@"):
+            marker, fields = fields[0], fields[1:]
+            if marker not in ("@revoked", "@cert-authority"):
+                raise Refusal(f"malformed known_hosts marker on line {line_no}")
+        if len(fields) < 3:
+            raise Refusal(f"malformed known_hosts line {line_no}")
+        hosts, algorithm, encoded = fields[:3]
+        if not re.fullmatch(r"[A-Za-z0-9@._+:-]+", algorithm):
+            raise Refusal(f"malformed host-key algorithm on line {line_no}")
+        try:
+            blob = base64.b64decode(encoded, validate=True)
+            key_type, offset = _ssh_string(blob, 0)
+        except (ValueError, base64.binascii.Error) as exc:
+            raise Refusal(f"malformed host-key material on line {line_no}") from exc
+        try:
+            decoded_type = key_type.decode("ascii", "strict")
+        except UnicodeDecodeError as exc:
+            raise Refusal(f"malformed host-key type on line {line_no}") from exc
+        if decoded_type != algorithm or offset >= len(blob):
+            raise Refusal(f"host-key algorithm/blob mismatch on line {line_no}")
+        if marker:
+            continue
+        for host in hosts.split(","):
+            applies = False
+            if host.startswith("|1|"):
+                pieces = host.split("|")
+                if len(pieces) != 4 or not pieces[2] or not pieces[3]:
+                    raise Refusal(f"malformed hashed host entry on line {line_no}")
+                try:
+                    salt, digest = base64.b64decode(pieces[2], validate=True), base64.b64decode(pieces[3], validate=True)
+                except base64.binascii.Error as exc:
+                    raise Refusal(f"malformed hashed host entry on line {line_no}") from exc
+                applies = hmac.compare_digest(hmac.new(salt, _AUTHORIZED_SSH_IP.encode("ascii"), hashlib.sha1).digest(), digest)
+            elif any(c in host for c in "*!?"):
+                # Wildcards and negations make the approved identity set ambiguous.
+                if SSH_IP in host:
+                    raise Refusal("ambiguous wildcard/negated host entry for authorized SSH IP")
+            else:
+                applies = host == _AUTHORIZED_SSH_IP
+            if applies:
+                matches.append({"algorithm": algorithm,
+                                "fingerprint": "SHA256:" + base64.b64encode(hashlib.sha256(blob).digest()).decode("ascii").rstrip("=")})
+    if len(matches) != 1:
+        raise Refusal("pinned known_hosts must contain exactly one applicable approved host key")
+    return matches[0]
+
+
+def _sealed_known_hosts_fd(material: bytes) -> int:
+    """Give OpenSSH immutable bytes from the validated pinned file, not a replaceable path."""
+    if not hasattr(os, "memfd_create") or not hasattr(fcntl, "F_ADD_SEALS"):
+        raise Refusal("immutable known_hosts descriptor support is required")
+    flags = getattr(os, "MFD_ALLOW_SEALING", 0) | getattr(os, "MFD_CLOEXEC", 0)
+    fd = os.memfd_create("fk0957-pinned-known-hosts", flags)
+    try:
+        offset = 0
+        while offset < len(material):
+            offset += os.write(fd, material[offset:])
+        seals = (getattr(fcntl, "F_SEAL_SEAL", 0) | getattr(fcntl, "F_SEAL_SHRINK", 0) |
+                 getattr(fcntl, "F_SEAL_GROW", 0) | getattr(fcntl, "F_SEAL_WRITE", 0))
+        fcntl.fcntl(fd, fcntl.F_ADD_SEALS, seals)
+        os.lseek(fd, 0, os.SEEK_SET)
+        return fd
+    except Exception:
+        os.close(fd)
+        raise Refusal("could not seal validated known_hosts material")
+
+
+def acquire_and_sign(key_path: Path, *, known_hosts_path: Path, runner: Callable = subprocess.run,
                      expected_hostname: str, remote_repo: str) -> dict:
+    if not isinstance(expected_hostname, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}", expected_hostname):
+        raise Refusal("expected informational hostname is malformed")
     collector_bytes = COLLECTOR.read_bytes()
     collector_hash = sha(collector_bytes)
     backend_bytes = BACKEND.read_bytes()
@@ -118,13 +273,32 @@ def acquire_and_sign(key_path: Path, *, runner: Callable = subprocess.run,
     nonce = secrets.token_hex(32)
     if not isinstance(remote_repo, str) or not remote_repo or "\x00" in remote_repo:
         raise Refusal("remote repository path is missing or malformed")
+    source_fd, known_hosts_bytes, host_identity = _read_pinned_known_hosts(known_hosts_path)
+    os.close(source_fd)
+    pinned_hash = sha(known_hosts_bytes)
+    known_hosts_fd = _sealed_known_hosts_fd(known_hosts_bytes)
     remote_command = (f"cd -- {shlex.quote(remote_repo)} && "
                      f"FK0957_TARGET=FK0957 python3 - {collector_hash} {nonce}")
-    cmd = ["ssh", "-T", "-o", "ForwardAgent=no", "-o", "ClearAllForwardings=yes",
-           "-o", "PermitLocalCommand=no", HOST, remote_command]
-    safe_env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": os.environ.get("HOME", "")}
-    result = runner(cmd, input=collector_bytes, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                    check=False, timeout=30, env=safe_env)
+    fd_known_hosts = f"/proc/self/fd/{known_hosts_fd}"
+    cmd = [SSH_BINARY, "-F", "/dev/null", "-T",
+           "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes",
+           "-o", f"UserKnownHostsFile={fd_known_hosts}", "-o", "GlobalKnownHostsFile=/dev/null",
+           "-o", f"HostKeyAlias={_AUTHORIZED_SSH_IP}", "-o", "CheckHostIP=yes", "-o", "UpdateHostKeys=no",
+           "-o", "KnownHostsCommand=none", "-o", "ForwardAgent=no", "-o", "ClearAllForwardings=yes",
+           "-o", "PermitLocalCommand=no", _AUTHORIZED_SSH_DESTINATION, remote_command]
+    safe_env = {"PATH": "/usr/bin:/bin", "HOME": "/nonexistent",
+                "LC_ALL": "C", "LANG": "C"}
+    try:
+        # Re-read and verify the named path immediately before invocation. OpenSSH
+        # consumes the inherited descriptor, so a later rename/symlink swap cannot alter the pin.
+        check_fd, check_bytes, check_identity = _read_pinned_known_hosts(known_hosts_path)
+        os.close(check_fd)
+        if check_bytes != known_hosts_bytes or check_identity != host_identity or sha(check_bytes) != pinned_hash:
+            raise Refusal("pinned known_hosts changed between validation and SSH invocation")
+        result = runner(cmd, input=collector_bytes, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                        check=False, timeout=30, env=safe_env, pass_fds=(known_hosts_fd,))
+    finally:
+        os.close(known_hosts_fd)
     if getattr(result, "returncode", 1) != 0:
         raise Refusal("remote unsigned acquisition failed")
     raw = result.stdout if isinstance(result.stdout, bytes) else str(result.stdout).encode()
@@ -132,7 +306,11 @@ def acquire_and_sign(key_path: Path, *, runner: Callable = subprocess.run,
                                   expected_hostname=expected_hostname, session_nonce=nonce)
     payload = {"schema": "fk0957-signed-identity-evidence", "version": 1,
                "unsigned_evidence": unsigned,
-               "provenance": {"ssh_target": HOST, "remote_hostname": unsigned["remote_hostname"],
+               "provenance": {"ssh_destination": _AUTHORIZED_SSH_DESTINATION,
+                              "ssh_host_key_algorithm": host_identity["algorithm"],
+                              "ssh_host_key_sha256": host_identity["fingerprint"],
+                              "pinned_known_hosts_sha256": pinned_hash,
+                              "collector_reported_hostname_SELF_REPORTED": unsigned["remote_hostname"],
                               "collector_source_sha256": collector_hash, "backend_source_sha256": backend_hash,
                               "source_commit": unsigned["source_commit"],
                               "acquisition_timestamp": unsigned["acquisition_timestamp"],
@@ -162,13 +340,19 @@ def verify_signed(evidence: dict, public_key) -> bool:
         raise Refusal("signed payload schema malformed")
     unsigned = payload["unsigned_evidence"]
     provenance = payload["provenance"]
-    provenance_fields = {"ssh_target", "remote_hostname", "collector_source_sha256", "backend_source_sha256",
+    provenance_fields = {"ssh_destination", "ssh_host_key_algorithm", "ssh_host_key_sha256",
+                         "pinned_known_hosts_sha256", "collector_reported_hostname_SELF_REPORTED",
+                         "collector_source_sha256", "backend_source_sha256",
                          "source_commit", "acquisition_timestamp", "session_nonce", "raw_unsigned_sha256"}
     if (payload["schema"] != "fk0957-signed-identity-evidence" or payload["version"] != 1 or
             not isinstance(unsigned, dict) or set(unsigned) != EXPECTED_FIELDS or
             not isinstance(provenance, dict) or set(provenance) != provenance_fields):
         raise Refusal("signed payload fields malformed")
-    expected_provenance = {"ssh_target": HOST, "remote_hostname": unsigned.get("remote_hostname"),
+    expected_provenance = {"ssh_destination": _AUTHORIZED_SSH_DESTINATION,
+                           "ssh_host_key_algorithm": provenance.get("ssh_host_key_algorithm"),
+                           "ssh_host_key_sha256": provenance.get("ssh_host_key_sha256"),
+                           "pinned_known_hosts_sha256": provenance.get("pinned_known_hosts_sha256"),
+                           "collector_reported_hostname_SELF_REPORTED": unsigned.get("remote_hostname"),
                            "collector_source_sha256": unsigned.get("collector_source_sha256"),
                            "backend_source_sha256": unsigned.get("backend_source_sha256"),
                            "source_commit": unsigned.get("source_commit"),
@@ -177,6 +361,11 @@ def verify_signed(evidence: dict, public_key) -> bool:
                            "raw_unsigned_sha256": sha(canonical(unsigned) + b"\n")}
     if provenance != expected_provenance:
         raise Refusal("signed provenance binding mismatch")
+    if (not isinstance(provenance["ssh_host_key_algorithm"], str) or
+            not isinstance(provenance["ssh_host_key_sha256"], str) or
+            not re.fullmatch(r"SHA256:[A-Za-z0-9+/]{43}", provenance["ssh_host_key_sha256"]) or
+            not re.fullmatch(r"[0-9a-f]{64}", provenance["pinned_known_hosts_sha256"])):
+        raise Refusal("signed SSH host-key provenance malformed")
     if evidence["signature_algorithm"] != "Ed25519" or evidence["payload_sha256"] != sha(encoded):
         raise Refusal("signed evidence digest or algorithm mismatch")
     try:
@@ -194,6 +383,8 @@ COLLECTOR_PIN = "4ce9604d4ea6986282b6fc468c0dda60383aebe49eed40d8f13d4e0ef764424
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--signing-key", required=True, type=Path, help="local Ed25519 PEM key")
+    parser.add_argument("--known-hosts", required=True, type=Path,
+                        help="owner-only pinned known_hosts file dedicated to the authorized testbench")
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--expected-hostname", required=True,
                         help="pre-established hostname expected from the authorized SSH destination")
@@ -201,7 +392,8 @@ def main(argv=None) -> int:
                         help="testbench checkout containing the pinned observer and backend")
     args = parser.parse_args(argv)
     try:
-        evidence = acquire_and_sign(args.signing_key, expected_hostname=args.expected_hostname,
+        evidence = acquire_and_sign(args.signing_key, known_hosts_path=args.known_hosts,
+                                    expected_hostname=args.expected_hostname,
                                     remote_repo=args.remote_repo)
         args.output.write_bytes(canonical(evidence) + b"\n")
     except (Refusal, OSError) as exc:
