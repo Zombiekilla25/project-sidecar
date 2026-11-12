@@ -44,7 +44,7 @@ ZERO_FIELDS = ("WRITE_COUNT", "RESET_COUNT", "PROGRAM_COUNT", "JTAG_OPERATIONS")
 SOURCE_COMMIT_PIN = "e2feedcfde44563854a3cf41fe4526c231ed385b"
 OBSERVER_PIN = "e6afea8706df6c9c9855ddf7ca86d8054b3c1fb759f06d1aca77b2431d549210"
 BUNDLE_BUILDER_PIN = "a60d4bb57fea4e9441bf9a89476e286da16e12d4b9bd9cf7c7df8178a41c3438"
-BUNDLE_RUNNER_PIN = "f3ec77f8d92800249b210db1bd78628dd8db1979c9c4904a9118e070d32e6918"
+BUNDLE_RUNNER_PIN = "8e3aaf2422199072551c9be495c0335df61e3d7abaf1c4fc9f6cfd015a351813"
 
 
 def _load_pinned_bundle_builder():
@@ -189,6 +189,7 @@ def _parse_collector_failure_envelope(stdout, *, returncode: int) -> dict | None
     if not isinstance(value, dict) or set(value) != fields or canonical(value) + b"\n" != stdout:
         return None
     if (value["status"] != "REFUSED" or value["phase"] != "COLLECTOR" or
+            not isinstance(value["refusal_code"], str) or
             value["refusal_code"] not in COLLECTOR_REFUSAL_CODES or
             type(value["cards_opened"]) is not int or value["cards_opened"] != 0 or
             type(value["second_card_opened"]) is not bool or value["second_card_opened"] is not False or

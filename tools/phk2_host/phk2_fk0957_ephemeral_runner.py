@@ -54,6 +54,7 @@ def parse_collector_failure_envelope(raw: bytes, *, returncode: int, stderr: byt
     if _canonical(value) + b"\n" != raw:
         return None
     if (value["status"] != "REFUSED" or value["phase"] != "COLLECTOR" or
+            not isinstance(value["refusal_code"], str) or
             value["refusal_code"] not in COLLECTOR_REFUSAL_CODES or
             type(value["cards_opened"]) is not int or value["cards_opened"] != 0 or
             type(value["second_card_opened"]) is not bool or value["second_card_opened"] is not False or

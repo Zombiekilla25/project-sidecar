@@ -764,9 +764,19 @@ class RemoteOrchestratorTests(unittest.TestCase):
         attacks = {
             "forged_PASS": remote.canonical(unsigned()) + b"\n",
             "unknown_code": remote.canonical(dict(base, refusal_code="EXECUTE_COMMAND")) + b"\n",
+            "lowercase_code": remote.canonical(dict(base, refusal_code="internal_refusal")) + b"\n",
+            "array_code": remote.canonical(dict(base, refusal_code=[])) + b"\n",
+            "object_code": remote.canonical(dict(base, refusal_code={"code": "INTERNAL_REFUSAL"})) + b"\n",
             "extra_field": remote.canonical(dict(base, arbitrary="secret")) + b"\n",
+            "missing_field": remote.canonical({k: v for k, v in base.items() if k != "phase"}) + b"\n",
+            "duplicate_json_key": b'{"cards_opened":0,"jtag_operations":0,"phase":"COLLECTOR","program_count":0,"refusal_code":"INTERNAL_REFUSAL","reset_count":0,"second_card_opened":false,"status":"REFUSED","status":"REFUSED","write_count":0}\n',
+            "control_character": b'{"status":"REFUSED","phase":"COLLECTOR","refusal_code":"INTERNAL_REFUSAL","cards_opened":0,"second_card_opened":false,"write_count":0,"reset_count":0,"program_count":0,"jtag_operations":0}\x01\n',
             "malformed_json": b"{not-json}\n",
             "conflicting_cards": remote.canonical(dict(base, cards_opened=1)) + b"\n",
+            "string_counter": remote.canonical(dict(base, cards_opened="0")) + b"\n",
+            "bool_counter": remote.canonical(dict(base, write_count=True)) + b"\n",
+            "negative_counter": remote.canonical(dict(base, reset_count=-1)) + b"\n",
+            "huge_counter": remote.canonical(dict(base, program_count=10**100)) + b"\n",
             "write_nonzero": remote.canonical(dict(base, write_count=1)) + b"\n",
             "reset_nonzero": remote.canonical(dict(base, reset_count=1)) + b"\n",
             "program_nonzero": remote.canonical(dict(base, program_count=1)) + b"\n",
@@ -779,6 +789,17 @@ class RemoteOrchestratorTests(unittest.TestCase):
                 self.assertIsNone(remote._parse_collector_failure_envelope(raw, returncode=2))
         self.assertIsNone(remote._parse_collector_failure_envelope(
             remote.canonical(base) + b"\n", returncode=0))
+
+    def test_unhashable_refusal_code_is_rejected_by_both_envelope_parsers(self):
+        for code in ([], {}):
+            record = {"status": "REFUSED", "phase": "COLLECTOR", "refusal_code": code,
+                      "cards_opened": 0, "second_card_opened": False,
+                      "write_count": 0, "reset_count": 0, "program_count": 0,
+                      "jtag_operations": 0}
+            raw = remote.canonical(record) + b"\n"
+            with self.subTest(code=code):
+                self.assertIsNone(remote._parse_collector_failure_envelope(raw, returncode=2))
+                self.assertIsNone(bundle_runner.parse_collector_failure_envelope(raw, returncode=2))
 
     def test_collector_failure_envelope_requires_matching_ordered_diagnostics_and_is_never_evidence(self):
         record = {"status": "REFUSED", "phase": "COLLECTOR", "refusal_code": "DESCRIPTOR_READ_FAILED",
@@ -1053,8 +1074,11 @@ class RemoteOrchestratorTests(unittest.TestCase):
         variants = [
             forged_pass,
             remote.canonical(dict(valid, refusal_code="UNKNOWN_CODE")) + b"\n",
+            remote.canonical(dict(valid, refusal_code=[])) + b"\n",
+            remote.canonical(dict(valid, refusal_code={"code": "INTERNAL_REFUSAL"})) + b"\n",
             remote.canonical(dict(valid, extra="value")) + b"\n",
             b"{malformed}\n",
+            b'{"cards_opened":0,"jtag_operations":0,"phase":"COLLECTOR","program_count":0,"refusal_code":"INTERNAL_REFUSAL","reset_count":0,"second_card_opened":false,"status":"REFUSED","status":"REFUSED","write_count":0}\n',
             remote.canonical(dict(valid, cards_opened=1)) + b"\n",
             remote.canonical(dict(valid, write_count=1)) + b"\n",
             remote.canonical(dict(valid, reset_count=1)) + b"\n",
