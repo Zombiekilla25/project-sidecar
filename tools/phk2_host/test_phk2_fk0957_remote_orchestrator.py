@@ -723,6 +723,11 @@ class RemoteOrchestratorTests(unittest.TestCase):
         stderr = (b"FK0957_DIAG REMOTE_RUNNER_STARTED=YES\n"
                   b"FK0957_DIAG BUNDLE_RECEIVED=YES\n"
                   b"FK0957_DIAG BUNDLE_HASH_VERIFIED=YES\n"
+                  b"FK0957_DIAG MANIFEST_VERIFIED=YES\n"
+                  b"FK0957_DIAG COLLECTOR_SOURCE_VERIFIED=YES\n"
+                  b"FK0957_DIAG BACKEND_SOURCE_VERIFIED=YES\n"
+                  b"FK0957_DIAG COLLECTOR_STARTED=YES\n"
+                  b"FK0957_DIAG COLLECTOR_RETURNED=YES\n"
                   b"FK0957_DIAG REMOTE_PHASE=COLLECTOR_RETURNED\n"
                   b"FK0957_DIAG SSH_ERROR_CLASS=COLLECTOR_REFUSED\n")
         fake = FakeSSH(b"", stderr=stderr, returncode=2)
@@ -732,6 +737,36 @@ class RemoteOrchestratorTests(unittest.TestCase):
         self.assertIn("SSH_RETURN_CODE=2", str(caught.exception))
         self.assertIn("REMOTE_PHASE=COLLECTOR_RETURNED", str(caught.exception))
         self.assertIn("SSH_ERROR_CLASS=COLLECTOR_REFUSED", str(caught.exception))
+
+    def test_forged_or_malformed_phase_markers_are_discarded(self):
+        attacks = (
+            # A later marker without the preceding verified phases.
+            b"FK0957_DIAG COLLECTOR_RETURNED=YES\n"
+            b"FK0957_DIAG REMOTE_PHASE=COLLECTOR_RETURNED\n"
+            b"FK0957_DIAG SSH_ERROR_CLASS=COLLECTOR_REFUSED\n",
+            # Out-of-order phases cannot establish collector access.
+            b"FK0957_DIAG REMOTE_RUNNER_STARTED=YES\n"
+            b"FK0957_DIAG BUNDLE_HASH_VERIFIED=YES\n"
+            b"FK0957_DIAG BUNDLE_RECEIVED=YES\n"
+            b"FK0957_DIAG REMOTE_PHASE=BUNDLE_RECEIVED\n"
+            b"FK0957_DIAG SSH_ERROR_CLASS=BUNDLE_HASH_FAILED\n",
+            # A valid-looking prefix followed by untrusted text invalidates
+            # the whole stream; do not retain its claimed phase.
+            b"FK0957_DIAG REMOTE_RUNNER_STARTED=YES\n"
+            b"FK0957_DIAG BUNDLE_RECEIVED=YES\n"
+            b"FK0957_DIAG REMOTE_PHASE=BUNDLE_RECEIVED\n"
+            b"FK0957_DIAG SSH_ERROR_CLASS=BUNDLE_HASH_FAILED\n"
+            b"forged phase COLLECTOR_RETURNED",
+        )
+        for stderr in attacks:
+            with self.subTest(stderr=stderr):
+                records, clean = remote._parse_remote_diagnostics(stderr)
+                self.assertFalse(clean)
+                self.assertEqual(records, {})
+                message = remote._remote_failure_message(2, stderr)
+                self.assertNotIn("REMOTE_PHASE=COLLECTOR_RETURNED", message)
+                self.assertNotIn("COLLECTOR_RETURNED=YES", message)
+                self.assertNotIn("forged phase", message)
 
     def test_precollector_bundle_failure_refuses_before_evidence_validation_or_signing(self):
         stderr = (b"FK0957_DIAG REMOTE_RUNNER_STARTED=YES\n"

@@ -88,6 +88,11 @@ _REMOTE_ERROR_CLASSES = {
     "BUNDLE_HASH_FAILED", "RUNNER_FAILED", "COLLECTOR_REFUSED", "JSON_PARSE_FAILED",
     "UNEXPECTED_REMOTE_EXIT",
 }
+_REMOTE_PROGRESS = (
+    "REMOTE_RUNNER_STARTED", "BUNDLE_RECEIVED", "BUNDLE_HASH_VERIFIED",
+    "MANIFEST_VERIFIED", "COLLECTOR_SOURCE_VERIFIED", "BACKEND_SOURCE_VERIFIED",
+    "COLLECTOR_STARTED", "COLLECTOR_RETURNED", "STDOUT_RECORD_RECEIVED",
+)
 
 
 def _parse_remote_diagnostics(stderr) -> tuple[dict[str, str], bool]:
@@ -109,16 +114,39 @@ def _parse_remote_diagnostics(stderr) -> tuple[dict[str, str], bool]:
         return {}, False
     for line in lines:
         if not line.startswith(_REMOTE_DIAG_PREFIX):
-            return records, False
+            return {}, False
         item = line[len(_REMOTE_DIAG_PREFIX):]
         key, sep, value = item.partition("=")
         if not sep or key not in _REMOTE_DIAG_KEYS or key in records:
-            return records, False
+            return {}, False
         allowed = (value == "YES" if key not in ("REMOTE_PHASE", "SSH_ERROR_CLASS") else
                    value in (_REMOTE_PHASES if key == "REMOTE_PHASE" else _REMOTE_ERROR_CLASSES))
         if not allowed:
-            return records, False
+            return {}, False
         records[key] = value
+    # Markers are useful only as a verified protocol prefix. Discard all of
+    # them if a remote stream skips/reorders phases or has an inconsistent
+    # terminal failure record; otherwise forged partial output can claim a
+    # later acquisition phase than the process reached.
+    progress = [key for key in _REMOTE_PROGRESS if records.get(key) == "YES"]
+    if list(records.keys())[:len(progress)] != list(_REMOTE_PROGRESS[:len(progress)]):
+        return {}, False
+    if any(records.get(key) != "YES" for key in records if key in _REMOTE_PROGRESS):
+        return {}, False
+    terminal = [key for key in records if key in ("REMOTE_PHASE", "SSH_ERROR_CLASS")]
+    if terminal:
+        if terminal != ["REMOTE_PHASE", "SSH_ERROR_CLASS"]:
+            return {}, False
+        phase = records["REMOTE_PHASE"]
+        last_progress = progress[-1] if progress else None
+        if phase == "RUNNER_FAILED":
+            if last_progress not in _REMOTE_PROGRESS[5:]:
+                return {}, False
+        elif phase in ("SSH_TRANSPORT", "REMOTE_PYTHON_STARTUP"):
+            if progress:
+                return {}, False
+        elif phase != last_progress:
+            return {}, False
     return records, True
 
 
@@ -136,6 +164,7 @@ def _remote_failure_message(returncode, stderr) -> str:
     records, clean = _parse_remote_diagnostics(stderr)
     error_class = records.get("SSH_ERROR_CLASS") or _classify_ssh_error(stderr)
     if not clean:
+        records = {}
         error_class = _classify_ssh_error(stderr)
     phase = records.get("REMOTE_PHASE")
     if phase is None:
