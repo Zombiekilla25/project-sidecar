@@ -66,6 +66,16 @@ class CaseBDerivationSimulationTests(unittest.TestCase):
             for bit in vector[5:]:
                 state = TAP_NEXT[state][int(bit)]
             self.assertEqual(state, "RUN_TEST_IDLE")
+        state = "TEST_LOGIC_RESET"
+        observed = []
+        for bit in vector[5:]:
+            state = TAP_NEXT[state][int(bit)]
+            observed.append(state)
+        expected = (["RUN_TEST_IDLE", "SELECT_DR_SCAN", "SELECT_IR_SCAN", "CAPTURE_IR", "SHIFT_IR"] +
+                    ["SHIFT_IR"] * 5 + ["EXIT1_IR", "UPDATE_IR", "RUN_TEST_IDLE"] +
+                    ["SELECT_DR_SCAN", "CAPTURE_DR", "SHIFT_DR"] +
+                    ["SHIFT_DR"] * 31 + ["EXIT1_DR", "UPDATE_DR", "RUN_TEST_IDLE"])
+        self.assertEqual(observed, expected)
         self.assertIsNone(tap["tap_initial_state_before_reset"])
         self.assertIsNone(tap["expected_transition_table"])
         self.assertFalse(record["approved"])
@@ -92,6 +102,12 @@ class CaseBDerivationSimulationTests(unittest.TestCase):
         trace = record["derivation_trace"]
         self.assertEqual(trace["tap_vector_derivation"]["fsm_symbol"], "TAP_NEXT")
         self.assertEqual(trace["routed_clock_evidence"]["clock_object"], "bscan_tck")
+        self.assertGreaterEqual(len(record["method_element_evidence"]), 12)
+        self.assertTrue(all(row["source_file"] and row["source_lines_or_symbol"] and
+                            row["source_commit"] and row["test"] and row["confidence_status"]
+                            for row in record["method_element_evidence"]))
+        self.assertEqual(record["operation_side_effect_scope"]["allowed_design_state_change"],
+                         "stat_shift only: loaded on USER3 CAPTURE and shifted on USER3 SHIFT")
 
     def test_vu33p_vendor_model_derives_user3_opcode(self):
         if not VIVADO_JTAG_MODEL.is_file():

@@ -133,6 +133,14 @@
       {"purpose": "32-bit status DR shift; exit on final edge", "bits": "00000000000000000000000000000001", "cycles": 32},
       {"purpose": "Update-DR then Run-Test/Idle", "bits": "10", "cycles": 2}
     ],
+    "candidate_transition_segments_after_reset": [
+      {"tms": "01100", "states_after_each_cycle": ["RUN_TEST_IDLE", "SELECT_DR_SCAN", "SELECT_IR_SCAN", "CAPTURE_IR", "SHIFT_IR"]},
+      {"tms": "000001", "states_after_each_cycle": ["SHIFT_IR", "SHIFT_IR", "SHIFT_IR", "SHIFT_IR", "SHIFT_IR", "EXIT1_IR"]},
+      {"tms": "10", "states_after_each_cycle": ["UPDATE_IR", "RUN_TEST_IDLE"]},
+      {"tms": "100", "states_after_each_cycle": ["SELECT_DR_SCAN", "CAPTURE_DR", "SHIFT_DR"]},
+      {"tms": "00000000000000000000000000000001", "states_after_each_cycle": ["SHIFT_DR repeated 31 cycles", "EXIT1_DR"]},
+      {"tms": "10", "states_after_each_cycle": ["UPDATE_DR", "RUN_TEST_IDLE"]}
+    ],
     "candidate_complete_tms_vector": "1111101100000001101000000000000000000000000000000000110",
     "candidate_cycle_count": 55,
     "candidate_final_state": "RUN_TEST_IDLE",
@@ -190,6 +198,124 @@
       "test": "test_immutable_source_user3_status_snapshot_shift_contract",
       "result_scope": "64 symbolic status snapshots and 32 LSB-first shifts each against immutable v5.1 RTL; no TAP sequence, physical waveform, or fixed expected TDO constant is tested"
     }
+  },
+  "method_element_evidence": [
+    {
+      "method_element": "USER3 is the candidate observation chain",
+      "source_file": "rtl/phk2_board/phk2_fk33_board_top.sv",
+      "source_lines_or_symbol": "14-16: u_user3 BSCANE2 #(.JTAG_CHAIN(3)); 78-81: USER3 status capture and TDO",
+      "source_commit": "5f65f0ec8900ecaae3c498223bef0efb2542c047",
+      "test": "test_vu33p_vendor_model_derives_user3_opcode; test_immutable_source_user3_status_snapshot_shift_contract",
+      "confidence_status": "RTL chain binding proven; XCVU33P opcode additionally derived from pinned local Vivado 2026.1 model; owner approval outstanding"
+    },
+    {
+      "method_element": "Chain 3 reaches the status observation path",
+      "source_file": "rtl/phk2_board/phk2_fk33_board_top.sv",
+      "source_lines_or_symbol": "16, 62-81: u_user3 outputs feed tck3/s3/c3/sh3/tdo3 and stat_shift",
+      "source_commit": "5f65f0ec8900ecaae3c498223bef0efb2542c047",
+      "test": "test_immutable_source_user3_status_snapshot_shift_contract",
+      "confidence_status": "Source/netlist input RTL correspondence and offline RTL contract proven; physical image identity absent"
+    },
+    {
+      "method_element": "CAPTURE loads only the local USER3 observation register; SHIFT changes only that register",
+      "source_file": "rtl/phk2_board/phk2_fk33_board_top.sv",
+      "source_lines_or_symbol": "68-81: USER3 clocked block; capture assignment at 78, shift assignment at 79, TDO at 81",
+      "source_commit": "5f65f0ec8900ecaae3c498223bef0efb2542c047",
+      "test": "test_immutable_source_user3_status_snapshot_shift_contract (all 64 status patterns, TDI/TMS/UPDATE toggled)",
+      "confidence_status": "PASS for no application/workload/control/FIFO writes from USER3 CAPTURE/SHIFT; stat_shift itself is intentionally modified"
+    },
+    {
+      "method_element": "No BSCAN UPDATE event is needed for the status read",
+      "source_file": "rtl/phk2_board/phk2_fk33_board_top.sv",
+      "source_lines_or_symbol": "12-16: u3 is connected; 68-81: no u3 reference in USER3 logic",
+      "source_commit": "5f65f0ec8900ecaae3c498223bef0efb2542c047",
+      "test": "test_immutable_source_user3_status_snapshot_shift_contract toggles update3 while checking the response",
+      "confidence_status": "RTL proves UPDATE has no functional side effect; candidate TAP exit still traverses UPDATE-DR to return to idle"
+    },
+    {
+      "method_element": "Observation register width is 32 bits",
+      "source_file": "rtl/phk2_board/phk2_fk33_board_top.sv",
+      "source_lines_or_symbol": "62: reg [31:0] stat_shift; 78-79: 32-bit load/shift",
+      "source_commit": "5f65f0ec8900ecaae3c498223bef0efb2542c047",
+      "test": "test_immutable_source_user3_status_snapshot_shift_contract (32 shifts per snapshot)",
+      "confidence_status": "PROVEN: 32 bits"
+    },
+    {
+      "method_element": "Status response shifts least-significant bit first",
+      "source_file": "rtl/phk2_board/phk2_fk33_board_top.sv",
+      "source_lines_or_symbol": "79-81: right shift with TDO=stat_shift[0]",
+      "source_commit": "5f65f0ec8900ecaae3c498223bef0efb2542c047",
+      "test": "test_immutable_source_user3_status_snapshot_shift_contract compares TDO to expected_word[bit_index] for indices 0..31",
+      "confidence_status": "PROVEN at RTL contract level; physical sampling edge remains unqualified"
+    },
+    {
+      "method_element": "Five TMS ones reset the modeled TAP from any state",
+      "source_file": "tools/phk2_host/phk2_case_b_method.py",
+      "source_lines_or_symbol": "TAP_NEXT; TEST_LOGIC_RESET transitions",
+      "source_commit": "f966e092d541ca0d29514f2f664a27c3bdbd947d",
+      "test": "test_candidate_tms_path_resets_from_any_state_and_returns_to_idle",
+      "confidence_status": "FSM-derived candidate verified over every modeled state; physical TAP entry state/behavior not observed"
+    },
+    {
+      "method_element": "Candidate navigation/IR/DR TMS segments and exact total of 55 cycles",
+      "source_file": "ops/phk2/PHK2_FK0957_CASE_B_CANDIDATE_METHOD.json",
+      "source_lines_or_symbol": "candidate_tap_shape.candidate_tms_segments_after_reset; candidate_complete_tms_vector",
+      "source_commit": "f966e092d541ca0d29514f2f664a27c3bdbd947d",
+      "test": "test_candidate_tms_path_resets_from_any_state_and_returns_to_idle; TAP_NEXT FSM",
+      "confidence_status": "TMS arithmetic proven offline (55 clocks); sequence remains unapproved and has not been driven through a TAP model/physical target"
+    },
+    {
+      "method_element": "Final TAP state is RUN_TEST_IDLE",
+      "source_file": "tools/phk2_host/phk2_case_b_method.py",
+      "source_lines_or_symbol": "TAP_NEXT UPDATE_DR and TEST_LOGIC_RESET transitions",
+      "source_commit": "f966e092d541ca0d29514f2f664a27c3bdbd947d",
+      "test": "test_candidate_tms_path_resets_from_any_state_and_returns_to_idle",
+      "confidence_status": "FSM-derived candidate proven; physical TAP result unobserved"
+    },
+    {
+      "method_element": "Expected TDO is a captured status relationship, not a constant",
+      "source_file": "rtl/phk2_board/phk2_fk33_board_top.sv",
+      "source_lines_or_symbol": "49-61 and 74-81: status synchronizers, snapshot composition, shift, and TDO",
+      "source_commit": "5f65f0ec8900ecaae3c498223bef0efb2542c047",
+      "test": "test_immutable_source_user3_status_snapshot_shift_contract",
+      "confidence_status": "RTL relationship proven; runtime snapshot value is not predetermined"
+    },
+    {
+      "method_element": "Runtime-variable status bits and stable padding bits",
+      "source_file": "rtl/phk2_board/phk2_fk33_board_top.sv",
+      "source_lines_or_symbol": "78: bits [5:0] are aborted, overflow-or-rx-full, stale, error, ready, busy; bits [31:6] are zero padding",
+      "source_commit": "5f65f0ec8900ecaae3c498223bef0efb2542c047",
+      "test": "test_immutable_source_user3_status_snapshot_shift_contract exhausts all 64 lower-bit combinations and checks all 32 output bits",
+      "confidence_status": "RTL identifies six runtime-variable bits and 26 stable zero bits per captured word; not yet validated against physical status"
+    },
+    {
+      "method_element": "Internal TCK correlation point is USER3 BSCANE2 TCK output tck3",
+      "source_file": "rtl/phk2_board/phk2_fk33_board_top.sv",
+      "source_lines_or_symbol": "12, 16, 68: u_user3.TCK(tck3), tck3 clocks USER3 status logic",
+      "source_commit": "5f65f0ec8900ecaae3c498223bef0efb2542c047",
+      "test": "test_immutable_source_user3_status_snapshot_shift_contract drives the testbench tck3 event input",
+      "confidence_status": "RTL internal observation point identified; adapter-pin-to-tck3 physical correlation and shared capture timebase remain unproven"
+    }
+  ],
+  "status_bit_classification": {
+    "runtime_variable_bits": {
+      "bits": "[5:0]",
+      "meanings_msb_to_lsb": ["aborted_s2", "overflow_s2 OR rx_full_s2", "stale_s2", "error_s2", "ready_s2", "busy_s2"],
+      "source": "rtl/phk2_board/phk2_fk33_board_top.sv:74-78"
+    },
+    "stable_bits": {
+      "bits": "[31:6]",
+      "value": 0,
+      "meaning": "zero padding in each captured status word",
+      "source": "rtl/phk2_board/phk2_fk33_board_top.sv:78"
+    },
+    "correlation_caveat": "Stable padding can check the RTL-derived response shape, but is not by itself a physical TCK correlation proof."
+  },
+  "operation_side_effect_scope": {
+    "allowed_design_state_change": "stat_shift only: loaded on USER3 CAPTURE and shifted on USER3 SHIFT",
+    "prohibited_or_unchanged_functional_state": ["USER1 tx_shift/result FIFO read pointer", "USER2 rx_shift/rx_bits/input FIFO write pointer", "core command/workload state"],
+    "update_requirement": "No USER3 UPDATE event is required for the read. The candidate TAP route passes through UPDATE-IR/UPDATE-DR states to return to RUN_TEST_IDLE; RTL has no u3 functional consumer.",
+    "proof_scope": "RTL structure plus offline simulation; no claim about unmodeled silicon behavior"
   },
   "read_only_analysis": {
     "candidate_read_only": true,
