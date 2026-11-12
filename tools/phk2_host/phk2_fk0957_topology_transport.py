@@ -489,9 +489,17 @@ def validate_transport_observation(permit: topology.DiscoveryPermit,
                 1177, transport_source_sha256(), 1, 1, False, 0, 0, 0)
     if exact != expected:
         raise Refusal("transport result binding, transaction, count, or mutation counter mismatch")
-    if (permit._token not in topology._ACTIVE or permit._token not in topology._CONSUMED or
-        permit._token in _SIGNED_PERMITS):
-        raise Refusal("transport result lacks a live, unused authorized permit")
+    with topology._PERMIT_LOCK:
+        active_binding = topology._ACTIVE.get(permit._token)
+        supplied_binding = (permit.descriptor_evidence_sha256, permit.identity, permit.nonce,
+                            permit.issued_at, permit.expires_at,
+                            permit.trusted_signer_fingerprint)
+        if (active_binding is None or active_binding != supplied_binding or
+            permit._token not in topology._CONSUMED):
+            raise Refusal("transport result lacks the original consumed descriptor permit")
+    with _RESULT_LOCK:
+        if permit._token in _SIGNED_PERMITS:
+            raise Refusal("transport result permit was already signed")
     if topology._now() > datetime.fromisoformat(permit.expires_at):
         raise Refusal("descriptor-bound permit expired before local validation")
     bits_a = topology.raw_tdo_bits(result.scan_a_raw_tdo[:-1], result.scan_a_raw_tdo[-1:])

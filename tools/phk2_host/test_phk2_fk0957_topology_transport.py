@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 import ctypes
+from dataclasses import replace
 import hashlib
 import inspect
 import json
@@ -338,6 +339,55 @@ class TopologyTransportTests(unittest.TestCase):
             **result.__dict__, "_proof": object()})
         with self.assertRaises(transport.Refusal):
             transport.validate_transport_observation(self.permit(), caller_fabricated)
+
+    def test_post_transport_permit_field_replacement_refuses_before_signing(self):
+        permit = self.permit()
+        result = transport._run_with_backend(permit, self.backend())
+        extended = replace(permit, expires_at=(datetime.now(timezone.utc) +
+                                                timedelta(days=30)).isoformat())
+        with self.assertRaises(transport.Refusal):
+            transport.validate_transport_observation(extended, result)
+        changed_nonce = replace(permit, nonce="f" * 64)
+        with self.assertRaises(transport.Refusal):
+            transport.validate_transport_observation(changed_nonce, result)
+
+    def test_native_exact_io_loops_partial_and_refuses_nonprogress_or_overcount(self):
+        native = object.__new__(transport._NativeLibFtdi)
+        native._opened = True
+        native._ctx = ctypes.c_void_p(0x77)
+        sent = bytearray()
+
+        def partial_write(ctx, buf, size):
+            count = min(2, size)
+            sent.extend(bytes(buf[:count]))
+            return count
+
+        native._ftdi = SimpleNamespace(ftdi_write_data=mock.Mock(side_effect=partial_write))
+        native.write_exact(b"abcdef")
+        self.assertEqual(bytes(sent), b"abcdef")
+        self.assertEqual(native._ftdi.ftdi_write_data.call_count, 3)
+
+        for bad_count in (0, -1, 7):
+            native._ftdi.ftdi_write_data = mock.Mock(return_value=bad_count)
+            with self.subTest(write_result=bad_count), self.assertRaises(transport.Refusal):
+                native.write_exact(b"abcdef")
+
+        payload = iter((b"ab", b"cd", b"ef"))
+
+        def partial_read(ctx, buf, size):
+            chunk = next(payload)
+            count = min(len(chunk), size)
+            for index, value in enumerate(chunk[:count]):
+                buf[index] = value
+            return count
+
+        native._ftdi = SimpleNamespace(ftdi_read_data=mock.Mock(side_effect=partial_read))
+        self.assertEqual(native.read_exact(6), b"abcdef")
+        self.assertEqual(native._ftdi.ftdi_read_data.call_count, 3)
+        for bad_count in (0, -1, 7):
+            native._ftdi.ftdi_read_data = mock.Mock(return_value=bad_count)
+            with self.subTest(read_result=bad_count), self.assertRaises(transport.Refusal):
+                native.read_exact(6)
 
     def test_local_record_builder_signs_only_after_valid_transport(self):
         from cryptography.hazmat.primitives import serialization
