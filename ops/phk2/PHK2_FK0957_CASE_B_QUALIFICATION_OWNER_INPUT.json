@@ -1,0 +1,108 @@
+{
+  "schema": "PHK2-FK0957-CASE-B-QUALIFICATION-OWNER-INPUT-v1",
+  "record_status": "OWNER_INPUT_REQUIRED_NOT_APPROVED_NOT_EXECUTABLE",
+  "case_binding": {
+    "case_id": "33",
+    "case_name": "clock_interaction_no_unsafe",
+    "case_id_source": "immutable PHK2 qualification matrix",
+    "case_status": "UNQUALIFIED"
+  },
+  "instructions": {
+    "completion": "Qualification owner must supply every value marked OWNER ENTRY REQUIRED from authoritative approved records. Do not infer values from RTL, experiments, simulations, IDCODE-only scans, or historical examples.",
+    "empty_value_semantics": "A null value is incomplete and always refuses. It is never a wildcard, default, zero vector, or implied approval.",
+    "approval": "Completion alone does not authorize execution. The owner-approved method must be signed under the approved qualification-owner trust root and its exact method hash and expected observation must be pinned in the immutable qualification record."
+  },
+  "owner_entries": {
+    "qualification_record": {
+      "record_id": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "record_sha256": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null}
+    },
+    "routed_design": {
+      "source_commit": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "source_tree_hash": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "routed_image_or_build_id": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "routed_dcp_sha256": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "loaded_image_sha256": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "target_part": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null}
+    },
+    "fk0957_identity": {
+      "card_id": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "adapter_id": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "fpga_dna": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "idcode": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "jtag_chain_topology": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "fresh_signed_identity_evidence_sha256": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null}
+    },
+    "tap_method": {
+      "initial_state": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "reset_procedure_description": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "reset_tms_vector": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "reset_tdi_vector": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "reset_cycle_count": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "reset_expected_transitions": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "reset_final_state": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "bscan_chain": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "instruction_name": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "instruction_register_width_bits": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "instruction_opcode_bits_lsb_first": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "data_register_name": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "complete_tms_vector": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "complete_tdi_vector": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "cycle_count": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "expected_tap_transitions_per_cycle": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "final_tap_state": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "expected_tdo_or_observation_response": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "response_bit_order_and_sample_edge": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "permitted_variation_mask": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "variation_approval_id_and_sha256": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "read_only_declaration": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "read_only_proof_reference_and_sha256": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null}
+    },
+    "physical_tck_correlation": {
+      "correlation_method": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "tck_measurement_point": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "bscan_observation_point": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "shared_capture_timebase_and_sync_method": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "capture_window_and_trigger": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "correlation_acceptance_criteria": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null}
+    },
+    "capture_provenance": {
+      "capture_backend_sha256": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "capture_software_identity": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "instrument_identity": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "calibration_identity": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "native_capture_format": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "capture_signing_key_id_and_trust_root_sha256": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null}
+    },
+    "authorization_and_session": {
+      "authorized_operation": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "card_scope_integer_one": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "authorized_case_id": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "qualification_record_sha256": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "loaded_image_sha256": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "bridge_sha256": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "approved_method_sha256": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "authorization_id_and_operator_id": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "authorization_signature_and_trust_root_sha256": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "session_nonce": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "issued_utc": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "expires_utc": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null}
+    },
+    "evidence_and_journal": {
+      "raw_tap_transcript_sha256": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "raw_tck_capture_sha256": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "raw_bscan_observation_sha256": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "physical_correlation_artifact_sha256": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "evidence_journal_sha256": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null},
+      "evidence_journal_entry_sha256": {"value": null, "status": "OWNER ENTRY REQUIRED", "authoritative_source": null}
+    }
+  },
+  "promotion_gate": {
+    "owner_record_signature_verified": false,
+    "method_hash_pinned_in_immutable_qualification_record": false,
+    "expected_observation_pinned_in_immutable_qualification_record": false,
+    "physical_evidence_verified": false,
+    "case_b_pass_permitted": false,
+    "status": "UNQUALIFIED"
+  }
+}
