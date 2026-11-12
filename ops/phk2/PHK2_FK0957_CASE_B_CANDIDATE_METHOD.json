@@ -1,0 +1,245 @@
+{
+  "schema": "PHK2-FK0957-CASE-B-CANDIDATE-METHOD-v1",
+  "status": "CANDIDATE",
+  "approved": false,
+  "approval_status": "NO",
+  "execution_allowed": false,
+  "case_binding": {
+    "case_id": "33",
+    "case_name": "clock_interaction_no_unsafe",
+    "qualification_record_commit": "6ad11b72fc62a452195245984b69f236d4d3b315",
+    "qualification_record_sha256": "25b875c707aaa1ee43ec1da064b3fec0b2297aed87be4aacb2c7c2260b26c90e",
+    "matrix_sha256": "286209989a3984f9d20243df645621e29cbbeaa3b8508f4a9ab1029afefedd94",
+    "matrix_result": "UNRESOLVED",
+    "source": {
+      "commit": "6ad11b72fc62a452195245984b69f236d4d3b315",
+      "path": "results/phk2-v3-post-route-intake-20261110/qualification.json",
+      "case_entry": "clock_interaction_no_unsafe",
+      "detail": "bscan_tck rise-fall Partial Common Node Timed (unsafe)"
+    }
+  },
+  "design_binding": {
+    "source_commit": "5f65f0ec8900ecaae3c498223bef0efb2542c047",
+    "source_tree_hash": "dcc879775d80e07ab41bc9af955a29a3fd8ba6f9",
+    "routed_evidence_commit": "e89810b832ee7c1909bd92c449f33abb26b6882e",
+    "routed_dcp_sha256": "0bd52785662a3c38f68667f85c75acdef33c109502794610669ab8e1cf61e9af",
+    "target_part": "xcvu33p-fsvh2104-2-e",
+    "loaded_bitstream_or_image_sha256": null,
+    "loaded_build_id": null,
+    "image_binding_status": "OWNER ENTRY REQUIRED: routed DCP/source identity is known; no bitstream or fresh loaded-image identity is bound here."
+  },
+  "target_identity": {
+    "historical_expected_identity": {
+      "card_id": "153300000957",
+      "adapter_id": "153300000957A",
+      "fpga_dna": "4000000001295d813c80a445",
+      "idcode": "04b69093",
+      "target_part": "xcvu33p-fsvh2104-2-e",
+      "source": "Immutable v5.1 rollback identity record; not a fresh observation."
+    },
+    "fresh_signed_identity_evidence_sha256": null,
+    "fresh_loaded_image_sha256": null,
+    "fresh_identity_status": "OWNER ENTRY REQUIRED"
+  },
+  "candidate_observation": {
+    "candidate_chain": {
+      "bscan_chain": 3,
+      "instruction_name": "USER3",
+      "instruction_register_width_bits": 6,
+      "instruction_opcode_hex": "0x22",
+      "instruction_opcode_bits_lsb_first": "010001",
+      "primitive_instance": "u_user3",
+      "primitive_parameter": "JTAG_CHAIN=3",
+      "status": "DERIVED FROM PHK2 RTL AND VU33P-SPECIFIC VIVADO SIMULATION MODEL; NOT OWNER APPROVED",
+      "opcode_evidence": {
+        "path": "/home/rmann/Xilinx/2026.1/Vivado/data/verilog/src/unisims/JTAG_SIME2.v",
+        "sha256": "d936b7af7b7a923e794141aec5cc79f76392f566b6381aa8dc45e23ade5eecd5",
+        "lines": "76-82, 85-176, 986",
+        "derivation": "XCVU33P is in the six-bit IR-length branch. USER3_INSTR[23:18] = 6'b100010 (0x22), serialized LSB first as 010001."
+      }
+    },
+    "register": {
+      "name": "stat_shift",
+      "width_bits": 32,
+      "capture_condition": "SEL && CAPTURE on the USER3 BSCAN branch",
+      "shift_condition": "SEL && SHIFT on the USER3 BSCAN branch",
+      "tdo_source": "stat_shift[0]",
+      "shift_direction": "right; serialized least-significant bit first",
+      "source": {
+        "commit": "5f65f0ec8900ecaae3c498223bef0efb2542c047",
+        "path": "rtl/phk2_board/phk2_fk33_board_top.sv",
+        "lines": "62-81"
+      }
+    },
+    "expected_response_relationship": {
+      "formula": "{26'b0, aborted_s2, (overflow_s2 | rx_full_s2), stale_s2, error_s2, ready_s2, busy_s2}",
+      "tdo_bit_k": "For k=0..31, TDO returns captured status word bit k in order; bits 6..31 are zero.",
+      "sampling_precondition": "Status synchronizer values are sampled into stat_shift at the USER3 CAPTURE edge; status may vary between capture events but this one captured word must shift exactly.",
+      "fixed_expected_tdo_constant": null,
+      "approved_mask": null,
+      "variation": "No bit variation relative to the captured snapshot is supported by the RTL; runtime snapshot values are state-dependent.",
+      "status": "SOURCE-DERIVED RELATIONSHIP; NOT A QUALIFIED PHYSICAL RESPONSE"
+    }
+  },
+  "authoritative_fields_derived": [
+    "case_binding.case_id",
+    "case_binding.case_name",
+    "case_binding.qualification_record_commit",
+    "case_binding.qualification_record_sha256",
+    "case_binding.matrix_sha256",
+    "design_binding.source_commit",
+    "design_binding.source_tree_hash",
+    "design_binding.routed_dcp_sha256",
+    "design_binding.target_part",
+    "target_identity.historical_expected_identity.card_id",
+    "target_identity.historical_expected_identity.adapter_id",
+    "target_identity.historical_expected_identity.fpga_dna",
+    "target_identity.historical_expected_identity.idcode",
+    "candidate_observation.candidate_chain.bscan_chain",
+    "candidate_observation.candidate_chain.instruction_name",
+    "candidate_observation.candidate_chain.instruction_register_width_bits",
+    "candidate_observation.candidate_chain.instruction_opcode_hex",
+    "candidate_observation.candidate_chain.instruction_opcode_bits_lsb_first",
+    "candidate_observation.register.name",
+    "candidate_observation.register.width_bits",
+    "candidate_observation.expected_response_relationship.formula",
+    "candidate_observation.expected_response_relationship.tdo_bit_k",
+    "candidate_tap_shape.reset_tms",
+    "candidate_tap_shape.reset_final_state",
+    "candidate_tap_shape.candidate_complete_tms_vector",
+    "candidate_tap_shape.candidate_cycle_count",
+    "candidate_tap_shape.candidate_final_state",
+    "read_only_analysis.candidate_read_only",
+    "physical_tck_correlation.physical_internal_branch"
+  ],
+  "authoritative_fields_derived_count": 29,
+  "candidate_tap_shape": {
+    "tap_initial_state_before_reset": null,
+    "initial_state_status": "OWNER ENTRY REQUIRED: TAP may begin in any state; exact transition rows for reset clocks depend on that state.",
+    "reset_tms": "11111",
+    "reset_final_state": "TEST_LOGIC_RESET",
+    "selected_instruction_ir_width_bits": 6,
+    "ir_width_evidence": {
+      "path": "/home/rmann/Xilinx/2026.1/Vivado/data/verilog/src/unisims/JTAG_SIME2.v",
+      "sha256": "d936b7af7b7a923e794141aec5cc79f76392f566b6381aa8dc45e23ade5eecd5",
+      "lines": "85-176",
+      "note": "The VU33P model maps this part to a six-bit IR."
+    },
+    "candidate_tms_segments_after_reset": [
+      {"purpose": "from Test-Logic-Reset to Shift-IR", "bits": "01100", "cycles": 5},
+      {"purpose": "six-bit IR shift; exit on final edge", "bits": "000001", "cycles": 6},
+      {"purpose": "Update-IR then Run-Test/Idle", "bits": "10", "cycles": 2},
+      {"purpose": "from Run-Test/Idle to Shift-DR", "bits": "100", "cycles": 3},
+      {"purpose": "32-bit status DR shift; exit on final edge", "bits": "00000000000000000000000000000001", "cycles": 32},
+      {"purpose": "Update-DR then Run-Test/Idle", "bits": "10", "cycles": 2}
+    ],
+    "candidate_complete_tms_vector": "1111101100000001101000000000000000000000000000000000110",
+    "candidate_cycle_count": 55,
+    "candidate_final_state": "RUN_TEST_IDLE",
+    "candidate_tms_status": "FSM-DERIVED CANDIDATE ONLY; reset transition table is not exact without an approved/observed initial TAP state.",
+    "tdi_vector": null,
+    "tdi_ir_opcode_bits_lsb_first": "010001",
+    "tdi_status": "PARTIALLY DERIVED: the six USER3 instruction bits are 010001 LSB-first. The complete 55-cycle TDI vector, including values on reset/navigation/DR cycles, requires owner approval; USER3 DR TDI is ignored by the PHK2 RTL.",
+    "expected_transition_table": null,
+    "transition_status": "OWNER ENTRY REQUIRED for reset-prefix states; deterministic transitions after Test-Logic-Reset follow the segments above."
+  },
+  "derivation_trace": {
+    "qualification_case": {
+      "commit": "6ad11b72fc62a452195245984b69f236d4d3b315",
+      "matrix_path": "results/phk2-v3-post-route-intake-20261110/qualification.json",
+      "record_path": "results/phk2-v5_1-independent-qualification.json",
+      "record_sha256": "25b875c707aaa1ee43ec1da064b3fec0b2297aed87be4aacb2c7c2260b26c90e",
+      "case": "33 / clock_interaction_no_unsafe",
+      "purpose_evidence": "bscan_tck rise-fall Partial Common Node Timed (unsafe); unresolved in the 40-case matrix"
+    },
+    "rtl_contract": {
+      "source_commit": "5f65f0ec8900ecaae3c498223bef0efb2542c047",
+      "source_tree_hash": "dcc879775d80e07ab41bc9af955a29a3fd8ba6f9",
+      "path": "rtl/phk2_board/phk2_fk33_board_top.sv",
+      "evidence": [
+        {"lines": "14-16", "defines": "BSCANE2 USER1/2/3 chain instances and USER3 TCK branch tck3"},
+        {"lines": "24-29, 43-45", "defines": "common reset and demonstrates USER2 input FIFO and USER1 result FIFO side effects"},
+        {"lines": "49-61", "defines": "registered status sources and synchronizer declarations"},
+        {"lines": "62-81", "defines": "USER3 status snapshot, capture/shift conditions, TDO bit, and unused USER3 TDI/TMS/UPDATE"}
+      ]
+    },
+    "tap_vector_derivation": {
+      "fsm_source_path": "tools/phk2_host/phk2_case_b_method.py",
+      "fsm_symbol": "TAP_NEXT",
+      "test_path": "tools/phk2_host/test_phk2_case_b_derivation.py",
+      "test": "test_candidate_tms_path_resets_from_any_state_and_returns_to_idle",
+      "result_scope": "offline TAP-FSM arithmetic only; does not exercise a physical TAP or BSCANE2 primitive"
+    },
+    "instruction_derivation": {
+      "vendor_model_path": "/home/rmann/Xilinx/2026.1/Vivado/data/verilog/src/unisims/JTAG_SIME2.v",
+      "vendor_model_sha256": "d936b7af7b7a923e794141aec5cc79f76392f566b6381aa8dc45e23ade5eecd5",
+      "evidence_lines": "76-82, 85-176, 986",
+      "qualification_limit": "local version-specific simulation model establishes the XCVU33P USER3 IR encoding; owner must approve/pin this instruction encoding for the physical qualification"
+    },
+    "routed_clock_evidence": {
+      "evidence_commit": "e89810b832ee7c1909bd92c449f33abb26b6882e",
+      "clock_report_path": "results/phk2-v5_1-common-reset-20261110/revision1/synthesis/clocks.rpt",
+      "clock_object": "bscan_tck",
+      "clock_period_ns": 20.0,
+      "waveform_ns": [0.0, 10.0],
+      "qualification_limit": "STA clock constraint only; it does not prove the physical adapter TCK waveform or establish a correlated internal/external capture backend"
+    },
+    "offline_simulation": {
+      "test_path": "tools/phk2_host/test_phk2_case_b_derivation.py",
+      "rtl_testbench_path": "tests/phk2_board/tb_phk2_case_b_user3_status_contract.sv",
+      "test": "test_immutable_source_user3_status_snapshot_shift_contract",
+      "result_scope": "64 symbolic status snapshots and 32 LSB-first shifts each against immutable v5.1 RTL; no TAP sequence, physical waveform, or fixed expected TDO constant is tested"
+    }
+  },
+  "read_only_analysis": {
+    "candidate_read_only": true,
+    "proof": "USER3 only captures synchronized status into stat_shift and shifts that local observation register. USER3 TDI/TMS/UPDATE are not consumed by the RTL. USER1 CAPTURE reads result_fifo; USER2 SHIFT can write input_fifo and feed the command decoder.",
+    "evidence": [
+      {"commit": "5f65f0ec8900ecaae3c498223bef0efb2542c047", "path": "rtl/phk2_board/phk2_fk33_board_top.sv", "lines": "25-45, 68-81"}
+    ],
+    "proof_status": "PASS AT RTL SOURCE LEVEL ONLY; IMAGE/PHYSICAL METHOD STILL UNQUALIFIED"
+  },
+  "physical_tck_correlation": {
+    "routed_clock_object": "bscan_tck",
+    "physical_internal_branch": "u_user3 BSCANE2 TCK output (tck3 / routed INTERNAL_TCK leaf)",
+    "candidate_external_observation": "simultaneous adapter TCK/SK and TDO capture while the USER3 status word is shifted",
+    "shared_timebase": null,
+    "capture_backend_sha256": null,
+    "instrument_and_calibration": null,
+    "acceptance_criteria": null,
+    "status": "CANDIDATE OBSERVATION IDEA; OWNER APPROVAL AND REAL CAPTURE BACKEND REQUIRED"
+  },
+  "owner_approval_and_evidence": {
+    "user3_ir_opcode_bits_lsb_first": "010001",
+    "approved_read_only_proof_sha256": null,
+    "authorization_artifact_and_trust_root_sha256": null,
+    "target_session_nonce": null,
+    "validity_window": null,
+    "raw_tap_sha256": null,
+    "raw_tck_capture_sha256": null,
+    "raw_bscan_observation_sha256": null,
+    "correlation_artifact_sha256": null,
+    "journal_sha256": null,
+    "journal_entry_sha256": null,
+    "status": "OWNER ENTRY REQUIRED"
+  },
+  "fields_still_underived_or_unapproved": [
+    "exact bitstream/loaded-image hash and fresh signed loaded-image observation",
+    "fresh signed FK0957 card/adapter/FPGA identity observation",
+    "actual TAP state at session entry and exact reset-prefix transition rows",
+    "complete 55-cycle TDI vector outside the six USER3 instruction bits",
+    "owner-approved full TAP transition table and exact TDO sampling edge/timing",
+    "owner-approved read-only proof artifact/hash and immutable method hash pin",
+    "shared TCK/TDO capture timebase and approved correlation acceptance criteria",
+    "reviewed physical capture backend identity, instrument, calibration, and provenance",
+    "case-bound signed authorization, trusted signer root, session nonce, and validity window",
+    "authentic raw TAP/TCK/BSCAN/correlation hashes and evidence-journal linkage"
+  ],
+  "explicit_limitations": [
+    "The PHK2 RTL identifies USER3 through JTAG_CHAIN=3 but does not contain the numeric opcode; the opcode here is derived from the local vendor simulation model and still needs qualification-owner approval.",
+    "The exact TAP state before the reset prefix is not established; transition rows for those reset clocks are therefore not exact.",
+    "The existing PHK2 BSCANE2 simulation stub ties all primitive outputs low and is not an event-level TAP/BSCAN model.",
+    "The 32-bit status response is a runtime snapshot relationship, not a fixed constant. No numeric expected TDO response is asserted.",
+    "This candidate is not the matrix-approved method, is not physically qualified, and is not executable. IDCODE-only evidence remains insufficient for the BSCAN interaction case."
+  ]
+}
