@@ -2,12 +2,16 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 from physical_tck_preflight import Refusal
-from phk2_close_tck_cases import validate_manifest, _verify_authorization, package_file
+from phk2_close_tck_cases import (validate_manifest, _verify_authorization, package_file,
+                                  _validate_promotion_session, _promotion_card_expectation)
+import phk2_close_tck_cases as close_runner
 from phk2_physical_close_guard import verify_immutable_v51, CASE_A_ID, CASE_A_NAME, CASE_B_ID, CASE_B_NAME
 
 
@@ -69,6 +73,70 @@ class CloseRunnerRejectsUnboundInputs(unittest.TestCase):
                 _verify_authorization(path, {}, {}, expected_card_id=self.binding.expected_card_id,
                                       session_nonce="fixture", service_config_sha256="0" * 64,
                                       peer_expectation_sha256="0" * 64)
+
+    def test_promotion_session_requires_fresh_matching_nonce(self):
+        now = datetime.now(timezone.utc)
+        auth = {"session_nonce": "session-current", "issued_utc": now.isoformat(),
+                "expires_utc": (now + timedelta(minutes=5)).isoformat()}
+        self.assertEqual(_validate_promotion_session(auth, "session-current"), "session-current")
+        with self.assertRaises(Refusal):
+            _validate_promotion_session(None, "session-current")
+        for nonce in (None, "", " session-current", "session-current\n", "x" * 257, 7):
+            with self.subTest(nonce=repr(nonce)), self.assertRaises(Refusal):
+                _validate_promotion_session(auth, nonce)
+        with self.assertRaisesRegex(Refusal, "nonce mismatch"):
+            _validate_promotion_session(auth, "different-session")
+        stale = {**auth, "issued_utc": (now - timedelta(days=2)).isoformat()}
+        with self.assertRaises(Refusal):
+            _validate_promotion_session(stale, "session-current")
+        expired = {**auth, "expires_utc": (now - timedelta(seconds=1)).isoformat()}
+        with self.assertRaises(Refusal):
+            _validate_promotion_session(expired, "session-current")
+        malformed = {**auth, "expires_utc": "not-a-time"}
+        with self.assertRaises(Refusal):
+            _validate_promotion_session(malformed, "session-current")
+
+    def test_promotion_card_expectation_binds_exact_fpga_identity(self):
+        expected = _promotion_card_expectation(self.binding, "a" * 64)
+        self.assertEqual(expected["expected_fpga_dna"], self.binding.expected_fpga_dna)
+        self.assertEqual(expected["expected_target_part"], self.binding.expected_target_part)
+        self.assertEqual(expected["bridge_sha256"], "a" * 64)
+        malformed_bridge_hashes = (None, "short", "g" * 64)
+        for digest in malformed_bridge_hashes:
+            with self.subTest(digest=digest), self.assertRaises(Refusal):
+                _promotion_card_expectation(self.binding, digest)
+        incomplete = type("IncompleteBinding", (), {
+            "expected_card_id": self.binding.expected_card_id,
+            "expected_adapter_id": self.binding.expected_adapter_id,
+            "expected_idcode": self.binding.expected_idcode,
+            "expected_fpga_dna": "",
+            "expected_target_part": self.binding.expected_target_part,
+        })()
+        with self.assertRaises(Refusal):
+            _promotion_card_expectation(incomplete, "a" * 64)
+
+    def test_validate_evidence_passes_session_nonce_and_full_target_expectation(self):
+        now = datetime.now(timezone.utc)
+        nonce = "wire-session-1"
+        auth = {"session_nonce": nonce, "issued_utc": now.isoformat(),
+                "expires_utc": (now + timedelta(minutes=5)).isoformat()}
+        bridge_hash = "a" * 64
+        with tempfile.TemporaryDirectory() as td:
+            evidence_path = Path(td) / "evidence.json"
+            evidence_path.write_text(json.dumps({"schema": "PHK2-TCK-CLOSURE-EVIDENCE-v1"}))
+            stop = Refusal("stop after target expectation captured")
+            with mock.patch.object(close_runner, "validate_physical_capture_package", return_value={}) as capture, \
+                 mock.patch.object(close_runner, "verify_signed_document", side_effect=[{}, {"session_nonce": nonce}]), \
+                 mock.patch.object(close_runner, "validate_peer_proof", return_value="b" * 64), \
+                 mock.patch.object(close_runner, "validate_card_identity", side_effect=stop) as card_check:
+                with self.assertRaisesRegex(Refusal, "stop after target"):
+                    close_runner.validate_evidence(
+                        evidence_path, {}, {"BRIDGE_SHA256": bridge_hash}, auth,
+                        trusted_keys={}, peer_expectation={}, session_nonce=nonce)
+            self.assertEqual(capture.call_args.kwargs["expected_session_nonce"], nonce)
+            expected = card_check.call_args.args[1]
+            self.assertEqual(expected["expected_fpga_dna"], self.binding.expected_fpga_dna)
+            self.assertEqual(expected["expected_target_part"], self.binding.expected_target_part)
 
 
 if __name__ == "__main__":

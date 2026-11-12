@@ -339,7 +339,8 @@ def verify_signed_document(wrapper: dict[str, Any], trusted_keys: dict[str, dict
     return payload
 
 
-def parse_waveform_csv(raw: bytes, summary: dict[str, Any] | None = None) -> dict[str, float | int]:
+def parse_waveform_csv(raw: bytes, summary: dict[str, Any] | None = None, *,
+                       expected_rising_edges: int | None = None) -> dict[str, float | int]:
     """Parse PHK2-TCK-WAVEFORM-CSV-v1 sampled digital trace and derive metrics."""
     try:
         text = raw.decode("utf-8", errors="strict")
@@ -364,11 +365,33 @@ def parse_waveform_csv(raw: bytes, summary: dict[str, Any] | None = None) -> dic
         raise Refusal("waveform sample indices are not contiguous")
     if any(samples[i][1] >= samples[i + 1][1] for i in range(len(samples) - 1)):
         raise Refusal("waveform timestamps are not strictly monotonic")
+    if expected_rising_edges is not None:
+        if isinstance(expected_rising_edges, bool) or expected_rising_edges != 87:
+            raise Refusal("physical Case A edge contract must remain exactly 87 rising edges")
     edges = [(timestamp, level) for (_, timestamp, level), (_, _, prev) in zip(samples[1:], samples[:-1]) if level != prev]
     rising = [t for t, level in edges if level == 1]
     falling = [t for t, level in edges if level == 0]
     if len(rising) < 11 or len(falling) < 10:
         raise Refusal("waveform must contain at least 10 complete periods")
+    if expected_rising_edges is not None:
+        if (len(rising) != expected_rising_edges or len(falling) != expected_rising_edges or
+                len(edges) != expected_rising_edges * 2 or edges[0][1] != 1 or edges[-1][1] != 0):
+            raise Refusal("Case A waveform edge sequence is incomplete, extra, or out of order")
+        if samples[0][2] != 0 or samples[-1][2] != 0:
+            raise Refusal("Case A waveform must begin and end at idle-low")
+        first_rise = rising[0]
+        final_fall = falling[-1]
+        final_rise = rising[-1]
+        pretrigger_ns = first_rise - samples[0][1]
+        posttrigger_ns = samples[-1][1] - first_rise
+        final_high_ns = final_fall - final_rise
+        idle_tail_ns = samples[-1][1] - final_fall
+        if pretrigger_ns < 1_000.0:
+            raise Refusal("Case A waveform lacks the required 1 us pre-trigger low interval")
+        if posttrigger_ns < 20_000.0:
+            raise Refusal("Case A waveform lacks the required 20 us post-trigger capture window")
+        if final_high_ns <= 0 or idle_tail_ns < 1_000.0:
+            raise Refusal("Case A final pulse or 1 us idle-low tail is incomplete")
     highs, lows, periods = [], [], []
     for i in range(len(rising) - 1):
         between = [t for t in falling if rising[i] < t < rising[i + 1]]
@@ -401,6 +424,9 @@ def parse_waveform_csv(raw: bytes, summary: dict[str, Any] | None = None) -> dic
         "SAMPLE_COUNT": len(samples),
         "RISING_EDGE_COUNT": len(rising),
     }
+    if expected_rising_edges is not None:
+        result.update({"FINAL_HIGH_NS": final_high_ns, "PRETRIGGER_NS": pretrigger_ns,
+                       "POSTTRIGGER_NS": posttrigger_ns, "IDLE_TAIL_NS": idle_tail_ns})
     if summary is not None:
         for name, value in result.items():
             supplied = summary.get(name)
@@ -671,7 +697,7 @@ def validate_physical_capture_package(*, trusted_keys: dict[str, dict[str, Any]]
         waveform_wrapper, trusted_keys, expected_role="capture", expected_case_id=CASE_A_ID,
         expected_record_sha256=binding.qualification_record_sha256,
         expected_session_nonce=expected_session_nonce, now=now)
-    waveform = parse_waveform_csv(wave_raw, wave_payload.get("summary"))
+    waveform = parse_waveform_csv(wave_raw, wave_payload.get("summary"), expected_rising_edges=87)
     validate_case_a_instrument_evidence(wave_payload)
     if waveform["RISING_EDGE_COUNT"] != 87:
         raise Refusal("Case A waveform must contain exactly 87 TCK rising edges")
@@ -1122,7 +1148,7 @@ def master_pretransport_gate(*, repo: str | Path, closure_manifest: dict[str, An
                     wrapper, trusted_keys, expected_role="capture", expected_case_id=CASE_A_ID,
                     expected_record_sha256=qualification_hash,
                     expected_session_nonce=self.__claims["session_nonce"])
-                waveform = parse_waveform_csv(raw, payload.get("summary"))
+                waveform = parse_waveform_csv(raw, payload.get("summary"), expected_rising_edges=87)
                 validate_case_a_instrument_evidence(payload)
                 if waveform["RISING_EDGE_COUNT"] != 87:
                     raise Refusal("Case A waveform must contain exactly 87 TCK rising edges")

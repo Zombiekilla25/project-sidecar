@@ -166,6 +166,41 @@ def _fresh(value: Any, label: str) -> None:
         raise Refusal(f"{label} is stale or future-dated")
 
 
+def _validate_promotion_session(auth: dict[str, Any], session_nonce: Any) -> str:
+    if not isinstance(auth, dict):
+        raise Refusal("promotion authorization is malformed")
+    if (not isinstance(session_nonce, str) or not session_nonce or len(session_nonce) > 256 or
+            session_nonce.strip() != session_nonce or not session_nonce.isprintable()):
+        raise Refusal("promotion session nonce is missing or malformed")
+    if auth.get("session_nonce") != session_nonce:
+        raise Refusal("promotion authorization session nonce mismatch")
+    _fresh(auth.get("issued_utc"), "promotion authorization")
+    try:
+        issued = datetime.fromisoformat(auth["issued_utc"].replace("Z", "+00:00"))
+        expiry = datetime.fromisoformat(auth["expires_utc"].replace("Z", "+00:00"))
+    except (KeyError, AttributeError, TypeError, ValueError) as exc:
+        raise Refusal("promotion authorization validity window is malformed") from exc
+    now = datetime.now(timezone.utc)
+    if issued.tzinfo is None or expiry.tzinfo is None or expiry <= issued or expiry <= now:
+        raise Refusal("promotion authorization is expired or has an invalid validity window")
+    return session_nonce
+
+
+def _promotion_card_expectation(binding: Any, bridge_sha256: Any) -> dict[str, str]:
+    expected = {
+        "expected_card_id": binding.expected_card_id,
+        "expected_adapter_id": binding.expected_adapter_id,
+        "expected_idcode": binding.expected_idcode,
+        "expected_fpga_dna": binding.expected_fpga_dna,
+        "expected_target_part": binding.expected_target_part,
+        "bridge_sha256": bridge_sha256,
+    }
+    if (not isinstance(bridge_sha256, str) or not HEX64.fullmatch(bridge_sha256) or
+            any(not isinstance(value, str) or not value for value in expected.values())):
+        raise Refusal("promotion target identity expectation is incomplete or malformed")
+    return expected
+
+
 def _hash_chain_entries(entries: list[tuple[str, str]]) -> list[dict[str, Any]]:
     """Hash-link ordered event payload digests for the append-only evidence journal."""
     journal: list[dict[str, Any]] = []
@@ -244,23 +279,24 @@ def _measurement_in_envelope(measurement: dict[str, Any], envelope: dict[str, An
 
 
 def validate_evidence(path: str | Path, manifest: dict[str, Any], bridge: dict[str, Any], auth: dict[str, Any], *,
-                      trusted_keys: dict[str, dict[str, Any]], peer_expectation: dict[str, Any]) -> dict[str, Any]:
+                      trusted_keys: dict[str, dict[str, Any]], peer_expectation: dict[str, Any],
+                      session_nonce: str) -> dict[str, Any]:
     ep, evidence = read_json(path, "physical evidence")
     if evidence.get("schema") != "PHK2-TCK-CLOSURE-EVIDENCE-v1":
         raise Refusal("physical evidence schema missing")
+    session_nonce = _validate_promotion_session(auth, session_nonce)
     binding = verify_immutable_v51(Path(__file__).resolve().parents[2])
     parsed = validate_physical_capture_package(
         trusted_keys=trusted_keys,
         waveform_wrapper=evidence.get("case_a_signed_capture"),
         tap_wrapper=evidence.get("case_b_signed_capture"), binding=binding,
-        expected_idcode=binding.expected_idcode)
+        expected_idcode=binding.expected_idcode, expected_session_nonce=session_nonce)
     peer_payload = verify_signed_document(evidence.get("peer_exclusion_signed"), trusted_keys, "peer")
     peer_proof_hash = validate_peer_proof(peer_payload, peer_expectation)
     card_payload = verify_signed_document(evidence.get("card_identity_signed"), trusted_keys, "identity")
-    card_expectation = {"expected_card_id": binding.expected_card_id,
-                        "expected_adapter_id": binding.expected_adapter_id,
-                        "expected_idcode": binding.expected_idcode,
-                        "bridge_sha256": bridge["BRIDGE_SHA256"]}
+    if card_payload.get("session_nonce") != session_nonce:
+        raise Refusal("card identity is not bound to the current promotion session")
+    card_expectation = _promotion_card_expectation(binding, bridge.get("BRIDGE_SHA256"))
     card = validate_card_identity(card_payload, card_expectation)
     if card["BRIDGE_SHA256"] != bridge["BRIDGE_SHA256"]:
         raise Refusal("signed observed card identity is not bound to exact bridge ELF")
@@ -345,7 +381,8 @@ def promote(manifest_path: str | Path, bridge_path: str | Path, authorization_pa
                                  service_config_sha256=peer_expectation.get("service_config_sha256", ""),
                                  peer_expectation_sha256=hashlib.sha256(_canonical(peer_expectation)).hexdigest())
     evidence = validate_evidence(evidence_path, manifest, bridge, auth,
-                                 trusted_keys=trusted_keys, peer_expectation=peer_expectation)
+                                 trusted_keys=trusted_keys, peer_expectation=peer_expectation,
+                                 session_nonce=session_nonce)
     out = Path(output_dir)
     if out.exists():
         raise Refusal("promotion output already exists; evidence output is append-only")

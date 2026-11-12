@@ -49,6 +49,37 @@ def wave_csv(periods=12):
     return out.getvalue().encode()
 
 
+def canary_wave_csv(*, rising_edges=87, pretrigger_ns=1_000, posttrigger_ns=20_000,
+                    omit_final_fall=False, extra_edge=False, reorder=False,
+                    duplicate_timestamp=False, malformed_level=False,
+                    final_rise_offset_ns=None, idle_tail_ns=1_000):
+    """Sparse edge-event fixture with explicit pretrigger and idle tail."""
+    rows = [[0, pretrigger_ns * -1, 0]]
+    for edge in range(rising_edges):
+        rise = (edge * 20 if edge != rising_edges - 1 or final_rise_offset_ns is None
+                else final_rise_offset_ns)
+        rows.append([len(rows), rise, 1])
+        if not (omit_final_fall and edge == rising_edges - 1):
+            rows.append([len(rows), rise + 10, 0])
+    if extra_edge:
+        rows.extend([[len(rows), rising_edges * 20, 1],
+                     [len(rows) + 1, rising_edges * 20 + 10, 0]])
+    last_fall = next((row[1] for row in reversed(rows) if row[2] == 0), 0)
+    final_time = max(posttrigger_ns, last_fall + idle_tail_ns)
+    rows.append([len(rows), final_time, 0 if not omit_final_fall else 1])
+    if reorder and len(rows) > 3:
+        rows[2], rows[3] = rows[3], rows[2]
+    if duplicate_timestamp and len(rows) > 2:
+        rows[2][1] = rows[1][1]
+    if malformed_level:
+        rows[2][2] = 2
+    out = io.StringIO(newline="")
+    writer = csv.writer(out, lineterminator="\n")
+    writer.writerow(["sample_index", "timestamp_ns", "logic_level"])
+    writer.writerows(rows)
+    return out.getvalue().encode()
+
+
 def tap_json(idcode="04b69093"):
     records = []
     word = int(idcode, 16)
@@ -245,6 +276,30 @@ class PhysicalCloseGuardTests(unittest.TestCase):
         with self.assertRaises(Refusal): parse_waveform_csv("\n".join(good).encode())
         with self.assertRaises(Refusal): parse_waveform_csv(raw, {**result, "MEASURED_TCK_HZ": 1})
 
+    def test_03b_canary_requires_complete_exact_87_edge_capture_and_idle_tail(self):
+        raw = canary_wave_csv()
+        result = parse_waveform_csv(raw, expected_rising_edges=87)
+        self.assertEqual(result["RISING_EDGE_COUNT"], 87)
+        self.assertEqual(result["FINAL_HIGH_NS"], 10)
+        self.assertGreaterEqual(result["PRETRIGGER_NS"], 1_000)
+        self.assertGreaterEqual(result["POSTTRIGGER_NS"], 20_000)
+        self.assertGreaterEqual(result["IDLE_TAIL_NS"], 1_000)
+        invalid = (
+            canary_wave_csv(rising_edges=86),                         # truncated edge sequence
+            canary_wave_csv(extra_edge=True),                        # extra pulse
+            canary_wave_csv(omit_final_fall=True),                    # truncated final pulse
+            canary_wave_csv(posttrigger_ns=0),                        # no valid posttrigger window
+            canary_wave_csv(pretrigger_ns=999),                       # inadequate pretrigger
+            canary_wave_csv(reorder=True),                            # reordered transitions
+            canary_wave_csv(duplicate_timestamp=True),                # duplicate timestamp
+            canary_wave_csv(malformed_level=True),                    # malformed logic level
+            canary_wave_csv(final_rise_offset_ns=19_500, idle_tail_ns=999),  # insufficient idle tail
+        )
+        for bad in invalid:
+            with self.subTest(capture=bad[:100]):
+                with self.assertRaises(Refusal):
+                    parse_waveform_csv(bad, expected_rising_edges=87)
+
     def test_04_tap_transcript_semantics_and_prohibited_instruction_refuse(self):
         parsed = parse_tap_transcript(tap_json(), self.binding.expected_idcode)
         self.assertEqual(parsed["instruction_value"], 0x09)
@@ -261,8 +316,8 @@ class PhysicalCloseGuardTests(unittest.TestCase):
         roots = {"fixture-key": {"roles": ["capture"], "public_key_b64": base64.b64encode(public).decode()}}
         now = datetime.now(timezone.utc).isoformat()
         nonce = "current-session"
-        wave = wave_csv(periods=87)
-        wave_summary = parse_waveform_csv(wave)
+        wave = canary_wave_csv()
+        wave_summary = parse_waveform_csv(wave, expected_rising_edges=87)
         corr = b'{"correlation":"fixture evidence"}'
         native = b"synthetic native instrument payload"
         instrument = {"instrument_model": "fixture", "instrument_serial": "fixture-1", "probe_id": "probe-1",
@@ -296,10 +351,11 @@ class PhysicalCloseGuardTests(unittest.TestCase):
                 binding=self.binding, expected_idcode=self.binding.expected_idcode,
                 expected_session_nonce=nonce, now=datetime.fromisoformat(now))
 
-        short_wave = capture(CASE_A_ID, wave_csv(periods=12), summary=parse_waveform_csv(wave_csv(periods=12)),
+        short_raw = wave_csv(periods=12)
+        short_wave = capture(CASE_A_ID, short_raw, summary=parse_waveform_csv(short_raw),
             native_acquisition_b64=base64.b64encode(native).decode(),
             native_acquisition_sha256=_sha(native), instrument_metadata=instrument)
-        with self.assertRaisesRegex(Refusal, "exactly 87"):
+        with self.assertRaisesRegex(Refusal, "87|edge sequence"):
             validate_physical_capture_package(trusted_keys=roots, waveform_wrapper=short_wave,
                 tap_wrapper=tap_wrapper, binding=self.binding, expected_idcode=self.binding.expected_idcode,
                 expected_session_nonce=nonce, now=datetime.fromisoformat(now))
