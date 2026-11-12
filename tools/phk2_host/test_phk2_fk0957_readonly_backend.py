@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 import sys
+import tempfile
 import unittest
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -11,6 +13,7 @@ from phk2_fk0957_identity_observer import Refusal, TargetSelector
 import phk2_fk0957_identity_observer as observer
 from phk2_fk0957_readonly_backend import (
     Device, FK0957ReadOnlyBackend, SUPPORTED_TARGET_SELECTOR,
+    SysfsCatalog,
 )
 
 
@@ -49,6 +52,21 @@ class BackendTests(unittest.TestCase):
         with self.assertRaises(Refusal):
             self.backend().select_exact(TargetSelector())
 
+    def test_wrong_serial_refuses(self):
+        with self.assertRaises(Refusal):
+            self.backend(target(serial="153300000958A")).select_exact(TargetSelector())
+
+    def test_missing_serial_refuses(self):
+        with self.assertRaises(Refusal):
+            self.backend(target(serial="")).select_exact(TargetSelector())
+
+    def test_unreadable_high_bus_usb_candidate_refuses_as_ambiguous(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "9-1").mkdir()
+            with self.assertRaisesRegex(Refusal, "metadata incomplete: 9-1"):
+                SysfsCatalog(root).enumerate_fk()
+
     def test_duplicate_match_refuses(self):
         with self.assertRaises(Refusal):
             self.backend(target(), target()).select_exact(TargetSelector())
@@ -82,6 +100,33 @@ class BackendTests(unittest.TestCase):
         with self.assertRaises(Refusal):
             observer._load_reviewed_backend(
                 "phk2_fk0957_readonly_backend:create_backend", "0" * 64)
+
+    def test_exact_source_pinned_backend_loads_without_discovery(self):
+        spec = "phk2_fk0957_readonly_backend:create_backend"
+        backend = observer._load_reviewed_backend(spec, observer.REVIEWED_BACKENDS[spec])
+        self.assertEqual(backend.BACKEND_IDENTITY["name"], "phk2_fk0957_sysfs_readonly")
+
+    def test_stale_reference_source_pin_refuses(self):
+        spec = "phk2_fk0957_readonly_backend:create_backend"
+        stale = {"source_commit": "f" * 40, "source_file_hashes": {}}
+        with mock.patch.dict(observer.REVIEWED_BACKEND_SOURCE_PINS, {spec: stale}):
+            with self.assertRaises(Refusal):
+                observer._load_reviewed_backend(spec, observer.REVIEWED_BACKENDS[spec])
+
+    def test_altered_backend_is_refused_before_any_module_code_executes(self):
+        spec = "phk2_fk0957_readonly_backend:create_backend"
+        pinned = observer.REVIEWED_BACKENDS[spec]
+        with tempfile.TemporaryDirectory() as temp:
+            marker = Path(temp) / "module-executed"
+            altered = Path(temp) / "altered_backend.py"
+            altered.write_text(
+                f"from pathlib import Path\nPath({str(marker)!r}).write_text('executed')\n"
+                "def create_backend(): return object()\n"
+            )
+            with mock.patch.dict(observer.REVIEWED_BACKEND_PATHS, {spec: str(altered)}):
+                with self.assertRaises(Refusal):
+                    observer._load_reviewed_backend(spec, pinned)
+            self.assertFalse(marker.exists(), "altered source executed before hash refusal")
 
     def test_attempted_forbidden_methods_are_not_exposed(self):
         backend = self.backend(target())

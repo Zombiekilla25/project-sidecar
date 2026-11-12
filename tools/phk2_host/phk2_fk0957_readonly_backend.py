@@ -13,7 +13,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 from pathlib import Path
-import subprocess
+import re
 from typing import Mapping
 
 from phk2_fk0957_identity_observer import (
@@ -21,6 +21,10 @@ from phk2_fk0957_identity_observer import (
 )
 
 BACKEND_VERSION = "1.0.0"
+# Origin of the reviewed descriptor-only backend. The live evidence separately
+# records the full current repository commit; sha256 below binds this exact
+# backend source, including any subsequently audited fail-closed amendments.
+REVIEWED_BASE_COMMIT = "e2feedcfde44563854a3cf41fe4526c231ed385b"
 SUPPORTED_TARGET_SELECTOR = {
     "name": "FK0957",
     "adapter_serial": EXPECTED_ADAPTER_SERIAL,
@@ -52,18 +56,6 @@ REFERENCE_FILES = (
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def _source_commit(path: Path) -> str:
-    repo = Path(__file__).resolve().parents[2]
-    relative = path.resolve().relative_to(repo).as_posix()
-    try:
-        return subprocess.run(
-            ["git", "-C", str(repo), "log", "-1", "--format=%H", "--", relative],
-            check=True, capture_output=True, text=True,
-        ).stdout.strip()
-    except (OSError, subprocess.CalledProcessError) as exc:
-        raise Refusal("backend source commit cannot be resolved") from exc
 
 
 @dataclass(frozen=True)
@@ -114,7 +106,10 @@ class SysfsCatalog:
             except OSError:
                 # An unreadable potentially matching candidate makes the
                 # single-device scope ambiguous; do not silently skip it.
-                if node.name.startswith(("1-", "2-", "3-", "4-", "5-", "6-", "7-", "8-")):
+                # USB device nodes use <bus>-<port path>; this must cover
+                # buses above 8 too. Silently skipping an unreadable candidate
+                # could hide a peer and make the remaining FK look unique.
+                if re.match(r"^[0-9]+-", node.name):
                     raise Refusal(f"USB candidate metadata incomplete: {node.name}")
                 continue
             if vid != "0403" or pid != "6010" or manufacturer != "Xilinx" or product != "SQRL FK":
@@ -182,7 +177,7 @@ class FK0957ReadOnlyBackend:
             "name": "phk2_fk0957_sysfs_readonly",
             "version": BACKEND_VERSION,
             "sha256": _sha256(path),
-            "source_commit": _source_commit(path),
+            "source_commit": REVIEWED_BASE_COMMIT,
             "source_file_hashes": json.dumps(refs, sort_keys=True, separators=(",", ":")),
             "supported_target_selector": json.dumps(SUPPORTED_TARGET_SELECTOR, sort_keys=True, separators=(",", ":")),
             "jtag_or_fpga_observation": "UNAVAILABLE_READ_ONLY_BACKEND_DOES_NOT_OPEN_TRANSPORT",

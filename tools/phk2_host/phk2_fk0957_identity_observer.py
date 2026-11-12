@@ -11,12 +11,13 @@ import argparse
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 import hashlib
-import importlib
 import json
 import os
 from pathlib import Path
 import re
 import subprocess
+import sys
+import types
 from typing import Any, Mapping, Protocol
 
 OBSERVER_VERSION = "1.0.0"
@@ -29,7 +30,10 @@ OBSERVER_PATH = Path(__file__).resolve()
 # authorize the legacy MPSSE implementation itself.
 _FK0957_BACKEND_SPEC = "phk2_fk0957_readonly_backend:create_backend"
 REVIEWED_BACKENDS: Mapping[str, str] = {
-    _FK0957_BACKEND_SPEC: "407b92354823c2ef336ba7ac8af456be44a19147e43023cdc9cf2c380ebb9570",
+    _FK0957_BACKEND_SPEC: "a189556093b915d1ab1d3f93ebcc3ef9af44f4f11c3d67d649798cbe6cb20196",
+}
+REVIEWED_BACKEND_PATHS: Mapping[str, str] = {
+    _FK0957_BACKEND_SPEC: "tools/phk2_host/phk2_fk0957_readonly_backend.py",
 }
 REVIEWED_BACKEND_SOURCE_PINS: Mapping[str, Mapping[str, Any]] = {
     _FK0957_BACKEND_SPEC: {
@@ -218,18 +222,39 @@ def observe(backend: ReadOnlyBackend, selector: TargetSelector, *, repo: Path,
 
 
 def _load_reviewed_backend(spec: str, expected_sha256: str) -> Any:
-    """Load only when caller's source hash matches the separately reviewed pin."""
+    """Hash exact repository-pinned bytes before executing backend code."""
     if not re.fullmatch(r"[0-9a-f]{64}", expected_sha256):
         raise Refusal("a reviewed backend SHA256 pin is required")
     if REVIEWED_BACKENDS.get(spec) != expected_sha256:
         raise Refusal("backend is not present in the source-pinned reviewed-backend allowlist")
-    module_name, sep, object_name = spec.partition(":")
-    if not sep or not module_name or not object_name:
+    _module_name, sep, object_name = spec.partition(":")
+    if not sep or not _module_name or not object_name:
         raise Refusal("backend must be specified as module:factory")
-    module = importlib.import_module(module_name)
-    module_path = Path(module.__file__).resolve()
-    if _sha256(module_path.read_bytes()) != expected_sha256:
+    relative_path = REVIEWED_BACKEND_PATHS.get(spec)
+    if not relative_path:
+        raise Refusal("backend has no repository-pinned source path")
+    repo = OBSERVER_PATH.parents[2].resolve()
+    module_path = (repo / relative_path).resolve()
+    try:
+        module_path.relative_to(repo)
+        source_bytes = module_path.read_bytes()
+    except (OSError, ValueError) as exc:
+        raise Refusal("pinned backend source is missing or escapes the repository") from exc
+    if _sha256(source_bytes) != expected_sha256:
         raise Refusal("backend source does not match reviewed SHA256")
+
+    # Execute only the byte string whose digest was just checked. Ordinary
+    # importlib lookup could execute a shadow module before its __file__ hash
+    # was checked, so it is intentionally not used for this trust boundary.
+    module_name = f"_phk2_reviewed_backend_{expected_sha256[:16]}"
+    module = types.ModuleType(module_name)
+    module.__file__ = str(module_path)
+    sys.modules[module_name] = module
+    try:
+        exec(compile(source_bytes, str(module_path), "exec"), module.__dict__)
+    except Exception as exc:
+        sys.modules.pop(module_name, None)
+        raise Refusal("pinned backend source failed during initialization") from exc
     factory = getattr(module, object_name, None)
     if not callable(factory):
         raise Refusal("reviewed backend factory is missing")
