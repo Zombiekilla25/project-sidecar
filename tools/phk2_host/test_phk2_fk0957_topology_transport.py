@@ -51,6 +51,11 @@ class FakeBackend:
         self.reads = []
         self.open_count = 0
         self.close_count = 0
+        self._runtime = {}
+        for pin in transport.LIBRARY_PINS:
+            fingerprint = transport._stat_fingerprint(pin.path.stat())
+            self._runtime[pin.name] = transport._LoadedLibrary(
+                pin, None, -1, fingerprint, fingerprint, str(pin.path))
         self.candidate = topology.Candidate(
             topology.DescriptorIdentity("FK0957", "153300000957A", "153300000957",
                 "1-9.3", "0403", "6010", "Xilinx", "SQRL FK", "A"), object())
