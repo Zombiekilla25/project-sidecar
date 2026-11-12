@@ -203,18 +203,15 @@ def run_diagnostic(known_hosts_path: Path, *, runner=subprocess.run, output=None
     emit("BUNDLE_SHA256=" + metadata["bundle_sha256"])
     source_bytes, source_identity = _safe_source_pin(Path(known_hosts_path))
     temp = tempfile.TemporaryDirectory(prefix="fk0957-stage-pin-", dir="/tmp")
-    known_fd = -1
     try:
         os.chmod(temp.name, 0o700)
         safe_path = Path(temp.name) / "known_hosts"
         safe_path.write_bytes(source_bytes)
         os.chmod(safe_path, 0o600)
-        known_fd, copied, identity = orchestrator._read_pinned_known_hosts(safe_path)
-        os.close(known_fd)
-        known_fd = -1
+        check_fd, copied, identity = orchestrator._read_pinned_known_hosts(safe_path)
+        os.close(check_fd)
         if copied != source_bytes or identity != source_identity:
             raise RuntimeError("protected host-key copy differs from the supplied pin")
-        known_fd = orchestrator._sealed_known_hosts_fd(copied)
         remote = remote_command(
             bundle_sha256=metadata["bundle_sha256"],
             source_commit=metadata["source_commit"],
@@ -224,10 +221,9 @@ def run_diagnostic(known_hosts_path: Path, *, runner=subprocess.run, output=None
             session_nonce=metadata["session_nonce"])
         cmd = [orchestrator.SSH_BINARY, "-F", "/dev/null", "-T",
                "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes",
-               "-o", f"UserKnownHostsFile=/proc/self/fd/{known_fd}",
+               "-o", f"UserKnownHostsFile={safe_path}",
                "-o", "GlobalKnownHostsFile=/dev/null",
-               "-o", f"HostKeyAlias={SSH_IP}", "-o", "CheckHostIP=yes",
-               "-o", "UpdateHostKeys=no", "-o", "KnownHostsCommand=none",
+               "-o", "CheckHostIP=yes", "-o", "UpdateHostKeys=no",
                "-o", "ForwardAgent=no", "-o", "ClearAllForwardings=yes",
                "-o", "PermitLocalCommand=no", SSH_DESTINATION, remote]
         source_check, current_identity = _safe_source_pin(Path(known_hosts_path))
@@ -236,7 +232,7 @@ def run_diagnostic(known_hosts_path: Path, *, runner=subprocess.run, output=None
         env = {"PATH": "/usr/bin:/bin", "HOME": "/nonexistent", "LC_ALL": "C", "LANG": "C"}
         try:
             result = runner(cmd, input=bundle, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                            check=False, timeout=30, env=env, pass_fds=(known_fd,))
+                            check=False, timeout=30, env=env)
         except (OSError, subprocess.TimeoutExpired) as exc:
             emit("SSH_RC=unavailable")
             emit("SSH_STDERR=" + _sanitize(str(exc).encode()))
@@ -253,9 +249,6 @@ def run_diagnostic(known_hosts_path: Path, *, runner=subprocess.run, output=None
             emit("FAILURE_PHASE=SSH_TRANSPORT")
             return {"failure_phase": "SSH_TRANSPORT", "ssh_rc": None,
                     "bundle_sha256": metadata["bundle_sha256"]}
-        finally:
-            os.close(known_fd)
-            known_fd = -1
         lines = result.stdout.decode("utf-8", "replace").splitlines()
         phases = {}
         failure_phase = None
@@ -300,8 +293,6 @@ def run_diagnostic(known_hosts_path: Path, *, runner=subprocess.run, output=None
         return {"failure_phase": failure_phase, "ssh_rc": result.returncode,
                 "bundle_sha256": metadata["bundle_sha256"], "phases": phases}
     finally:
-        if known_fd >= 0:
-            os.close(known_fd)
         temp.cleanup()
 
 

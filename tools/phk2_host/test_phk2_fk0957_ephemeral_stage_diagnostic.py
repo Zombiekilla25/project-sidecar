@@ -75,6 +75,7 @@ class EphemeralStageDiagnosticTests(unittest.TestCase):
         self.assertEqual(cmd[-2], "rmann@192.168.1.173")
         self.assertIn("StrictHostKeyChecking=yes", cmd)
         self.assertIn("GlobalKnownHostsFile=/dev/null", cmd)
+        self.assertTrue(any(x.startswith("UserKnownHostsFile=/tmp/fk0957-stage-pin-") for x in cmd))
         self.assertIn("-I", cmd[-1])
         self.assertIn("-S", cmd[-1])
         self.assertNotIn("--remote-repo", cmd[-1])
