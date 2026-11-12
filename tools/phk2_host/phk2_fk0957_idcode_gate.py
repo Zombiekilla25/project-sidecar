@@ -29,7 +29,10 @@ IDCODE_IR_BITS = 6
 IDCODE_DR_BITS = 64
 IDCODE_TCK_CYCLES = 87
 EXPECTED_CHAIN_WORDS = (EXPECTED_IDCODE, 0)
-_AUTHORIZATION_TOKEN = object()
+# Authorization is process-local and one-shot. A transport failure consumes
+# the permit too; a new scan requires a fresh descriptor authorization call.
+_AUTHORIZED_TOKENS: set[object] = set()
+_CONSUMED_TOKENS: set[object] = set()
 
 
 class Refusal(ValueError):
@@ -45,6 +48,9 @@ class ReadPermit:
     usb_path: str
     vid: str
     pid: str
+    manufacturer: str
+    product: str
+    interface: str
     operation: str = "ONE_FIXED_IDCODE_READ"
     tap_reset_tms: tuple[int, ...] = TAP_RESET_TMS
     ir_opcode: int = IDCODE_IR_OPCODE
@@ -71,7 +77,7 @@ def _timestamp(value: str) -> datetime:
 
 
 def authorize_descriptor(raw_evidence: bytes, *, expected_sha256: str,
-                         public_key: Any, now: datetime | None = None) -> ReadPermit:
+                         public_key: Any) -> ReadPermit:
     """Verify signed, fresh FK0957 descriptor evidence and create fixed permit."""
     if not isinstance(raw_evidence, bytes) or not re.fullmatch(r"[0-9a-f]{64}", expected_sha256):
         raise Refusal("descriptor evidence binding malformed")
@@ -93,7 +99,8 @@ def authorize_descriptor(raw_evidence: bytes, *, expected_sha256: str,
     if (evidence["target_selector"] != CARD_ID or evidence["adapter_serial"] != ADAPTER_SERIAL or
             evidence["usb_descriptor_serial"] != USB_DESCRIPTOR_SERIAL or
             evidence["fk0957_mapping"] != "153300000957" or evidence["ftdi_vid"] != "0403" or
-            evidence["ftdi_pid"] != "6010" or evidence["interface"] != "A"):
+            evidence["ftdi_pid"] != "6010" or evidence["manufacturer"] != "Xilinx" or
+            evidence["product"] != "SQRL FK" or evidence["interface"] != "A"):
         raise Refusal("descriptor identity does not bind exact FK0957 adapter")
     if any(type(evidence[name]) is not int or evidence[name] != 0
            for name in orchestrator.ZERO_FIELDS):
@@ -102,24 +109,25 @@ def authorize_descriptor(raw_evidence: bytes, *, expected_sha256: str,
             provenance["execution_mode"] != "EPHEMERAL_REVIEWED_BUNDLE"):
         raise Refusal("descriptor provenance does not match authorized acquisition")
     stamp = _timestamp(evidence["acquisition_timestamp"])
-    current = now or datetime.now(timezone.utc)
-    if current.tzinfo is None:
-        raise Refusal("current time must include timezone")
-    age = (current.astimezone(timezone.utc) - stamp).total_seconds()
+    current = datetime.now(timezone.utc)
+    age = (current - stamp).total_seconds()
     if age < -FUTURE_CLOCK_SKEW_SECONDS or age > MAX_DESCRIPTOR_AGE_SECONDS:
         raise Refusal("descriptor evidence is stale or future-dated")
     path = evidence["usb_path"]
     if not isinstance(path, str) or not re.fullmatch(r"[0-9]+(?:-[0-9]+(?:\.[0-9]+)*)", path):
         raise Refusal("descriptor USB path malformed")
     permit = ReadPermit(actual_sha, CARD_ID, ADAPTER_SERIAL, USB_DESCRIPTOR_SERIAL,
-                        path, "0403", "6010")
-    object.__setattr__(permit, "_token", _AUTHORIZATION_TOKEN)
+                        path, "0403", "6010", "Xilinx", "SQRL FK", "A")
+    token = object()
+    object.__setattr__(permit, "_token", token)
+    _AUTHORIZED_TOKENS.add(token)
     return permit
 
 
 _RESULT_FIELDS = {
     "schema", "descriptor_evidence_sha256", "operation", "card_id", "adapter_serial",
-    "usb_descriptor_serial", "usb_path", "before_identity", "after_identity",
+    "usb_descriptor_serial", "usb_path", "manufacturer", "product", "interface",
+    "before_identity", "after_identity",
     "candidate_count", "device_handles_opened", "second_card_opened", "tap_reset_tms",
     "ir_opcode", "ir_bits", "dr_bits", "tck_cycles", "tap_state_after", "chain_words",
     "idcode", "target_part_family", "write_count", "reset_count", "program_count",
@@ -131,7 +139,8 @@ def validate_observation(permit: ReadPermit, result: Mapping[str, Any]) -> dict[
         raise Refusal("IDCODE result schema malformed")
     expected_identity = {"card_id": permit.card_id, "adapter_serial": permit.adapter_serial,
                          "usb_descriptor_serial": permit.usb_descriptor_serial,
-                         "usb_path": permit.usb_path}
+                         "usb_path": permit.usb_path, "manufacturer": permit.manufacturer,
+                         "product": permit.product, "interface": permit.interface}
     if (result["schema"] != "fk0957-fixed-idcode-observation-v1" or
             result["descriptor_evidence_sha256"] != permit.descriptor_evidence_sha256 or
             result["operation"] != permit.operation or
@@ -164,10 +173,13 @@ def validate_observation(permit: ReadPermit, result: Mapping[str, Any]) -> dict[
 
 def read_once(permit: ReadPermit, transport: FixedIdcodeTransport) -> dict[str, Any]:
     """Invoke one fixed read through an injected transport, then validate it."""
-    if (not isinstance(permit, ReadPermit) or permit._token is not _AUTHORIZATION_TOKEN or
+    if (not isinstance(permit, ReadPermit) or permit._token not in _AUTHORIZED_TOKENS or
+            permit._token in _CONSUMED_TOKENS or
             permit.card_id != CARD_ID or permit.adapter_serial != ADAPTER_SERIAL or
             permit.usb_descriptor_serial != USB_DESCRIPTOR_SERIAL or
             permit.vid != "0403" or permit.pid != "6010" or
+            permit.manufacturer != "Xilinx" or permit.product != "SQRL FK" or
+            permit.interface != "A" or
             permit.operation != "ONE_FIXED_IDCODE_READ" or
             permit.tap_reset_tms != TAP_RESET_TMS or permit.ir_opcode != IDCODE_IR_OPCODE or
             permit.ir_bits != IDCODE_IR_BITS or permit.dr_bits != IDCODE_DR_BITS or
@@ -175,5 +187,11 @@ def read_once(permit: ReadPermit, transport: FixedIdcodeTransport) -> dict[str, 
             not re.fullmatch(r"[0-9a-f]{64}", permit.descriptor_evidence_sha256) or
             not re.fullmatch(r"[0-9]+(?:-[0-9]+(?:\.[0-9]+)*)", permit.usb_path)):
         raise Refusal("invalid fixed IDCODE permit")
-    result = transport.read_fk0957_idcode_once(permit)
+    # Consume before crossing the injected transport boundary. Partial scans
+    # and exceptions are not retried under the same authorization.
+    _CONSUMED_TOKENS.add(permit._token)
+    try:
+        result = transport.read_fk0957_idcode_once(permit)
+    except Exception as exc:
+        raise Refusal("fixed IDCODE transport failed") from exc
     return validate_observation(permit, result)
