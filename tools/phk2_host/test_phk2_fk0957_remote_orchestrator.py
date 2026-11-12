@@ -97,7 +97,16 @@ class RemoteOrchestratorTests(unittest.TestCase):
             key_bytes = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
                                           serialization.NoEncryption())
             key_path.write_bytes(key_bytes)
-            fake = FakeSSH(lambda cmd: wire(unsigned(session_nonce=cmd[-1].split()[-1])))
+            seen_pin = {}
+            def inspect_pin_during_ssh(cmd):
+                pin_option = next(x for x in cmd if x.startswith("UserKnownHostsFile="))
+                active_pin = Path(pin_option.split("=", 1)[1])
+                seen_pin.update(path=active_pin, data=active_pin.read_bytes(),
+                                mode=active_pin.stat().st_mode & 0o777,
+                                links=active_pin.stat().st_nlink,
+                                parent_mode=active_pin.parent.stat().st_mode & 0o777)
+                return wire(unsigned(session_nonce=cmd[-1].split()[-1]))
+            fake = FakeSSH(inspect_pin_during_ssh)
             result = remote.acquire_and_sign(key_path, known_hosts_path=self.known_hosts_path, runner=fake, expected_hostname="testbox", remote_repo="/remote repo")
             cmd, kwargs = fake.calls[0]
             self.assertEqual(cmd[-2], "rmann@192.168.1.173")
@@ -106,8 +115,12 @@ class RemoteOrchestratorTests(unittest.TestCase):
             self.assertIn("BatchMode=yes", cmd)
             self.assertIn("StrictHostKeyChecking=yes", cmd)
             self.assertIn("GlobalKnownHostsFile=/dev/null", cmd)
-            self.assertIn("HostKeyAlias=192.168.1.173", cmd)
-            self.assertTrue(any(x.startswith("UserKnownHostsFile=/proc/self/fd/") for x in cmd))
+            self.assertNotIn("HostKeyAlias=192.168.1.173", cmd)
+            pin_path = seen_pin["path"]
+            self.assertEqual(seen_pin["data"], self.known_hosts_path.read_bytes())
+            self.assertEqual(seen_pin["mode"], 0o600)
+            self.assertEqual(seen_pin["links"], 1)
+            self.assertEqual(seen_pin["parent_mode"], 0o700)
             self.assertIn("ForwardAgent=no", cmd)
             self.assertRegex(cmd[-1], rf"^cd -- '/remote repo' && FK0957_TARGET=FK0957 python3 - {remote.COLLECTOR_PIN} [0-9a-f]{{64}}$")
             self.assertEqual(kwargs["input"], remote.COLLECTOR.read_bytes())
@@ -117,6 +130,7 @@ class RemoteOrchestratorTests(unittest.TestCase):
             self.assertEqual(prov["ssh_destination"], remote.SSH_DESTINATION)
             self.assertEqual(prov["ssh_host_key_algorithm"], "ssh-ed25519")
             self.assertTrue(prov["ssh_host_key_sha256"].startswith("SHA256:"))
+            self.assertFalse(pin_path.exists())
             self.assertEqual(prov["pinned_known_hosts_sha256"], remote.sha(self.known_hosts_path.read_bytes()))
             self.assertEqual(prov["collector_reported_hostname_SELF_REPORTED"], "testbox")
             canonical = remote.canonical(result["payload"])
@@ -236,7 +250,7 @@ class RemoteOrchestratorTests(unittest.TestCase):
             fake = FakeSSH(lambda cmd: wire(unsigned(session_nonce=cmd[-1].split()[-1])))
             remote.acquire_and_sign(key_path, known_hosts_path=self.known_hosts_path, runner=fake, expected_hostname="testbox", remote_repo="/remote repo")
             cmd, kwargs = fake.calls[0]
-            self.assertEqual(set(kwargs), {"input", "stdout", "stderr", "check", "timeout", "env", "pass_fds"})
+            self.assertEqual(set(kwargs), {"input", "stdout", "stderr", "check", "timeout", "env"})
             self.assertEqual(set(kwargs["env"]), {"PATH", "HOME", "LC_ALL", "LANG"})
             self.assertNotIn(b"SECRET_KEY_FILE", kwargs["input"])
             self.assertNotIn("SECRET_KEY_FILE", repr(cmd) + repr(kwargs))
@@ -473,7 +487,8 @@ class RemoteOrchestratorTests(unittest.TestCase):
                     runner=fake, expected_hostname="testbox", remote_repo="/remote")
         cmd = fake.calls[0][0]
         self.assertEqual(cmd[-2], "rmann@192.168.1.173")
-        self.assertIn("HostKeyAlias=192.168.1.173", cmd)
+        self.assertNotIn("HostKeyAlias=192.168.1.173", cmd)
+        self.assertTrue(any(x.startswith("UserKnownHostsFile=/tmp/fk0957-known-hosts-") for x in cmd))
 
     def test_group_or_world_readable_known_hosts_refuses(self):
         self.known_hosts_path.chmod(0o644)
@@ -492,8 +507,9 @@ class RemoteOrchestratorTests(unittest.TestCase):
             def mutate_after_exec(cmd, **kwargs):
                 self.known_hosts_path.unlink()
                 self.known_hosts_path.symlink_to(Path(d) / "attacker")
-                inherited = Path(f"/proc/self/fd/{kwargs['pass_fds'][0]}").read_bytes()
-                self.assertEqual(inherited, original)
+                pin_arg = next(x for x in cmd if x.startswith("UserKnownHostsFile="))
+                pinned_copy = Path(pin_arg.split("=", 1)[1]).read_bytes()
+                self.assertEqual(pinned_copy, original)
                 return subprocess.CompletedProcess(cmd, 0, wire(unsigned(session_nonce=cmd[-1].split()[-1])), b"")
             signed = remote.acquire_and_sign(key_path, known_hosts_path=self.known_hosts_path,
                 runner=mutate_after_exec, expected_hostname="testbox", remote_repo="/remote")
@@ -501,7 +517,7 @@ class RemoteOrchestratorTests(unittest.TestCase):
 
     def test_pin_changed_between_validation_and_invocation_refuses(self):
         fake = FakeSSH(b"")
-        original_read = remote._read_pinned_known_hosts
+        original_read = remote._read_pinned_source
         calls = 0
         def mutate_between_reads(path):
             nonlocal calls
@@ -511,11 +527,42 @@ class RemoteOrchestratorTests(unittest.TestCase):
                 self.known_hosts_path.write_text(hostkey_line(keyseed=b"C" * 32))
                 self.known_hosts_path.chmod(0o600)
             return result
-        with mock.patch.object(remote, "_read_pinned_known_hosts", side_effect=mutate_between_reads):
+        with mock.patch.object(remote, "_read_pinned_source", side_effect=mutate_between_reads):
             with self.assertRaises(remote.Refusal):
                 remote.acquire_and_sign(Path("missing-key"), known_hosts_path=self.known_hosts_path,
                     runner=fake, expected_hostname="testbox", remote_repo="/remote")
         self.assertEqual(fake.calls, [])
+
+    def test_private_temp_pin_tampering_before_ssh_refuses(self):
+        fake = FakeSSH(b"")
+        original_validate = remote._validate_private_pin
+        calls = 0
+        def tamper_second_validation(path, material, identity, dir_identity, file_identity):
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                Path(path).write_bytes(material + b"# changed\\n")
+                Path(path).chmod(0o600)
+            return original_validate(path, material, identity, dir_identity, file_identity)
+        with mock.patch.object(remote, "_validate_private_pin", side_effect=tamper_second_validation):
+            with self.assertRaises(remote.Refusal):
+                remote.acquire_and_sign(Path("missing-key"), known_hosts_path=self.known_hosts_path,
+                    runner=fake, expected_hostname="testbox", remote_repo="/remote")
+        self.assertEqual(fake.calls, [])
+
+    def test_private_temp_pin_is_cleaned_when_ssh_runner_raises(self):
+        observed = {}
+        def raise_after_observing(cmd, **kwargs):
+            option = next(x for x in cmd if x.startswith("UserKnownHostsFile="))
+            path = Path(option.split("=", 1)[1])
+            observed["path"] = path
+            observed["bytes"] = path.read_bytes()
+            raise OSError("simulated SSH launch error")
+        with self.assertRaises(OSError):
+            remote.acquire_and_sign(Path("missing-key"), known_hosts_path=self.known_hosts_path,
+                runner=raise_after_observing, expected_hostname="testbox", remote_repo="/remote")
+        self.assertEqual(observed["bytes"], self.known_hosts_path.read_bytes())
+        self.assertFalse(observed["path"].exists())
 
     def test_wrong_reported_hostname_refuses_before_signing(self):
         fake = FakeSSH(lambda cmd: wire(unsigned(session_nonce=cmd[-1].split()[-1], collector_hash=remote.COLLECTOR_PIN)))

@@ -6,7 +6,6 @@ import argparse
 import base64
 import stat
 from datetime import datetime, timezone, timedelta
-import fcntl
 import hmac
 import hashlib
 import json
@@ -18,6 +17,7 @@ import shlex
 import stat
 import subprocess
 import sys
+import tempfile
 import types
 from typing import Callable
 
@@ -227,58 +227,146 @@ def _unique_pairs(pairs):
 
 
 def _read_pinned_known_hosts(path: Path) -> tuple[int, bytes, dict]:
-    """Open one owner-only pinned known_hosts inode and identify exactly one key for SSH_IP."""
+    """Read and validate the private temporary known_hosts file."""
     path = Path(path)
-    if not path.is_absolute():
-        raise Refusal("pinned known_hosts path must be absolute")
-    # Refuse symlinks and writable/foreign parent directories so the validated path
-    # cannot be replaced by another local user before OpenSSH opens it.
-    parts = (path, *path.parents)
-    for item in reversed(parts[1:]):
-        try:
-            parent_st = item.lstat()
-        except OSError as exc:
-            raise Refusal("pinned known_hosts parent is unavailable") from exc
-        if not stat.S_ISDIR(parent_st.st_mode) or stat.S_ISLNK(parent_st.st_mode):
-            raise Refusal("pinned known_hosts path has a symlink or non-directory parent")
-        sticky_tmp = bool(parent_st.st_mode & stat.S_ISVTX)
-        if parent_st.st_uid not in (0, os.getuid()) or (parent_st.st_mode & 0o022 and not sticky_tmp):
-            raise Refusal("pinned known_hosts parent is not owned and protected by this user")
+    parent_fd, name = _open_path_parent(path)
     try:
-        before = path.lstat()
-        if stat.S_ISLNK(before.st_mode) or not stat.S_ISREG(before.st_mode):
-            raise Refusal("pinned known_hosts must be a regular non-symlink file")
-        if (before.st_uid != os.getuid() or before.st_nlink != 1 or before.st_mode & 0o177 or
-                not before.st_mode & 0o400):
+        before = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        if (not stat.S_ISREG(before.st_mode) or before.st_uid != os.getuid() or
+                before.st_nlink != 1 or stat.S_IMODE(before.st_mode) != 0o600):
             raise Refusal("pinned known_hosts must be owner-only, singly linked, and owned by this user")
-        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0))
-    except Refusal:
-        raise
+        fd = os.open(name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) |
+                     getattr(os, "O_CLOEXEC", 0), dir_fd=parent_fd)
+        try:
+            opened = os.fstat(fd)
+            after = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+            if ((opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino) or
+                    (after.st_dev, after.st_ino) != (opened.st_dev, opened.st_ino) or
+                    opened.st_uid != os.getuid() or opened.st_nlink != 1 or
+                    stat.S_IMODE(opened.st_mode) != 0o600):
+                raise Refusal("pinned known_hosts changed during validation")
+            chunks, total = [], 0
+            while True:
+                chunk = os.read(fd, 65536)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > 1024 * 1024:
+                    raise Refusal("pinned known_hosts is oversized")
+                chunks.append(chunk)
+            material = b"".join(chunks)
+            identity = _parse_pinned_host_key(material)
+            os.lseek(fd, 0, os.SEEK_SET)
+            return fd, material, identity
+        except Exception:
+            os.close(fd)
+            raise
     except OSError as exc:
         raise Refusal("pinned known_hosts cannot be opened safely") from exc
+    finally:
+        os.close(parent_fd)
+
+
+def _read_pinned_source(path: Path) -> tuple[bytes, dict, tuple[int, int]]:
+    """Read the designated pin without following any path component."""
+    path = Path(path)
+    parent_fd, name = _open_path_parent(path)
     try:
-        opened = os.fstat(fd)
-        after = path.lstat()
-        if (not stat.S_ISREG(opened.st_mode) or opened.st_dev != before.st_dev or opened.st_ino != before.st_ino or
-                after.st_dev != opened.st_dev or after.st_ino != opened.st_ino or opened.st_uid != os.getuid() or
-                opened.st_nlink != 1 or opened.st_mode & 0o177 or not opened.st_mode & 0o400):
-            raise Refusal("pinned known_hosts changed during validation")
-        chunks = []
-        while True:
-            chunk = os.read(fd, 65536)
-            if not chunk:
-                break
-            chunks.append(chunk)
-            if sum(map(len, chunks)) > 1024 * 1024:
-                raise Refusal("pinned known_hosts is oversized")
-        material = b"".join(chunks)
-        identity = _parse_pinned_host_key(material)
-        # OpenSSH will use this already-validated inode through the inherited FD.
-        os.lseek(fd, 0, os.SEEK_SET)
-        return fd, material, identity
-    except Exception:
+        before = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1 or
+                before.st_uid != os.getuid() or before.st_mode & 0o177 or
+                not before.st_mode & 0o400):
+            raise Refusal("pinned source known_hosts must be owner-only, regular, and singly linked")
+        fd = os.open(name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) |
+                     getattr(os, "O_CLOEXEC", 0), dir_fd=parent_fd)
+        try:
+            opened = os.fstat(fd)
+            after = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+            inode = (opened.st_dev, opened.st_ino)
+            if (not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1 or
+                    opened.st_uid != os.getuid() or opened.st_mode & 0o177 or
+                    not opened.st_mode & 0o400 or inode != (before.st_dev, before.st_ino) or
+                    inode != (after.st_dev, after.st_ino)):
+                raise Refusal("pinned source known_hosts changed during validation")
+            chunks, total = [], 0
+            while True:
+                chunk = os.read(fd, 65536)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > 1024 * 1024:
+                    raise Refusal("pinned known_hosts is oversized")
+                chunks.append(chunk)
+            material = b"".join(chunks)
+            return material, _parse_pinned_host_key(material), inode
+        finally:
+            os.close(fd)
+    except OSError as exc:
+        raise Refusal("pinned source known_hosts cannot be opened safely") from exc
+    finally:
+        os.close(parent_fd)
+
+
+def _open_private_pin_dir(path: Path) -> tuple[int, tuple[int, int]]:
+    path = Path(path)
+    if not path.is_absolute() or path.parent != Path("/tmp") or not path.name.startswith("fk0957-known-hosts-"):
+        raise Refusal("temporary known_hosts directory path is unsafe")
+    parent = Path("/tmp").lstat()
+    if (stat.S_ISLNK(parent.st_mode) or not stat.S_ISDIR(parent.st_mode) or
+            parent.st_uid not in (0, os.getuid()) or not parent.st_mode & stat.S_ISVTX):
+        raise Refusal("temporary known_hosts parent is not a protected sticky directory")
+    before = path.lstat()
+    if (stat.S_ISLNK(before.st_mode) or not stat.S_ISDIR(before.st_mode) or
+            before.st_uid != os.getuid() or stat.S_IMODE(before.st_mode) != 0o700):
+        raise Refusal("temporary known_hosts directory is not private and owner-controlled")
+    fd = os.open(path, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) |
+                 getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0))
+    opened = os.fstat(fd)
+    inode = (opened.st_dev, opened.st_ino)
+    if (inode != (before.st_dev, before.st_ino) or opened.st_uid != os.getuid() or
+            stat.S_IMODE(opened.st_mode) != 0o700):
         os.close(fd)
-        raise
+        raise Refusal("temporary known_hosts directory changed during validation")
+    return fd, inode
+
+
+def _write_private_pin(dir_fd: int, material: bytes) -> tuple[int, int]:
+    fd = os.open("known_hosts", os.O_WRONLY | os.O_CREAT | os.O_EXCL |
+                 getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0),
+                 0o600, dir_fd=dir_fd)
+    try:
+        offset = 0
+        while offset < len(material):
+            offset += os.write(fd, material[offset:])
+        os.fsync(fd)
+        info = os.fstat(fd)
+        path_info = os.stat("known_hosts", dir_fd=dir_fd, follow_symlinks=False)
+        if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != os.getuid() or
+                stat.S_IMODE(info.st_mode) != 0o600 or
+                (info.st_dev, info.st_ino) != (path_info.st_dev, path_info.st_ino)):
+            raise Refusal("temporary known_hosts copy is not private and singly linked")
+        os.fsync(dir_fd)
+        return info.st_dev, info.st_ino
+    finally:
+        os.close(fd)
+
+
+def _validate_private_pin(path: Path, material: bytes, host_identity: dict,
+                          dir_identity: tuple[int, int], file_identity: tuple[int, int]) -> None:
+    dir_fd, current_dir_identity = _open_private_pin_dir(Path(path).parent)
+    try:
+        if current_dir_identity != dir_identity:
+            raise Refusal("temporary known_hosts directory changed")
+        pin_fd, current, identity = _read_pinned_known_hosts(path)
+        try:
+            info = os.fstat(pin_fd)
+            if (current != material or identity != host_identity or
+                    (info.st_dev, info.st_ino) != file_identity):
+                raise Refusal("temporary known_hosts copy changed before SSH")
+        finally:
+            os.close(pin_fd)
+    finally:
+        os.close(dir_fd)
 
 
 def _ssh_string(data: bytes, offset: int) -> tuple[bytes, int]:
@@ -350,26 +438,6 @@ def _parse_pinned_host_key(material: bytes) -> dict:
     return matches[0]
 
 
-def _sealed_known_hosts_fd(material: bytes) -> int:
-    """Give OpenSSH immutable bytes from the validated pinned file, not a replaceable path."""
-    if not hasattr(os, "memfd_create") or not hasattr(fcntl, "F_ADD_SEALS"):
-        raise Refusal("immutable known_hosts descriptor support is required")
-    flags = getattr(os, "MFD_ALLOW_SEALING", 0) | getattr(os, "MFD_CLOEXEC", 0)
-    fd = os.memfd_create("fk0957-pinned-known-hosts", flags)
-    try:
-        offset = 0
-        while offset < len(material):
-            offset += os.write(fd, material[offset:])
-        seals = (getattr(fcntl, "F_SEAL_SEAL", 0) | getattr(fcntl, "F_SEAL_SHRINK", 0) |
-                 getattr(fcntl, "F_SEAL_GROW", 0) | getattr(fcntl, "F_SEAL_WRITE", 0))
-        fcntl.fcntl(fd, fcntl.F_ADD_SEALS, seals)
-        os.lseek(fd, 0, os.SEEK_SET)
-        return fd
-    except Exception:
-        os.close(fd)
-        raise Refusal("could not seal validated known_hosts material")
-
-
 def acquire_and_sign(key_path: Path, *, known_hosts_path: Path, runner: Callable = subprocess.run,
                      expected_hostname: str, remote_repo: str | None = None,
                      ephemeral: bool = False) -> dict:
@@ -429,30 +497,36 @@ def acquire_and_sign(key_path: Path, *, known_hosts_path: Path, runner: Callable
         remote_command = (f"cd -- {shlex.quote(remote_repo)} && "
                           f"FK0957_TARGET=FK0957 python3 - {collector_hash} {nonce}")
         execution_mode = "REMOTE_CHECKOUT"
-    source_fd, known_hosts_bytes, host_identity = _read_pinned_known_hosts(known_hosts_path)
-    os.close(source_fd)
+    known_hosts_bytes, host_identity, source_identity = _read_pinned_source(known_hosts_path)
     pinned_hash = sha(known_hosts_bytes)
-    known_hosts_fd = _sealed_known_hosts_fd(known_hosts_bytes)
-    fd_known_hosts = f"/proc/self/fd/{known_hosts_fd}"
-    cmd = [SSH_BINARY, "-F", "/dev/null", "-T",
-           "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes",
-           "-o", f"UserKnownHostsFile={fd_known_hosts}", "-o", "GlobalKnownHostsFile=/dev/null",
-           "-o", f"HostKeyAlias={_AUTHORIZED_SSH_IP}", "-o", "CheckHostIP=yes", "-o", "UpdateHostKeys=no",
-           "-o", "KnownHostsCommand=none", "-o", "ForwardAgent=no", "-o", "ClearAllForwardings=yes",
-           "-o", "PermitLocalCommand=no", _AUTHORIZED_SSH_DESTINATION, remote_command]
     safe_env = {"PATH": "/usr/bin:/bin", "HOME": "/nonexistent",
                 "LC_ALL": "C", "LANG": "C"}
-    try:
-        # Re-read and verify the named path immediately before invocation. OpenSSH
-        # consumes the inherited descriptor, so a later rename/symlink swap cannot alter the pin.
-        check_fd, check_bytes, check_identity = _read_pinned_known_hosts(known_hosts_path)
-        os.close(check_fd)
-        if check_bytes != known_hosts_bytes or check_identity != host_identity or sha(check_bytes) != pinned_hash:
+    with tempfile.TemporaryDirectory(prefix="fk0957-known-hosts-", dir="/tmp") as pin_dir_name:
+        pin_dir = Path(pin_dir_name)
+        pin_dir_fd, pin_dir_identity = _open_private_pin_dir(pin_dir)
+        try:
+            pin_file_identity = _write_private_pin(pin_dir_fd, known_hosts_bytes)
+        finally:
+            os.close(pin_dir_fd)
+        temporary_pin = pin_dir / "known_hosts"
+        _validate_private_pin(temporary_pin, known_hosts_bytes, host_identity,
+                              pin_dir_identity, pin_file_identity)
+        cmd = [SSH_BINARY, "-F", "/dev/null", "-T",
+               "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes",
+               "-o", f"UserKnownHostsFile={temporary_pin}",
+               "-o", "GlobalKnownHostsFile=/dev/null", "-o", "CheckHostIP=yes",
+               "-o", "UpdateHostKeys=no", "-o", "KnownHostsCommand=none",
+               "-o", "ForwardAgent=no", "-o", "ClearAllForwardings=yes",
+               "-o", "PermitLocalCommand=no", _AUTHORIZED_SSH_DESTINATION, remote_command]
+        # Check both source and private copy immediately before OpenSSH opens the path.
+        check_bytes, check_identity, check_source_inode = _read_pinned_source(known_hosts_path)
+        if (check_bytes != known_hosts_bytes or check_identity != host_identity or
+                check_source_inode != source_identity or sha(check_bytes) != pinned_hash):
             raise Refusal("pinned known_hosts changed between validation and SSH invocation")
+        _validate_private_pin(temporary_pin, known_hosts_bytes, host_identity,
+                              pin_dir_identity, pin_file_identity)
         result = runner(cmd, input=stdin_data, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                        check=False, timeout=30, env=safe_env, pass_fds=(known_hosts_fd,))
-    finally:
-        os.close(known_hosts_fd)
+                        check=False, timeout=30, env=safe_env)
     if getattr(result, "returncode", 1) != 0:
         raise Refusal("remote unsigned acquisition failed")
     if getattr(result, "stderr", b""):
