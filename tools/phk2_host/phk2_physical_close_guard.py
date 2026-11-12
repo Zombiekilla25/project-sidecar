@@ -868,6 +868,25 @@ def _execute_case_b_capture(transport: Any) -> dict[str, Any]:
     return result
 
 
+def _case_b_expected_target_identity(card_payload: Any, candidate_image_sha256: Any) -> dict[str, Any]:
+    """Bind Case B to the freshly signed observed image, not only a host expectation."""
+    if not isinstance(card_payload, dict):
+        raise Refusal("Case-B fresh signed target identity is missing")
+    observed_image = card_payload.get("loaded_image_sha256")
+    if (not isinstance(observed_image, str) or not re.fullmatch(r"[0-9a-f]{64}", observed_image) or
+            observed_image != candidate_image_sha256):
+        raise Refusal("Case-B fresh signed loaded-image identity is missing, malformed, or mismatched")
+    return {
+        "card_id": card_payload.get("observed_card_id"),
+        "adapter_id": card_payload.get("observed_adapter_id"),
+        "fpga_dna": card_payload.get("observed_fpga_dna"),
+        "idcode": card_payload.get("observed_idcode"),
+        "target_part": card_payload.get("observed_target_part"),
+        "jtag_chain_topology": card_payload.get("observed_jtag_chain_topology"),
+        "loaded_image_sha256": observed_image,
+    }
+
+
 class TrustedKeyStore(dict):
     """Parsed signer keys whose containing store matched the software pin."""
     def __init__(self, *args, verified_sha256: str, **kwargs):
@@ -1189,6 +1208,16 @@ def master_pretransport_gate(*, repo: str | Path, closure_manifest: dict[str, An
                 raise Refusal("Case B requires successful Case A completion")
             self.__state = "CASE_B"
             try:
+                target_identity = _case_b_expected_target_identity(card_payload, candidate_image_sha256)
+                # The approved method is an execution prerequisite, not merely
+                # a post-capture evidence check. Refuse before invoking the
+                # backend, which may clock the TAP and perform BSCAN.
+                from phk2_case_b_method import validate_approved_case_b_method_record
+                validate_approved_case_b_method_record(
+                    signed_case_b_method_record, binding=binding, trusted_keys=trusted_keys,
+                    expected_target_identity=target_identity,
+                    authorization_payload=auth,
+                    session_nonce=self.__claims["session_nonce"])
                 wrapper = _execute_case_b_capture(self.__transport)
                 result = validate_physical_capture_package(
                     trusted_keys=trusted_keys, waveform_wrapper=self.__case_a_wrapper,
@@ -1196,15 +1225,7 @@ def master_pretransport_gate(*, repo: str | Path, closure_manifest: dict[str, An
                     expected_session_nonce=self.__claims["session_nonce"],
                     case_b_method_record=signed_case_b_method_record,
                     authorization_payload=auth,
-                    expected_target_identity={
-                        "card_id": card_payload.get("observed_card_id"),
-                        "adapter_id": card_payload.get("observed_adapter_id"),
-                        "fpga_dna": card_payload.get("observed_fpga_dna"),
-                        "idcode": card_payload.get("observed_idcode"),
-                        "target_part": card_payload.get("observed_target_part"),
-                        "jtag_chain_topology": card_payload.get("observed_jtag_chain_topology"),
-                        "loaded_image_sha256": candidate_image_sha256,
-                    })
+                    expected_target_identity=target_identity)
                 self.__case_b_complete = True
                 self.__journal.append("CASE_B_CAPTURED", {
                     "case_id": CASE_B_ID,

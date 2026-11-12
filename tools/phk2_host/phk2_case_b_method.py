@@ -258,7 +258,8 @@ def validate_case_b_method_payload(payload: dict[str, Any], *, now: datetime | N
     auth = _mapping(method["authorization_binding"], "authorization_binding")
     _required(auth, ("operation", "card_scope", "case_id", "qualification_record_sha256", "loaded_image_sha256",
                      "bridge_sha256", "method_sha256", "trust_root_sha256"), "authorization_binding")
-    if auth["operation"] != "PHK2_PHYSICAL_TCK_CLOSURE_CASE_B" or auth["card_scope"] != 1 or auth["case_id"] != "33":
+    if (auth["operation"] != "PHK2_PHYSICAL_TCK_CLOSURE_CASE_B" or
+            type(auth["card_scope"]) is not int or auth["card_scope"] != 1 or auth["case_id"] != "33"):
         raise Refusal("Case-B authorization binding has wrong operation/case/card scope")
     for key in ("qualification_record_sha256", "loaded_image_sha256", "bridge_sha256", "method_sha256", "trust_root_sha256"):
         _digest(auth[key], f"authorization_binding.{key}")
@@ -333,7 +334,8 @@ def validate_case_b_session_binding(method: dict[str, Any], authorization_payloa
     _valid_window(auth.get("issued_utc"), auth.get("expires_utc"), now, "authorization")
     if (auth.get("case_b_method_sha256") != method_sha256 or auth.get("session_nonce") != session_nonce or
             not isinstance(case_ids, list) or "33" not in case_ids or
-            auth.get("authorized_operation") != "PHK2_PHYSICAL_TCK_CLOSURE" or auth.get("card_scope") != 1 or
+            auth.get("authorized_operation") != "PHK2_PHYSICAL_TCK_CLOSURE" or
+            type(auth.get("card_scope")) is not int or auth.get("card_scope") != 1 or
             auth.get("qualification_record_sha256") != method.get("qualification_record_sha256") or
             auth.get("card_id") != expected_target_identity.get("card_id") or
             auth.get("bridge_sha256") != method["authorization_binding"].get("bridge_sha256") or

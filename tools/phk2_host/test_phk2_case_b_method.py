@@ -133,6 +133,8 @@ class CaseBMethodFailClosedTests(unittest.TestCase):
             (method, auth, target, "copied-or-replayed", future),
             (method, {**auth, "case_b_method_sha256": "e" * 64}, target, "nonce-1", future),
             (method, {**auth, "expires_utc": past}, target, "nonce-1", past),
+            (method, {**auth, "card_scope": True}, target, "nonce-1", future),
+            (method, {**auth, "card_scope": 1.0}, target, "nonce-1", future),
             (method, {"authorized": True}, target, "nonce-1", future),
             (method, {**auth, "case_ids": ["40"]}, target, "nonce-1", future),
         ]

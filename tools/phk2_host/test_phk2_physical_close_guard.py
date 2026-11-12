@@ -140,7 +140,7 @@ def issue_executor(repo: Path, journal_path: Path, *, abort_response=False):
         "bridge_sha256": PINNED_REVIEWED_BRIDGE_SHA256, "one_card_scope": True,
         "expected_fpga_dna": binding.expected_fpga_dna, "observed_fpga_dna": binding.expected_fpga_dna,
         "expected_target_part": binding.expected_target_part, "observed_target_part": binding.expected_target_part,
-        "observed_idcode": binding.expected_idcode}
+        "observed_idcode": binding.expected_idcode, "loaded_image_sha256": "f" * 64}
     peer_expectation = {"pid": 100, "exe_path": "/sqrl/xvc", "sha256": PINNED_REVIEWED_BRIDGE_SHA256,
         "build_id": PINNED_REVIEWED_BUILD_ID, "service_unit": "sqrl.service",
         "service_config_sha256": "c" * 64, "port": 2542, "lock_key": "d" * 64}
@@ -232,6 +232,23 @@ class PhysicalCloseGuardTests(unittest.TestCase):
         self.assertFalse(b.qualified_physical_envelope_available)
         self.assertEqual(b.tck_envelope["routed_dcp_sha256"], V51_ROUTED_DCP_SHA256)
         self.assertEqual(b.tck_envelope["qualification_record_sha256"], V51_QUALIFICATION_RECORD_SHA256)
+
+    def test_case_b_requires_fresh_signed_loaded_image_to_match_expected_image(self):
+        card_payload = {
+            "observed_card_id": "153300000957", "observed_adapter_id": "153300000957A",
+            "observed_fpga_dna": "4000000001295d813c80a445", "observed_idcode": "04b69093",
+            "observed_target_part": "xcvu33p-fsvh2104-2-e",
+            "observed_jtag_chain_topology": "signed-chain-topology", "loaded_image_sha256": "f" * 64,
+        }
+        target = guard._case_b_expected_target_identity(card_payload, "f" * 64)
+        self.assertEqual(target["loaded_image_sha256"], "f" * 64)
+        for bad in (
+            {key: value for key, value in card_payload.items() if key != "loaded_image_sha256"},
+            {**card_payload, "loaded_image_sha256": "e" * 64},
+            {**card_payload, "loaded_image_sha256": "not-a-hash"},
+        ):
+            with self.subTest(bad_image=bad.get("loaded_image_sha256")), self.assertRaises(Refusal):
+                guard._case_b_expected_target_identity(bad, "f" * 64)
 
     def test_02_arbitrary_reordered_or_foreign_case_and_route_manifest_refuse(self):
         manifest = {"TCK_INDEPENDENT_PASS": 38, "TCK_INDEPENDENT_FAIL": 0,
@@ -569,6 +586,7 @@ class PhysicalCloseGuardTests(unittest.TestCase):
             executor.run_case_a()
         self.assertEqual(executor.state, "CASE_A")
         with mock.patch.object(guard, "_execute_case_b_capture", return_value={"capture": b"tap"}), \
+             mock.patch("phk2_case_b_method.validate_approved_case_b_method_record", return_value={}), \
              mock.patch.object(guard, "validate_physical_capture_package", return_value={
                  "tap_capture_sha256": "a" * 64, "tap": {"final_state": "RUN_TEST_IDLE"}}):
             executor.run_case_b()
@@ -586,6 +604,28 @@ class PhysicalCloseGuardTests(unittest.TestCase):
         self.assertEqual(aborted.state, "ABORTED")
         with self.assertRaises(Refusal): aborted.run_case_a()
         with self.assertRaises(Refusal): aborted.close()
+
+    def test_case_b_method_refusal_precedes_capture_callback(self):
+        executor, _runtime, _path, _binding, tmp, patches, _factory = self._issue()
+        self.addCleanup(patches.close); self.addCleanup(tmp.cleanup)
+        with mock.patch.object(guard, "_execute_case_a_capture", return_value={"capture": b"wave"}), \
+             mock.patch.object(guard, "validate_signed_capture", return_value=({"summary": {}}, b"wave")), \
+             mock.patch.object(guard, "validate_case_a_instrument_evidence", return_value=b"native"), \
+             mock.patch.object(guard, "parse_waveform_csv", return_value={
+                 "MEASURED_TCK_HZ": 50_000_000, "MEASURED_HIGH_NS": 10.0,
+                 "MEASURED_LOW_NS": 10.0, "MEASURED_DUTY_CYCLE": 50.0,
+                 "JITTER_MIN_NS": 0.0, "JITTER_MAX_NS": 0.1,
+                 "MEASURED_PERIOD_NS": 20.0, "SAMPLE_COUNT": 100,
+                 "RISING_EDGE_COUNT": 87}):
+            executor.run_case_a()
+        capture = mock.Mock(return_value={"capture": b"tap"})
+        with mock.patch.object(guard, "_execute_case_b_capture", capture), \
+             mock.patch("phk2_case_b_method.validate_approved_case_b_method_record",
+                        side_effect=Refusal("owner approval missing")):
+            with self.assertRaisesRegex(Refusal, "owner approval missing"):
+                executor.run_case_b()
+        capture.assert_not_called()
+        self.assertEqual(executor.state, "ABORTED")
 
     def test_16_direct_factory_and_legacy_session_bypass_refuse(self):
         with self.assertRaises(Refusal): guard._create_physical_transport("e" * 64, "f" * 64)
