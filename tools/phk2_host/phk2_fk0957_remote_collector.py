@@ -11,9 +11,10 @@ import sys
 import types
 from datetime import datetime, timezone
 
-BACKEND_PIN = "031c0daac89c4f7aa82660cc8d4216cfcc66f088a3285b46a458ea4508f17567"
-OBSERVER_PIN = "a83ccbbf350cdf165a2209b69de0f89146a11c233425206e314bcae7222c12bd"
+BACKEND_PIN = "bc7b69f84e2851b017cf3a0e60e0e49c74f23467d97104528722992fcfd2add2"
+OBSERVER_PIN = "49651502745163b2d69d2641b319f7d88b602a60ba4d91ee042afe81e354fd7e"
 EXPECTED_ADAPTER_SERIAL = "153300000957A"
+EXPECTED_USB_SERIAL = "153300000957"
 EXPECTED_CARD_ID = "153300000957"
 REFUSAL_CODES = frozenset({
     "NO_MATCHING_TARGET", "MULTIPLE_MATCHING_TARGETS", "INCOMPLETE_DESCRIPTOR_METADATA",
@@ -129,10 +130,11 @@ def collect(collector_sha256: str, session_nonce: str) -> dict:
     required_identity = {"vid", "pid", "manufacturer", "product", "interface", "usb_path"}
     if (not isinstance(ident, dict) or set(ident) != required_identity or
             any(not isinstance(ident.get(k), str) or not ident[k] for k in required_identity) or
-            not isinstance(observed.get("adapter_serial"), str) or
+            observed.get("adapter_serial") != EXPECTED_ADAPTER_SERIAL or
+            not isinstance(observed.get("usb_descriptor_serial"), str) or
             not isinstance(observed.get("card_id"), str)):
         raise CollectorRefusal("INCOMPLETE_DESCRIPTOR_METADATA")
-    if observed["adapter_serial"] != EXPECTED_ADAPTER_SERIAL:
+    if observed["usb_descriptor_serial"] != EXPECTED_USB_SERIAL:
         raise CollectorRefusal("EXPECTED_SERIAL_NOT_FOUND")
     if observed["card_id"] != EXPECTED_CARD_ID:
         raise CollectorRefusal("TARGET_MAPPING_AMBIGUOUS")
@@ -149,7 +151,9 @@ def collect(collector_sha256: str, session_nonce: str) -> dict:
             "ftdi_vid": ident["vid"], "ftdi_pid": ident["pid"],
             "manufacturer": ident["manufacturer"], "product": ident["product"],
             "interface": ident["interface"], "usb_path": ident["usb_path"],
-            "adapter_serial": observed["adapter_serial"], "fk0957_mapping": observed["card_id"],
+            "adapter_serial": observed["adapter_serial"],
+            "usb_descriptor_serial": observed["usb_descriptor_serial"],
+            "fk0957_mapping": observed["card_id"],
             "WRITE_COUNT": 0, "RESET_COUNT": 0, "PROGRAM_COUNT": 0, "JTAG_OPERATIONS": 0,
         }
         canonical(payload)

@@ -37,12 +37,13 @@ EXPECTED_FIELDS = {
     "schema", "version", "target_selector", "collector_source_sha256", "backend_source_sha256",
     "session_nonce",
     "source_commit", "remote_hostname", "acquisition_timestamp", "ftdi_vid", "ftdi_pid",
-    "manufacturer", "product", "interface", "usb_path", "adapter_serial", "fk0957_mapping",
+    "manufacturer", "product", "interface", "usb_path", "adapter_serial",
+    "usb_descriptor_serial", "fk0957_mapping",
     "WRITE_COUNT", "RESET_COUNT", "PROGRAM_COUNT", "JTAG_OPERATIONS",
 }
 ZERO_FIELDS = ("WRITE_COUNT", "RESET_COUNT", "PROGRAM_COUNT", "JTAG_OPERATIONS")
 SOURCE_COMMIT_PIN = "e2feedcfde44563854a3cf41fe4526c231ed385b"
-OBSERVER_PIN = "a83ccbbf350cdf165a2209b69de0f89146a11c233425206e314bcae7222c12bd"
+OBSERVER_PIN = "49651502745163b2d69d2641b319f7d88b602a60ba4d91ee042afe81e354fd7e"
 BUNDLE_BUILDER_PIN = "a60d4bb57fea4e9441bf9a89476e286da16e12d4b9bd9cf7c7df8178a41c3438"
 BUNDLE_RUNNER_PIN = "8e3aaf2422199072551c9be495c0335df61e3d7abaf1c4fc9f6cfd015a351813"
 
@@ -367,7 +368,8 @@ def validate_unsigned(raw: bytes, *, collector_hash: str, backend_hash: str,
              "session_nonce": session_nonce,
              "backend_source_sha256": backend_hash, "ftdi_vid": "0403", "ftdi_pid": "6010",
              "manufacturer": "Xilinx", "product": "SQRL FK", "interface": "A",
-             "adapter_serial": "153300000957A", "fk0957_mapping": "153300000957",
+             "adapter_serial": "153300000957A", "usb_descriptor_serial": "153300000957",
+             "fk0957_mapping": "153300000957",
              **{name: 0 for name in ZERO_FIELDS}}
     if any(value.get(k) != v for k, v in fixed.items()):
         raise Refusal("target identity, source pin, or zero-operation counter mismatch")
@@ -809,7 +811,7 @@ def verify_signed(evidence: dict, public_key) -> bool:
 
 # Updated to the reviewed collector bytes after implementation; prevents a
 # mutable collector replacement from being sent to the authorized host.
-COLLECTOR_PIN = "f6f862f8b0b7b675252935300ab64377b70141555fc8a0058d2b65e0448adb64"
+COLLECTOR_PIN = "d944db4b592bba442431ca24a8f0ce2d8600e9f744d8e96c50bf27119f2f60b4"
 
 
 def main(argv=None) -> int:

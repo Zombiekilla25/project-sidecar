@@ -18,7 +18,7 @@ from phk2_fk0957_readonly_backend import (
 
 
 def target(**kw):
-    data = dict(vid="0403", pid="6010", serial="153300000957A",
+    data = dict(vid="0403", pid="6010", usb_descriptor_serial="153300000957",
                 manufacturer="Xilinx", product="SQRL FK", usb_path="1-2.3",
                 interface_number="00", interface_name="A", sysfs_path="/mock/1-2")
     data.update(kw)
@@ -27,13 +27,13 @@ def target(**kw):
 
 def write_sysfs_device(root, name, *, vid="0403", pid="6010",
                        manufacturer="Xilinx", product="SQRL FK",
-                       serial="153300000957A", bus="1", devpath="2.3",
+                       usb_serial="153300000957", bus="1", devpath="2.3",
                        interface_number="00"):
     node = root / name
     node.mkdir()
     for attr, value in (("idVendor", vid), ("idProduct", pid),
                         ("manufacturer", manufacturer), ("product", product),
-                        ("serial", serial), ("busnum", bus), ("devpath", devpath)):
+                        ("serial", usb_serial), ("busnum", bus), ("devpath", devpath)):
         if value is not None:
             (node / attr).write_text(value + "\n")
     if interface_number is not None:
@@ -65,6 +65,7 @@ class BackendTests(unittest.TestCase):
         self.assertEqual(selected.matching_devices, 1)
         self.assertTrue(selected.serial_scoped_before_open)
         self.assertEqual(selected.adapter_serial, "153300000957A")
+        self.assertEqual(selected.usb_descriptor_serial, "153300000957")
 
     def test_no_match_refuses(self):
         with self.assertRaises(BackendRefusal) as caught:
@@ -73,12 +74,27 @@ class BackendTests(unittest.TestCase):
 
     def test_wrong_serial_refuses(self):
         with self.assertRaises(BackendRefusal) as caught:
-            self.backend(target(serial="153300000958A")).select_exact(TargetSelector())
+            self.backend(target(usb_descriptor_serial="153300000958")).select_exact(TargetSelector())
         self.assertEqual(caught.exception.refusal_code, "EXPECTED_SERIAL_NOT_FOUND")
 
+    def test_usb_serial_is_exact_and_distinct_from_adapter_serial(self):
+        for candidate_serial in ("153300000957A", "0957", "15330000095",
+                                 "153300000957X", "153300000958"):
+            with self.subTest(candidate_serial=candidate_serial):
+                with self.assertRaises(BackendRefusal) as caught:
+                    self.backend(target(usb_descriptor_serial=candidate_serial)).select_exact(TargetSelector())
+                self.assertEqual(caught.exception.refusal_code, "EXPECTED_SERIAL_NOT_FOUND")
+        selected = self.backend(target()).select_exact(TargetSelector())
+        self.assertEqual(selected.adapter_serial, "153300000957A")
+        self.assertEqual(selected.usb_descriptor_serial, "153300000957")
+        self.assertEqual(observer.EXPECTED_ADAPTER_SERIAL, "153300000957A")
+        self.assertEqual(observer.EXPECTED_USB_SERIAL, "153300000957")
+        self.assertEqual(observer.EXPECTED_CARD_ID, "153300000957")
+
     def test_missing_serial_refuses(self):
-        with self.assertRaises(Refusal):
-            self.backend(target(serial="")).select_exact(TargetSelector())
+        with self.assertRaises(BackendRefusal) as caught:
+            self.backend(target(usb_descriptor_serial="")).select_exact(TargetSelector())
+        self.assertEqual(caught.exception.refusal_code, "EXPECTED_SERIAL_NOT_FOUND")
 
     def test_numeric_entry_without_vid_pid_still_refuses_fail_closed(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -93,21 +109,21 @@ class BackendTests(unittest.TestCase):
             root = Path(temp)
             write_sysfs_device(root, "1-9", vid="0bda", pid="5411",
                                manufacturer="Generic", product="4-Port USB 2.0 Hub",
-                               serial=None, interface_number=None)
+                               usb_serial=None, interface_number=None)
             self.assertEqual(SysfsCatalog(root).enumerate_fk(), [])
 
     def test_unrelated_usb_device_without_manufacturer_is_ignored(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             write_sysfs_device(root, "2-4", vid="1234", pid="5678",
-                               manufacturer=None, serial=None, interface_number=None)
+                               manufacturer=None, usb_serial=None, interface_number=None)
             self.assertEqual(SysfsCatalog(root).enumerate_fk(), [])
 
     def test_unrelated_usb_device_with_malformed_optional_fields_is_ignored(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             node = write_sysfs_device(root, "3-2", vid="0bda", pid="5411",
-                                      manufacturer=None, product=None, serial=None,
+                                      manufacturer=None, product=None, usb_serial=None,
                                       interface_number=None)
             (node / "manufacturer").mkdir()
             (node / "serial").mkdir()
@@ -116,7 +132,7 @@ class BackendTests(unittest.TestCase):
     def test_approved_candidate_missing_serial_refuses_incomplete_metadata(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            write_sysfs_device(root, "4-1", serial=None)
+            write_sysfs_device(root, "4-1", usb_serial=None)
             with self.assertRaises(BackendRefusal) as caught:
                 SysfsCatalog(root).enumerate_fk()
             self.assertEqual(caught.exception.refusal_code, "INCOMPLETE_DESCRIPTOR_METADATA")
@@ -135,7 +151,7 @@ class BackendTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             write_sysfs_device(root, "6-1")
-            write_sysfs_device(root, "6-2", serial="153300000711A", devpath="2.2")
+            write_sysfs_device(root, "6-2", usb_serial="153300000711", devpath="2.2")
             with self.assertRaises(BackendRefusal) as caught:
                 FK0957ReadOnlyBackend(SysfsCatalog(root)).select_exact(TargetSelector())
             self.assertEqual(caught.exception.refusal_code, "UNEXPECTED_PEER_DEVICE")
@@ -144,7 +160,7 @@ class BackendTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             write_sysfs_device(root, "7-1", vid="0bda", pid="5411",
-                               manufacturer=None, serial=None, interface_number=None)
+                               manufacturer=None, usb_serial=None, interface_number=None)
             with self.assertRaises(BackendRefusal) as caught:
                 FK0957ReadOnlyBackend(SysfsCatalog(root)).select_exact(TargetSelector())
             self.assertEqual(caught.exception.refusal_code, "NO_MATCHING_TARGET")
@@ -173,7 +189,7 @@ class BackendTests(unittest.TestCase):
 
     def test_fk0957_plus_another_fk_refuses_as_ambiguous(self):
         with self.assertRaises(BackendRefusal) as caught:
-            self.backend(target(), target(serial="153300000711A", usb_path="1-4.2")).select_exact(TargetSelector())
+            self.backend(target(), target(usb_descriptor_serial="153300000711", usb_path="1-4.2")).select_exact(TargetSelector())
         self.assertEqual(caught.exception.refusal_code, "UNEXPECTED_PEER_DEVICE")
 
     def test_wrong_ftdi_interface_refuses(self):
@@ -185,6 +201,9 @@ class BackendTests(unittest.TestCase):
         bad_selector = TargetSelector(adapter_serial="bad")
         with self.assertRaises(BackendRefusal) as caught:
             self.backend(target()).select_exact(bad_selector)
+        self.assertEqual(caught.exception.refusal_code, "SOURCE_PROVENANCE_MISMATCH")
+        with self.assertRaises(BackendRefusal) as caught:
+            self.backend(target()).select_exact(TargetSelector(adapter_serial=""))
         self.assertEqual(caught.exception.refusal_code, "SOURCE_PROVENANCE_MISMATCH")
         with mock.patch.dict(SUPPORTED_TARGET_SELECTOR, {"card_id": ""}):
             with self.assertRaises(BackendRefusal) as caught:
@@ -199,7 +218,7 @@ class BackendTests(unittest.TestCase):
         catalog = FakeCatalog([target()])
         backend = FK0957ReadOnlyBackend(catalog)
         selected = backend.select_exact(TargetSelector())
-        catalog.devices[:] = [replace(target(), serial="153300000958A")]
+        catalog.devices[:] = [replace(target(), usb_descriptor_serial="153300000958")]
         with self.assertRaises(BackendRefusal) as caught:
             backend.open_selected(selected)
         self.assertEqual(caught.exception.refusal_code, "DESCRIPTOR_READ_FAILED")
@@ -255,7 +274,7 @@ class BackendTests(unittest.TestCase):
             self.assertFalse(callable(getattr(transport, name, None)), name)
 
     def test_second_device_open_is_impossible_and_peer_refuses(self):
-        catalog = FakeCatalog([target(), target(serial="153300000711A", usb_path="1-5")])
+        catalog = FakeCatalog([target(), target(usb_descriptor_serial="153300000711", usb_path="1-5")])
         backend = FK0957ReadOnlyBackend(catalog)
         with self.assertRaises(Refusal):
             backend.select_exact(TargetSelector())
@@ -271,7 +290,9 @@ class BackendTests(unittest.TestCase):
         backend = FK0957ReadOnlyBackend(catalog)
         selection = backend.select_exact(TargetSelector())
         transport = backend.open_selected(selection)
-        self.assertEqual(transport.observe()["adapter_serial"], "153300000957A")
+        observed = transport.observe()
+        self.assertEqual(observed["adapter_serial"], "153300000957A")
+        self.assertEqual(observed["usb_descriptor_serial"], "153300000957")
         self.assertEqual(catalog.open_calls, [])
         self.assertEqual(catalog.open_selected_calls, [])
 
@@ -280,6 +301,7 @@ class BackendTests(unittest.TestCase):
         selection = backend.select_exact(TargetSelector())
         obs = backend.open_selected(selection).observe()
         self.assertEqual(obs["adapter_serial"], "153300000957A")
+        self.assertEqual(obs["usb_descriptor_serial"], "153300000957")
         self.assertEqual(obs["card_id"], "153300000957")
         self.assertNotIn("idcode", obs)
         self.assertNotIn("fpga_dna", obs)

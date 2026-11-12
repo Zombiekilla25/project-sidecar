@@ -4,8 +4,8 @@
 This backend deliberately observes USB descriptors through sysfs only. It
 does not open a USB handle, claim an interface, initialize MPSSE, reset the
 TAP, or issue any command to the FPGA. Consequently JTAG-side identity fields
-are unavailable. The exact serial-to-card association is the pinned historical
-FK0957 mapping; it is not a fresh FPGA observation.
+are unavailable. USB descriptor serial and historical adapter-to-card
+identity are separate; the card association is not a fresh FPGA observation.
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ import re
 from typing import Mapping
 
 from phk2_fk0957_identity_observer import (
-    EXPECTED_ADAPTER_SERIAL, EXPECTED_CARD_ID, Refusal, Selection, TargetSelector,
+    EXPECTED_ADAPTER_SERIAL, EXPECTED_USB_SERIAL, EXPECTED_CARD_ID, Refusal, Selection, TargetSelector,
 )
 
 
@@ -35,6 +35,7 @@ REVIEWED_BASE_COMMIT = "e2feedcfde44563854a3cf41fe4526c231ed385b"
 SUPPORTED_TARGET_SELECTOR = {
     "name": "FK0957",
     "adapter_serial": EXPECTED_ADAPTER_SERIAL,
+    "expected_usb_serial": EXPECTED_USB_SERIAL,
     "card_id": EXPECTED_CARD_ID,
     "vid": "0403",
     "pid": "6010",
@@ -75,7 +76,7 @@ def _sha256(path: Path) -> str:
 class Device:
     vid: str
     pid: str
-    serial: str
+    usb_descriptor_serial: str
     manufacturer: str
     product: str
     usb_path: str
@@ -124,7 +125,7 @@ class SysfsCatalog:
             try:
                 manufacturer = (node / "manufacturer").read_text().strip()
                 product = (node / "product").read_text().strip()
-                serial = (node / "serial").read_text().strip()
+                usb_descriptor_serial = (node / "serial").read_text().strip()
                 bus = (node / "busnum").read_text().strip()
                 devpath = (node / "devpath").read_text().strip()
             except OSError as exc:
@@ -142,7 +143,7 @@ class SysfsCatalog:
                     raise BackendRefusal("INCOMPLETE_DESCRIPTOR_METADATA") from exc
                 if number == "00":
                     found_target_interface = True
-                    devices.append(Device(vid, pid, serial, manufacturer, product,
+                    devices.append(Device(vid, pid, usb_descriptor_serial, manufacturer, product,
                                           f"{bus}-{devpath}", number, "A", str(node.resolve())))
             if not found_target_interface:
                 raise BackendRefusal("INCOMPLETE_DESCRIPTOR_METADATA")
@@ -175,10 +176,12 @@ class _DescriptorTransport:
                 "interface": self._record.interface_name,
                 "usb_path": self._record.usb_path,
             },
-            "adapter_serial": self._record.serial,
+            # The adapter/card identity is historical configuration; sysfs
+            # serial is a distinct USB descriptor identity.
+            "adapter_serial": EXPECTED_ADAPTER_SERIAL,
+            "usb_descriptor_serial": self._record.usb_descriptor_serial,
             # This is an immutable historical adapter-to-card mapping, not a
-            # fresh FPGA-side read. The observer schema's card scope remains
-            # exact and cannot be caller-selected.
+            # fresh FPGA-side read; the sysfs USB serial remains distinct.
             "card_id": EXPECTED_CARD_ID,
             "accessed_card_ids": [EXPECTED_CARD_ID],
         }
@@ -223,13 +226,14 @@ class FK0957ReadOnlyBackend:
         if not devices:
             raise BackendRefusal("NO_MATCHING_TARGET")
         if len(devices) > 1:
-            expected_serial_count = sum(device.serial == selector.adapter_serial for device in devices)
+            expected_serial_count = sum(
+                device.usb_descriptor_serial == selector.expected_usb_serial for device in devices)
             if expected_serial_count == 1:
                 raise BackendRefusal("UNEXPECTED_PEER_DEVICE")
             raise BackendRefusal("MULTIPLE_MATCHING_TARGETS")
         device = devices[0]
         expected = SUPPORTED_TARGET_SELECTOR
-        if device.serial != selector.adapter_serial:
+        if device.usb_descriptor_serial != selector.expected_usb_serial:
             raise BackendRefusal("EXPECTED_SERIAL_NOT_FOUND")
         if (device.vid != expected["vid"] or device.pid != expected["pid"] or
                 device.manufacturer != expected["manufacturer"] or device.product != expected["product"] or
@@ -248,15 +252,18 @@ class FK0957ReadOnlyBackend:
             raise BackendRefusal("UNEXPECTED_PEER_DEVICE")
         if confirm != [device]:
             raise BackendRefusal("DESCRIPTOR_READ_FAILED")
-        return Selection(device.serial, EXPECTED_CARD_ID, selector.serial_suffix,
-                         1, True, False, device.token())
+        return Selection(adapter_serial=selector.adapter_serial,
+                         usb_descriptor_serial=device.usb_descriptor_serial,
+                         card_id=EXPECTED_CARD_ID, serial_suffix=selector.serial_suffix,
+                         matching_devices=1, serial_scoped_before_open=True,
+                         requires_write=False, endpoint_token=device.token())
 
     def open_selected(self, selection: Selection) -> _DescriptorTransport:
         current = self._catalog.enumerate_fk()
         if not current:
             raise BackendRefusal("NO_MATCHING_TARGET")
         if len(current) > 1:
-            if any(device.serial == selection.adapter_serial for device in current):
+            if any(device.usb_descriptor_serial == selection.usb_descriptor_serial for device in current):
                 raise BackendRefusal("UNEXPECTED_PEER_DEVICE")
             raise BackendRefusal("MULTIPLE_MATCHING_TARGETS")
         if current[0].token() != selection.endpoint_token:

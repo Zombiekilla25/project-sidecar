@@ -23,6 +23,7 @@ from typing import Any, Mapping, Protocol
 OBSERVER_VERSION = "1.0.0"
 TARGET_SUFFIX = "0957"
 EXPECTED_ADAPTER_SERIAL = "153300000957A"
+EXPECTED_USB_SERIAL = "153300000957"
 EXPECTED_CARD_ID = "153300000957"
 OBSERVER_PATH = Path(__file__).resolve()
 # Descriptor-only backend reviewed from its exact source commit. The source
@@ -30,7 +31,7 @@ OBSERVER_PATH = Path(__file__).resolve()
 # authorize the legacy MPSSE implementation itself.
 _FK0957_BACKEND_SPEC = "phk2_fk0957_readonly_backend:create_backend"
 REVIEWED_BACKENDS: Mapping[str, str] = {
-    _FK0957_BACKEND_SPEC: "031c0daac89c4f7aa82660cc8d4216cfcc66f088a3285b46a458ea4508f17567",
+    _FK0957_BACKEND_SPEC: "bc7b69f84e2851b017cf3a0e60e0e49c74f23467d97104528722992fcfd2add2",
 }
 REVIEWED_BACKEND_PATHS: Mapping[str, str] = {
     _FK0957_BACKEND_SPEC: "tools/phk2_host/phk2_fk0957_readonly_backend.py",
@@ -57,11 +58,13 @@ class Refusal(RuntimeError):
 @dataclass(frozen=True)
 class TargetSelector:
     adapter_serial: str = EXPECTED_ADAPTER_SERIAL
+    expected_usb_serial: str = EXPECTED_USB_SERIAL
     card_id: str = EXPECTED_CARD_ID
     serial_suffix: str = TARGET_SUFFIX
 
     def validate(self) -> None:
         if (self.adapter_serial != EXPECTED_ADAPTER_SERIAL or
+                self.expected_usb_serial != EXPECTED_USB_SERIAL or
                 self.card_id != EXPECTED_CARD_ID or
                 self.serial_suffix != TARGET_SUFFIX or
                 not self.card_id.endswith(self.serial_suffix)):
@@ -71,6 +74,7 @@ class TargetSelector:
 @dataclass(frozen=True)
 class Selection:
     adapter_serial: str
+    usb_descriptor_serial: str
     card_id: str
     serial_suffix: str
     matching_devices: int
@@ -139,11 +143,13 @@ def _validate_backend(backend: Any) -> None:
 def _validate_observations(observations: Any, selection: Selection) -> dict[str, Any]:
     if not isinstance(observations, Mapping):
         raise Refusal("backend returned malformed observations")
-    allowed = {"adapter_identity", "adapter_serial", "card_id", "fpga_dna", "idcode", "target_part",
+    allowed = {"adapter_identity", "adapter_serial", "usb_descriptor_serial", "card_id", "fpga_dna", "idcode", "target_part",
                "jtag_chain", "loaded_image_identity", "bridge_identity", "accessed_card_ids"}
     if set(observations) - allowed:
         raise Refusal("backend returned an unapproved observation field")
-    if observations.get("adapter_serial") != selection.adapter_serial or observations.get("card_id") != selection.card_id:
+    if (observations.get("adapter_serial") != selection.adapter_serial or
+            observations.get("usb_descriptor_serial") != selection.usb_descriptor_serial or
+            observations.get("card_id") != selection.card_id):
         raise Refusal("target identity changed during observation")
     accessed = observations.get("accessed_card_ids")
     if accessed != [EXPECTED_CARD_ID]:
@@ -164,7 +170,9 @@ def observe(backend: ReadOnlyBackend, selector: TargetSelector, *, repo: Path,
     selection = backend.select_exact(selector)
     if not isinstance(selection, Selection):
         raise Refusal("backend did not provide a typed target-selection proof")
-    if (selection.adapter_serial != selector.adapter_serial or selection.card_id != selector.card_id or
+    if (selection.adapter_serial != selector.adapter_serial or
+            selection.usb_descriptor_serial != selector.expected_usb_serial or
+            selection.card_id != selector.card_id or
             selection.serial_suffix != selector.serial_suffix or selection.matching_devices != 1 or
             selection.serial_scoped_before_open is not True or selection.requires_write is not False or
             not selection.endpoint_token):
@@ -183,7 +191,9 @@ def observe(backend: ReadOnlyBackend, selector: TargetSelector, *, repo: Path,
         # Re-read identity using the same observation call's returned fields;
         # the backend contract must make its observation atomic. Selection and
         # observed adapter/card identity are compared before evidence creation.
-        if observations["adapter_serial"] != first["adapter_serial"] or observations["card_id"] != first["card_id"]:
+        if (observations["adapter_serial"] != first["adapter_serial"] or
+                observations["usb_descriptor_serial"] != first["usb_descriptor_serial"] or
+                observations["card_id"] != first["card_id"]):
             raise Refusal("identity changed during observation")
     finally:
         transport.close()

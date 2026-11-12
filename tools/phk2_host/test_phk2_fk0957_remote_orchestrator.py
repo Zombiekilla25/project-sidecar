@@ -32,6 +32,7 @@ def unsigned(collector_hash=None, backend_hash=None, session_nonce="0" * 64):
         "acquisition_timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "ftdi_vid": "0403", "ftdi_pid": "6010", "manufacturer": "Xilinx", "product": "SQRL FK",
         "interface": "A", "usb_path": "1-2.3", "adapter_serial": "153300000957A",
+        "usb_descriptor_serial": "153300000957",
         "fk0957_mapping": "153300000957", "WRITE_COUNT": 0, "RESET_COUNT": 0,
         "PROGRAM_COUNT": 0, "JTAG_OPERATIONS": 0,
     }
@@ -140,6 +141,9 @@ class RemoteOrchestratorTests(unittest.TestCase):
         base = unsigned()
         for change in ({"target_selector": "FK0958"}, {"WRITE_COUNT": 1},
                        {"extra": "no"}, {"adapter_serial": "wrong"},
+                       {"usb_descriptor_serial": "153300000957A"},
+                       {"usb_descriptor_serial": "0957"},
+                       {"usb_descriptor_serial": "153300000958"},
                        {"source_commit": ""}):
             bad = dict(base, **change)
             with self.subTest(change=change), self.assertRaises(remote.Refusal):
@@ -151,6 +155,21 @@ class RemoteOrchestratorTests(unittest.TestCase):
             remote.validate_unsigned(wire(stale), collector_hash=remote.COLLECTOR_PIN,
                                      backend_hash=base["backend_source_sha256"], expected_hostname="testbox",
                                      session_nonce="0" * 64)
+
+    def test_evidence_schema_keeps_adapter_and_usb_descriptor_serial_distinct(self):
+        base = unsigned()
+        self.assertEqual(base["adapter_serial"], "153300000957A")
+        self.assertEqual(base["usb_descriptor_serial"], "153300000957")
+        self.assertIn("usb_descriptor_serial", remote.EXPECTED_FIELDS)
+        for bad in (
+                {k: v for k, v in base.items() if k != "usb_descriptor_serial"},
+                dict(base, usb_descriptor_serial="153300000957A"),
+                dict(base, adapter_serial="153300000957"),
+                dict(base, fpga_dna="4000000001295d813c80a445")):
+            with self.subTest(record=bad), self.assertRaises(remote.Refusal):
+                remote.validate_unsigned(wire(bad), collector_hash=remote.COLLECTOR_PIN,
+                                         backend_hash=base["backend_source_sha256"], expected_hostname="testbox",
+                                         session_nonce="0" * 64)
 
     def test_noncanonical_json_hostname_and_hash_mismatch_refuse(self):
         base = unsigned()
