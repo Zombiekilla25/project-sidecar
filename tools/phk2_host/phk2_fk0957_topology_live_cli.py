@@ -133,10 +133,14 @@ def _bounded_envelope(value: Any) -> bool:
         if opened != 1 or a_started or b_started or a_tcks != 0 or b_tcks != 0:
             return False
     elif phase in {"SCAN_A_WRITE", "SCAN_A_READ"}:
-        if opened != 1 or not a_started or b_started or b_tcks not in (0, "unknown"):
+        phase_a_limit = 585 if phase == "SCAN_A_WRITE" else 586
+        if (opened != 1 or not a_started or b_started or b_tcks != 0 or
+                a_tcks > phase_a_limit):
             return False
     elif phase in {"SCAN_B_WRITE", "SCAN_B_READ"}:
-        if opened != 1 or not a_started or not b_started or a_tcks != 591:
+        phase_b_limit = 580 if phase == "SCAN_B_WRITE" else 581
+        if (opened != 1 or not a_started or not b_started or a_tcks != 591 or
+                b_tcks > phase_b_limit):
             return False
     elif phase in {"LOCAL_VALIDATION", "LOCAL_SIGNING"}:
         if (opened != 1 or not a_started or not b_started or a_tcks != 591 or
@@ -294,7 +298,22 @@ def _publish_evidence_atomic(path: Path, data: bytes) -> None:
                     pass
                 else:
                     raise ValueError("evidence output changed before publish")
-                os.replace(temp_name, output_name, src_dir_fd=temp_fd, dst_dir_fd=parent_fd)
+                try:
+                    os.replace(temp_name, output_name, src_dir_fd=temp_fd, dst_dir_fd=parent_fd)
+                except BaseException:
+                    # A signal or wrapper failure can be observed after the
+                    # atomic rename took effect. Resolve that ambiguous result
+                    # by the staged inode so we never report REFUSED while our
+                    # signed record is already visible at the final path.
+                    try:
+                        final_info = os.stat(output_name, dir_fd=parent_fd,
+                                             follow_symlinks=False)
+                    except OSError:
+                        raise
+                    if ((final_info.st_dev, final_info.st_ino) !=
+                            (file_info.st_dev, file_info.st_ino) or
+                            not stat.S_ISREG(final_info.st_mode)):
+                        raise
                 temp_file_created = False
                 published = True
             except BaseException:
