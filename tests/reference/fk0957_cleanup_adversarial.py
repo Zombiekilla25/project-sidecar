@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+from datetime import datetime, timezone
 import random
 import subprocess
 import sys
@@ -268,6 +269,65 @@ def run(candidate: Path) -> dict:
                 visible["release_authorization_sha256"] == "8" * 64)
         finally:
             parent_race.doCleanups()
+        forged_terminal = receipt_fixtures.RemoteReceiptStoreTests()
+        forged_terminal.setUp()
+        try:
+            forged_terminal.store.create(forged_terminal.payload)
+            caller_asserted = forged_terminal.store.status(
+                operation_id=forged_terminal.operation_id,
+                query_nonce="b" * 64, launch_closed=True)["status"]
+            receipt_writer_attacks["caller_launch_closed_status"] = caller_asserted
+            receipt_writer_attacks["caller_launch_closed_restorable"] = protocol.restore_allowed(
+                caller_asserted)
+            absent_pid = 999999999
+            while __import__("os").path.exists(f"/proc/{absent_pid}"):
+                absent_pid += 1
+            process = {
+                "pid": absent_pid, "start_identity": "99123",
+                "uid": __import__("os").getuid(),
+                "executable": forged_terminal.payload["expected_executable"],
+                "executable_sha256": forged_terminal.payload["expected_executable_sha256"],
+                "argv_sha256": "6" * 64, "cwd": "/",
+                "operation_id_argument": forged_terminal.operation_id,
+            }
+            # This mode-0700 directory is owned by the same ordinary identity
+            # that can write the endpoint receipt. No separate issuer
+            # authenticates terminal transitions in this candidate.
+            forged_row = dict(forged_terminal.payload)
+            forged_row.update({"state": "EXITED_SUCCESS", "process": process,
+                               "exit_code": 0})
+            receipt_path = (forged_terminal.store.root /
+                            forged_terminal.operation_id / "receipt.json")
+            receipt_path.write_bytes(protocol.canonical(forged_row))
+            __import__("os").chmod(receipt_path, 0o600)
+            response = forged_terminal.store.status(
+                operation_id=forged_terminal.operation_id,
+                query_nonce="b" * 64, launch_closed=True)
+            validation = {
+                "operation_id": forged_terminal.operation_id,
+                "query_nonce": "b" * 64,
+                "release_authorization_id": forged_row["release_authorization_id"],
+                "release_authorization_sha256": forged_row["release_authorization_sha256"],
+                "release_manifest_sha256": forged_row["release_manifest_sha256"],
+                "expected_receipt_id": forged_row["receipt_id"],
+                "source_commit": forged_row["source_commit"],
+                "release_authorization_expires_utc": forged_row["release_authorization_expires_utc"],
+                "expected_host": forged_row["remote_host"],
+                "expected_user": forged_row["remote_user"],
+                "expected_uid": __import__("os").getuid(),
+                "expected_executable": forged_row["expected_executable"],
+                "expected_executable_sha256": forged_row["expected_executable_sha256"],
+                "expected_argv_sha256": "6" * 64, "expected_cwd": "/",
+                "now": datetime.now(timezone.utc),
+            }
+            classified = protocol.classify_status_query(
+                transport_return_code=0, response_bytes=protocol.canonical(response),
+                validator_kwargs=validation)
+            receipt_writer_attacks["same_uid_terminal_receipt_forged"] = True
+            receipt_writer_attacks["forged_terminal_status"] = classified
+            receipt_writer_attacks["forged_terminal_restorable"] = protocol.restore_allowed(classified)
+        finally:
+            forged_terminal.doCleanups()
 
     # Deterministic type/value fuzzing for challenge-bound status. Every case
     # starts from a valid canonical NOT_STARTED status; the mutator changes at
@@ -309,6 +369,11 @@ def run(candidate: Path) -> dict:
         if protocol.restore_allowed(result) and result != protocol.UNKNOWN:
             unsafe_restorable.append(index)
 
+    ssh_255_result = protocol.classify_status_query(
+        transport_return_code=255,
+        response_bytes=case.status(protocol.EXITED_SUCCESS),
+        validator_kwargs=case.expected)
+
     return {
         "candidate_head": subprocess.check_output(
             ["git", "-C", str(candidate), "rev-parse", "HEAD"], text=True).strip(),
@@ -323,6 +388,8 @@ def run(candidate: Path) -> dict:
         "deterministic_fuzz_seed": "0x09572026",
         "deterministic_fuzz_cases": fuzz_count,
         "deterministic_fuzz_outcomes": safe_outcomes,
+        "ssh_255_classification": ssh_255_result,
+        "ssh_255_restorable": protocol.restore_allowed(ssh_255_result),
         "malformed_case_restorable_results": unsafe_restorable[:20],
         "malformed_case_restorable_count": len(unsafe_restorable),
         "unknown_restore_allowed": protocol.restore_allowed(protocol.UNKNOWN),
