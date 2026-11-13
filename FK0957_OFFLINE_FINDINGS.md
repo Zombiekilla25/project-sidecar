@@ -147,3 +147,44 @@ operation was attempted.
 The audit script initially rejected a valid TMS command because it treated
 MPSSE's separate TDI bit (bit 7) as excess TMS payload. This was corrected in
 the audit worktree only; no production code or reference oracle was changed.
+
+## Executable acceptance campaign
+
+`tests/reference/fk0957_independent_acceptance.py` encodes the remaining
+readiness findings as repeatable temporary-fixture attacks and source gates.
+Run it with the production repository path. Against `3226bfc1474d6afa873fce7327ded6dac548baae`, it produced these results:
+
+- Harmless sentinels executed via `PYTHONPATH` (`ctypes.py`), `sitecustomize`,
+  `usercustomize`, `LD_PRELOAD`, `LD_LIBRARY_PATH` name resolution, PATH
+  substitution, and a substituted `.venv/bin/python` fixture. An invalid
+  `PYTHONHOME` altered interpreter startup (exit 1); the environment was not
+  cleared by a trusted launcher.
+- Seven mocked bridge cases (missing/stale handoff, wrong bridge, competing or
+  unknown owner, different permit, and different target) all reached the
+  acquisition boundary. The transport was replaced with a refusal sentinel;
+  no hardware operation occurred.
+- The existing production-importable fake-backend seam signed a synthetic
+  observation in its regression test using an ephemeral test key. No operator
+  key was read. This demonstrates the seam is callable, not that the native
+  library preflight currently passes.
+- 20,000 malformed envelope/type variations yielded zero escaping exceptions,
+  zero noncanonical outputs, and zero exception-text leaks at `_safe_refusal`.
+- A one-byte transport-source fixture changed the calculated source hash, but
+  the source hash does not cover the CLI, backend, observer, collector,
+  launcher, or manifest/configuration. There is no dirty-tree or expected-HEAD
+  enforcement.
+- The current runtime-library pin check returned a bounded `Refusal` before any
+  device operation. The installed native runtime therefore does not currently
+  satisfy the reviewed pin preflight; its exact binary must be requalified.
+- Documentation still recommends `PYTHONPATH=tools/phk2_host` and retains a
+  stale claim that transport hash is null until a production adapter exists.
+- The handoff JSON's four recorded executable-source hashes still match the
+  current files. Its `production_code_head` is `4d9a222...`, while current main
+  is `3226bfc...`; the intervening commit is documentation-only. The handoff
+  explicitly says its SSH pin was not consumed by the local CLI. Its
+  `READY_FOR_PRODUCTION_INTEGRATION=YES` describes software integration, not
+  authorization/readiness for a first physical run.
+
+This campaign is an independent audit artifact and does not alter production
+or the corrected reference model. No SSH, permit issuance, USB, or hardware
+operation was performed.
