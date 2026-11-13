@@ -140,6 +140,43 @@ def run(candidate: Path) -> dict:
                 final_row["release_manifest_sha256"] != "9" * 64 and final_row["state"] == "CLAIMED")
         finally:
             race.doCleanups()
+        before_fsync = receipt_fixtures.RemoteReceiptStoreTests()
+        before_fsync.setUp()
+        try:
+            before_fsync.store.create(before_fsync.payload)
+            with mock.patch.object(receipts.os, "fsync", side_effect=OSError("audit pre-rename fsync")):
+                try:
+                    before_fsync.store.transition(before_fsync.operation_id, "CLAIMED",
+                                                  process=None, exit_code=None)
+                except OSError:
+                    pass
+            row, _ = before_fsync.store.read(before_fsync.operation_id)
+            receipt_writer_attacks["pre_rename_fsync_failure_state"] = row["state"]
+        finally:
+            before_fsync.doCleanups()
+        after_rename = receipt_fixtures.RemoteReceiptStoreTests()
+        after_rename.setUp()
+        try:
+            after_rename.store.create(after_rename.payload)
+            real_replace = receipts.os.replace
+
+            def replace_then_fail(src, dst, **kwargs):
+                real_replace(src, dst, **kwargs)
+                raise OSError("audit post-rename failure")
+
+            with mock.patch.object(receipts.os, "replace", side_effect=replace_then_fail):
+                try:
+                    after_rename.store.transition(after_rename.operation_id, "CLAIMED",
+                                                  process=None, exit_code=None)
+                except OSError:
+                    pass
+            row, _ = after_rename.store.read(after_rename.operation_id)
+            receipt_writer_attacks["post_rename_failure_state"] = row["state"]
+            receipt_writer_attacks["post_rename_failure_restorable"] = protocol.restore_allowed(
+                after_rename.store.status(operation_id=after_rename.operation_id,
+                    query_nonce="c" * 64, launch_closed=True)["status"])
+        finally:
+            after_rename.doCleanups()
 
     # Deterministic type/value fuzzing for challenge-bound status. Every case
     # starts from a valid canonical NOT_STARTED status; the mutator changes at
