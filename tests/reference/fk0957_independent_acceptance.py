@@ -165,31 +165,46 @@ def source_gates(repo: Path) -> dict[str, Any]:
 def provenance_tamper_fixture(repo: Path) -> dict[str, Any]:
     sys.path.insert(0, str(repo / "tools/phk2_host"))
     import phk2_fk0957_topology_transport as transport
-    target = Path(transport.__file__).resolve()
-    # Isolate source-hash behavior from the separately reported native-library
-    # preflight; this fixture deliberately does not approve or load any library.
-    with mock.patch.object(transport, "_require_native_files", return_value=()):
-        baseline = transport.transport_source_sha256()
+    host = repo / "tools/phk2_host"
+    targets = {
+        "launcher": repo / "tools/phk2_host/fk0957_topology_launcher.py",
+        "live_cli": host / "phk2_fk0957_topology_live_cli.py",
+        "orchestrator": host / "phk2_fk0957_remote_orchestrator.py",
+        "transport": host / "phk2_fk0957_topology_transport.py",
+        "backend": host / "phk2_fk0957_readonly_backend.py",
+        "observer": host / "phk2_fk0957_identity_observer.py",
+        "collector": host / "phk2_fk0957_remote_collector.py",
+        "schema": host / "phk2_fk0957_topology_discovery.py",
+        "manifest": repo / "results/fk0957-topology-software-handoff.json",
+        "config": repo / "results/fk0957-topology-software-handoff.json",
+    }
     original = Path.read_bytes
-
-    def altered(path: Path) -> bytes:
-        data = original(path)
-        if path.resolve() == target:
-            return data[:-1] + bytes([data[-1] ^ 1])
-        return data
-
-    with mock.patch.object(transport, "_require_native_files", return_value=()), \
-            mock.patch.object(Path, "read_bytes", altered):
-        changed = transport.transport_source_sha256()
-    coverage = {"live_cli": False, "transport": True, "backend": False,
-                "observer": False, "collector": False, "launcher": False,
-                "manifest_config": False}
-    return {"one_byte_change_rejected_or_hash_changed": {
-                name: (changed != baseline if name == "transport" else False)
-                for name in coverage},
-            "covered_sources": [name for name, present in coverage.items() if present],
-            "uncovered_sources": [name for name, present in coverage.items() if not present],
-            "dirty_tree_gate_present": False, "wrong_head_gate_present": False}
+    def digest() -> str:
+        with mock.patch.object(transport, "_require_native_files", return_value=()):
+            return transport.transport_source_sha256()
+    baseline = digest()
+    outcomes: dict[str, bool] = {}
+    for category, candidate in targets.items():
+        if not candidate.is_file():
+            outcomes[category] = False
+            continue
+        target = candidate.resolve()
+        def altered(path: Path, *, _target=target) -> bytes:
+            data = original(path)
+            if path.resolve() == _target:
+                return data[:-1] + bytes([data[-1] ^ 1])
+            return data
+        with mock.patch.object(transport, "_require_native_files", return_value=()), \
+                mock.patch.object(Path, "read_bytes", altered):
+            outcomes[category] = transport.transport_source_sha256() != baseline
+    source = Path(transport.__file__).read_text(encoding="utf-8")
+    hash_fn = source.split("def transport_source_sha256()", 1)[1].split("\ndef ", 1)[0]
+    git_head_gate = "git rev-parse" in hash_fn
+    dirty_tree_gate = "git status" in hash_fn
+    return {"one_byte_change_changes_runtime_hash": outcomes,
+            "dirty_tree_gate_present": dirty_tree_gate,
+            "wrong_head_gate_present": git_head_gate,
+            "complete_runtime_source_provenance": all(outcomes.values()) and dirty_tree_gate and git_head_gate}
 
 
 def malformed_boundary(repo: Path, count: int = 20000) -> dict[str, int]:
@@ -284,6 +299,41 @@ def bridge_gate_attack(repo: Path) -> dict[str, Any]:
             "device_open_possible_in_fixture": False}
 
 
+def remote_signing_and_handoff_gates(repo: Path) -> dict[str, Any]:
+    host = repo / "tools/phk2_host"
+    cli = (host / "phk2_fk0957_topology_live_cli.py").read_text(encoding="utf-8")
+    transport = (host / "phk2_fk0957_topology_transport.py").read_text(encoding="utf-8")
+    discovery = (host / "phk2_fk0957_topology_discovery.py").read_text(encoding="utf-8")
+    code = cli + transport + discovery
+    key_path = "/home/rmann/.local/share/sidecar/operator-keys/"
+    ssh_present = bool(re.search(r"\bssh\b|SSH_AUTH_SOCK", code))
+    handoff_present = any(word in code for word in (
+        "validate_bridge_handoff", "handoff_issuer", "handoff_signature",
+        "bridge_owner", "operation_id"))
+    return {
+        "ssh_auth_sock_consumed": "SSH_AUTH_SOCK" in code,
+        "ssh_agent_forwarding_path": ssh_present,
+        "remote_acquisition_path": ssh_present,
+        "local_key_path_is_hardcoded": key_path in transport,
+        "private_key_transmission_code_present": bool(re.search(
+            r"(ssh|stdin|bundle|remote).{0,100}(private.key|LOCAL_SIGNING_KEY_PATH)|"
+            r"(private.key|LOCAL_SIGNING_KEY_PATH).{0,100}(ssh|stdin|bundle|remote)",
+            code, re.I | re.S)),
+        "remote_signing_protocol_present": bool(re.search(r"remote.{0,40}sign|sign.{0,40}remote", code, re.I)),
+        "fixed_local_signing_flow_present": "perform_fk0957_topology_discovery_once" in transport and
+                                             "sign_local_discovery_record" in transport,
+        "handoff_issuer_or_authentication_present": handoff_present,
+        "operation_id_binding_present": "operation_id" in code,
+        "permit_nonce_binding_present": "permit_nonce" in transport and "nonce" in discovery,
+        "unsigned_record_remote_boundary_present": "canonical unsigned" in code.lower(),
+        "result_integrity_seal_present": "_SEALED_RESULTS" in transport and
+                                          "_validate_transport_observation" in transport,
+        "replay_guard_present": "_SIGNED_PERMITS" in transport and "_RESULTS" in discovery,
+        "source_hash_present": "transport_source_sha256" in transport,
+        "wrong_production_head_gate_present": "git rev-parse" in code or "EXPECTED_PRODUCTION_HEAD" in code,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("production_repo", type=Path)
@@ -306,6 +356,7 @@ def main() -> int:
         "startup_attacks": startup_attacks(repo / "tools/phk2_host"),
         "source_gates": source_gates(repo),
         "provenance_tamper_fixture": provenance_tamper_fixture(repo),
+        "remote_signing_and_handoff_gates": remote_signing_and_handoff_gates(repo),
         "malformed_boundary": malformed_boundary(repo),
         "fake_backend": fake_backend_reachability(repo),
         "bridge_gate_attack": bridge_gate_attack(repo),

@@ -233,3 +233,16 @@ production HEAD. For each new SHA stable across polls it creates a new detached
 worktree and runs the corrected oracle, this acceptance campaign, the long-run
 attack campaign, and `git diff --check`; results stay in ignored audit output
 directories. It has an exact `--expected-head` guard in the acceptance runner.
+
+The current watcher remains active against the local production HEAD. The
+acceptance harness now additionally mutates one byte, in-memory only, across
+the live CLI, remote orchestrator, transport, backend, observer, collector,
+discovery/schema, handoff manifest, and configuration categories. The runtime
+source digest changes for the orchestrator, transport, and discovery/schema;
+it does not change for the CLI, backend, observer, collector, launcher, or
+manifest/config. It also reports no Git HEAD/clean-tree gate. Local source
+checks find no SSH/SSH_AUTH_SOCK, handoff issuer/authenticator, operation-ID
+binding, or remote-signing protocol. The fixed local signer and sealed-result
+checks exist, but there is no remote acquisition/ RGB-signing boundary; this
+remains an open architecture finding. The updated machine-readable campaign
+is `results/fk0957-independent-acceptance-3226bfc.json`.
