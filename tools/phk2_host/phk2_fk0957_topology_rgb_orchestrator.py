@@ -289,11 +289,7 @@ def _validate_unsigned_record(raw: bytes, request_context: dict[str, Any]) -> di
         if record.get(field) != expected or type(record.get(field)) is not type(expected):
             raise Refusal("remote unsigned result binding mismatch: " + field)
     if record.get("permit_nonce") != request_context["permit_nonce"]:
-        # The endpoint binds an independent per-acquisition permit nonce. The
-        # release authorization nonce is separate; accept only a canonical
-        # fresh nonce field, which is covered by the authenticated request hash.
-        if type(record.get("permit_nonce")) is not str or not HEX64.fullmatch(record["permit_nonce"]):
-            raise Refusal("remote permit nonce malformed")
+        raise Refusal("remote permit nonce does not match signed authorization")
     plan = topology.build_plan()
     if (record["scan_a_transaction_sha256"] != topology.scan_transaction_sha256(plan.scan_a_commands) or
             record["scan_b_transaction_sha256"] != topology.scan_transaction_sha256(plan.scan_b_commands)):

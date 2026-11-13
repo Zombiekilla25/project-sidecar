@@ -1031,8 +1031,9 @@ def _run_consumed_permit(permit: topology.DiscoveryPermit,
             raise Refusal("physical transport requires protected supervisor capability")
         issuers = endpoint._load_trust_config()
         context, authorization_bytes, authorization_id = endpoint._validate_request(request_raw, issuers)
-        if permit.descriptor_evidence_sha256 != context["descriptor_sha256"]:
-            raise Refusal("remote release authorization target does not match descriptor permit")
+        if (permit.descriptor_evidence_sha256 != context["descriptor_sha256"] or
+                permit.nonce != context["permit_nonce"]):
+            raise Refusal("release authorization descriptor/nonce does not match permit")
         # When launched through the protected root supervisor, the supervisor
         # consumes this exact signed authorization before creating the child
         # and supplies an inherited root-peer Unix socket capability. Direct
@@ -1046,7 +1047,8 @@ def _run_consumed_permit(permit: topology.DiscoveryPermit,
     # trust mutable process-local permit registries or a caller-created
     # DiscoveryPermit object as proof of descriptor identity.
     permit = issue_fk0957_topology_permit(
-        context["descriptor"], context["descriptor_sha256"])
+        context["descriptor"], context["descriptor_sha256"],
+        nonce=context["permit_nonce"])
     topology._consume(permit)
     if trace is not None:
         trace.permit_consumed = 1
@@ -1180,14 +1182,15 @@ def run_fk0957_topology_discovery(authorized_permit: topology.DiscoveryPermit) -
 
 
 def issue_fk0957_topology_permit(descriptor_evidence: bytes, expected_sha256: str,
-                                  *, lifetime_seconds: int = 120) -> topology.DiscoveryPermit:
+                                  *, lifetime_seconds: int = 120,
+                                  nonce: str | None = None) -> topology.DiscoveryPermit:
     """Verify the signed descriptor and issue its one-use topology permit."""
     trace = _AttemptTrace()
     trace.phase = "PERMIT_VALIDATION"
     trace.permit_consumed = 0
     try:
         return topology.issue_permit(descriptor_evidence, expected_sha256,
-                                     lifetime_seconds=lifetime_seconds)
+                                     lifetime_seconds=lifetime_seconds, nonce=nonce)
     except BaseException as exc:
         if isinstance(exc, identity_gate.Refusal):
             code, phase = "DESCRIPTOR_STALE", "PERMIT_VALIDATION"
@@ -1216,8 +1219,9 @@ def _authorize_remote_permit(permit: topology.DiscoveryPermit, *, request_raw: b
             raise Refusal("remote authorization requires protected supervisor capability")
         issuers = endpoint._load_trust_config()
         context, _, _ = endpoint._validate_request(request_raw, issuers)
-        if permit.descriptor_evidence_sha256 != context["descriptor_sha256"]:
-            raise Refusal("remote release authorization target does not match descriptor permit")
+        if (permit.descriptor_evidence_sha256 != context["descriptor_sha256"] or
+                permit.nonce != context["permit_nonce"]):
+            raise Refusal("release authorization descriptor/nonce does not match permit")
     except Refusal:
         raise
     except Exception:

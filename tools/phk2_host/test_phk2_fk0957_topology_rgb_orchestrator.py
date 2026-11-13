@@ -193,7 +193,7 @@ class RGBTopologyOrchestratorTests(unittest.TestCase):
                 "handoff_sha256", "manifest_sha256", "production_head", "transaction_profile_sha256")},
             "card_id": "FK0957", "adapter_serial": "153300000957A",
             "usb_descriptor_serial": "153300000957", "physical_interface": "A",
-            "descriptor_evidence_sha256": context["descriptor_sha256"], "permit_nonce": "8" * 64,
+            "descriptor_evidence_sha256": context["descriptor_sha256"], "permit_nonce": context["permit_nonce"],
             "trusted_signer_fingerprint": identity_gate.TRUSTED_SIGNER_FINGERPRINT_SHA256,
             "observation_timestamp": now.isoformat(), "transport_source_sha256": "9" * 64,
             "worktree_clean": True,
@@ -218,6 +218,9 @@ class RGBTopologyOrchestratorTests(unittest.TestCase):
         with mock.patch.object(transport, "transport_source_sha256", return_value="9" * 64):
             accepted = rgb._validate_unsigned_record(endpoint.canonical(record), context)
             self.assertEqual(accepted, record)
+            changed = dict(record); changed["permit_nonce"] = "8" * 64
+            with self.assertRaisesRegex(rgb.Refusal, "permit nonce does not match"):
+                rgb._validate_unsigned_record(endpoint.canonical(changed), context)
             for field, value in (("write_count", 1), ("scan_a_tck_count", 592),
                                  ("card_id", "FK0958"), ("idcode_qualification_pass", True)):
                 changed = dict(record); changed[field] = value

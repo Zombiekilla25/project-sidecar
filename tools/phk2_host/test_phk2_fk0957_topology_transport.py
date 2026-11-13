@@ -45,12 +45,13 @@ _TEST_SOURCE_SHA256 = "a" * 64
 
 
 @contextmanager
-def fake_release_request(permit, reconstructed_permit=None):
+def fake_release_request(permit, reconstructed_permit=None, context_nonce=None):
     """Test-only signed-request validator substitute at the trust boundary."""
     context = {
         "descriptor_sha256": permit.descriptor_evidence_sha256,
         "authorization_sha256": "a" * 64, "handoff_sha256": "b" * 64,
         "manifest_sha256": "c" * 64, "descriptor": b"fixture-descriptor",
+        "permit_nonce": permit.nonce if context_nonce is None else context_nonce,
     }
     with mock.patch.object(endpoint, "_load_trust_config", return_value={"release": b"x" * 32,
                                                                            "handoff": b"y" * 32}), \
@@ -744,6 +745,17 @@ class TopologyTransportTests(unittest.TestCase):
         result = run_with_backend(permit, self.backend())
         with self.assertRaisesRegex(signing.Refusal, "disabled"):
             signing.sign_local_discovery_record(permit, result)
+
+    def test_authorization_nonce_mismatch_refuses_before_registration_or_backend(self):
+        permit = self.permit()
+        with fake_release_request(permit, context_nonce="f" * 64) as request_raw, \
+                mock.patch.object(transport, "_NativeLibFtdi") as backend:
+            with self.assertRaisesRegex(transport.Refusal, "authorization.*permit"):
+                transport._authorize_remote_permit(permit, request_raw=request_raw)
+            with self.assertRaisesRegex(transport.Refusal, "authorization.*permit"):
+                transport._run_consumed_permit(permit, request_raw=request_raw)
+            backend.assert_not_called()
+        self.assertNotIn(permit._token, transport._REMOTE_AUTHORIZED_PERMITS)
 
     def test_raw_digest_injection_cannot_authorize_remote_transport(self):
         permit = self.permit()

@@ -117,8 +117,11 @@ def _now() -> datetime:
 
 
 def issue_permit(descriptor_evidence: bytes, expected_sha256: str,
-                 *, lifetime_seconds: int = 120) -> DiscoveryPermit:
+                 *, lifetime_seconds: int = 120, nonce: str | None = None) -> DiscoveryPermit:
     """Verify the already signed descriptor with the embedded signer pin."""
+    if nonce is not None and (type(nonce) is not str or len(nonce) != 64 or
+                              any(char not in "0123456789abcdef" for char in nonce)):
+        raise Refusal("invalid authorized topology nonce")
     base = identity_gate.authorize_descriptor(descriptor_evidence, expected_sha256=expected_sha256)
     # Retire the generic IDCODE-gate permit returned by descriptor validation;
     # only this separately scoped topology permit may authorize this operation.
@@ -130,8 +133,10 @@ def issue_permit(descriptor_evidence: bytes, expected_sha256: str,
                                   base.usb_path, base.vid, base.pid, base.manufacturer,
                                   base.product, base.interface)
     token = object()
+    if nonce is None:
+        nonce = secrets.token_hex(32)
     permit = DiscoveryPermit(base.descriptor_evidence_sha256, identity,
-                             secrets.token_hex(32), issued.astimezone(timezone.utc).isoformat(),
+                             nonce, issued.astimezone(timezone.utc).isoformat(),
                              (issued + timedelta(seconds=lifetime_seconds)).astimezone(timezone.utc).isoformat(),
                              identity_gate.TRUSTED_SIGNER_FINGERPRINT_SHA256, token)
     with _PERMIT_LOCK:

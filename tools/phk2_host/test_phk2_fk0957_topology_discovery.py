@@ -95,6 +95,13 @@ class TopologyDiscoveryTests(unittest.TestCase):
         self.identity = self.permit.identity
         self.candidate = topo.Candidate(self.identity, object())
 
+    def test_authorized_nonce_is_preserved_exactly_and_malformed_nonce_refuses(self):
+        expected = "a" * 64
+        permit = topo.issue_permit(self.raw, self.digest, nonce=expected)
+        self.assertEqual(permit.nonce, expected)
+        with self.assertRaisesRegex(topo.Refusal, "authorized topology nonce"):
+            topo.issue_permit(self.raw, self.digest, nonce="A" * 64)
+
     def run_devices(self, devices):
         if self.permit._token in topo._CONSUMED:
             self.fresh_permit()

@@ -547,7 +547,8 @@ def execute_request(raw: bytes) -> bytes:
     issuers = _load_trust_config()
     context, _, _ = _validate_request(raw, issuers)
     permit = transport.issue_fk0957_topology_permit(
-        context["descriptor"], context["descriptor_sha256"])
+        context["descriptor"], context["descriptor_sha256"],
+        nonce=context["permit_nonce"])
     # The transport gate independently revalidates the signed request and
     # consumes its authorization. This prevents raw digest injection through
     # direct internal transport calls.
