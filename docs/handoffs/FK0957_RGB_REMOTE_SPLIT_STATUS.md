@@ -26,9 +26,9 @@ No physical operation was run for this milestone.
 
 ## Offline checks
 
-At the current implementation milestone, FK0957 test discovery passed 222
+At the current implementation milestone, FK0957 test discovery passed 223
 tests, followed by 20 complete FK0957 suite runs under `PYTHONHASHSEED=1..20`
-(4,440 test executions). The corrected independent state oracle was rerun
+(4,460 test executions). The corrected independent state oracle was rerun
 against the hardening candidate: 28 valid states accepted, 249,572 invalid
 states rejected, zero mismatches. The safe-launcher suite passed 5 tests and
 Python compileall plus `git diff --check` passed. No physical transport was
