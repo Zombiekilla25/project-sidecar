@@ -55,6 +55,12 @@ transport. Details are in
 [`fk0957-native-library-requalification-required.json`](../results/fk0957-native-library-requalification-required.json);
 the immutable pin has not been changed.
 
+The interpreter, ELF loader, and pinned native-library state are inventoried in
+[`fk0957-native-runtime-inventory.json`](../results/fk0957-native-runtime-inventory.json).
+That artifact is inventory only; it does not approve changed libc bytes or
+establish an approved loader pin. Review of Left's operations candidate is in
+[`FK0957_LEFT_OPERATIONS_PATCH_REVIEW.md`](handoffs/FK0957_LEFT_OPERATIONS_PATCH_REVIEW.md).
+
 ## Live command status
 
 No live command is published while the remote acquisition split, bridge

@@ -86,7 +86,7 @@
   ],
   "hardening_candidate": {
     "branch": "hardening/fk0957-production-20261113",
-    "head": "fececd2f3eafbefd06591f24d0b568b98426f43e",
+    "head": "8455fa43a59bcc65fa199bf6de8e81601564b571",
     "base_production_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
     "release_ready": false,
     "hardware_access": false,
@@ -142,14 +142,17 @@
       "cases": 20000,
       "uncaught_exceptions": 0,
       "result": "PASS"
-    }
+    },
+    "ssh_agent_probe": "PASS: valid agent identity response required; no identities refuse before SSH; ForwardAgent=no",
+    "orchestrator_tests_after_agent_probe": 64,
+    "native_runtime_inventory_status": "INVENTORY_ONLY_NOT_APPROVAL; libc pin mismatch remains"
   },
   "runtime_source_hashes": {
     "tools/phk2_host/phk2_fk0957_topology_transport.py": "534e00f79eb6189e2dc265eabce2ff2cfb4fdfd2e374d4b5837ac473bbddc126",
     "tools/phk2_host/phk2_fk0957_topology_live_cli.py": "44d39f4d06420d311a80634d6c49d0e7c79f0fb05bc7d1ac5040b70a42d51ce7",
     "tools/phk2_host/phk2_fk0957_topology_discovery.py": "d21e9e081d6c9fd26f97e0d2760d51b75cd9efdc3585c916a910b853c013a52e",
     "tools/phk2_host/phk2_fk0957_idcode_gate.py": "229b4d97f8b00135a9d29b646058b2c63a7e48a70458783146ac2b17b208b5c0",
-    "tools/phk2_host/phk2_fk0957_remote_orchestrator.py": "82523e9e827ace51d34783baf007832aa4992075e2f0cf7cdff7414f38cf95bc",
+    "tools/phk2_host/phk2_fk0957_remote_orchestrator.py": "2fb427065d3ecf43e5d869f12088882fa32a071c13d5ac88c3cf761b9781985a",
     "tools/phk2_host/phk2_fk0957_remote_collector.py": "d944db4b592bba442431ca24a8f0ce2d8600e9f744d8e96c50bf27119f2f60b4",
     "tools/phk2_host/phk2_fk0957_readonly_backend.py": "bc7b69f84e2851b017cf3a0e60e0e49c74f23467d97104528722992fcfd2add2",
     "tools/phk2_host/phk2_fk0957_identity_observer.py": "49651502745163b2d69d2641b319f7d88b602a60ba4d91ee042afe81e354fd7e",
@@ -201,7 +204,7 @@
   "maintenance_controller_reference": null,
   "hardening_milestone": {
     "branch": "hardening/fk0957-production-20261113",
-    "candidate_head": "fececd2f3eafbefd06591f24d0b568b98426f43e",
+    "candidate_head": "8455fa43a59bcc65fa199bf6de8e81601564b571",
     "production_main_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
     "status": "WIP; not production ready",
     "wip_remote_publish_authorized": true,
@@ -215,6 +218,8 @@
       4,
       7,
       8
-    ]
+    ],
+    "left_operations_review": "docs/handoffs/FK0957_LEFT_OPERATIONS_PATCH_REVIEW.md",
+    "native_runtime_inventory": "results/fk0957-native-runtime-inventory.json"
   }
 }
