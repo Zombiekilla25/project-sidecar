@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest import mock
 
@@ -137,6 +138,38 @@ class RemoteTopologyEndpointTests(unittest.TestCase):
         with mock.patch.object(transport, "_production_git_state", return_value=("a" * 40, False)):
             with self.assertRaisesRegex(endpoint.Refusal, "RUNTIME_GIT_STATE_MISMATCH"):
                 endpoint._verify_runtime_manifest(self.manifest, self.profile_sha)
+
+    def test_execute_consumes_before_one_physical_run_and_returns_unsigned_record(self):
+        events = []
+        parsed = SimpleNamespace(aggregate_dr_length=33, taps_tdo_to_tdi=(),
+                                 raw_tdo_scan_a_bits="0", raw_tdo_scan_b_bits="1")
+        result = SimpleNamespace(
+            card_id="FK0957", adapter_serial="153300000957A", usb_descriptor_serial="153300000957",
+            physical_interface="A", descriptor_evidence_sha256=self.descriptor_sha, permit_nonce="7" * 64,
+            transport_source_sha256="8" * 64, worktree_clean=True,
+            runtime_library_provenance=(), scan_a_transaction_sha256="9" * 64,
+            scan_a_tck_count=591, scan_a_raw_tdo=b"a", scan_b_transaction_sha256="a" * 64,
+            scan_b_tck_count=586, scan_b_raw_tdo=b"b", total_tck_count=1177,
+            matched_device_count=1, opened_device_count=1, second_device_opened=False,
+            write_count=0, reset_count=0, program_count=0)
+        with mock.patch.object(endpoint, "_load_trust_config", return_value=self.issuers), \
+             mock.patch.object(transport, "_production_git_state", return_value=("a" * 40, True)), \
+             mock.patch.object(endpoint, "_consume_authorization", side_effect=lambda *_: events.append("consume")), \
+             mock.patch.object(transport, "issue_fk0957_topology_permit",
+                               side_effect=lambda *_a, **_k: events.append("permit") or object()), \
+             mock.patch.object(transport, "run_fk0957_topology_discovery",
+                               side_effect=lambda *_: events.append("physical") or result) as run, \
+             mock.patch.object(transport, "validate_transport_observation",
+                               side_effect=lambda *_: events.append("validate") or parsed):
+            raw = endpoint.execute_request(self.request_bytes())
+        record = json.loads(raw)
+        self.assertEqual(events, ["consume", "permit", "physical", "validate"])
+        self.assertEqual(run.call_count, 1)
+        self.assertEqual(record["status"], "ACQUIRED")
+        self.assertNotIn("signature_hex", record)
+        self.assertNotIn("signature_algorithm", record)
+        self.assertEqual((record["scan_a_tck_count"], record["scan_b_tck_count"],
+                          record["total_tck_count"]), (591, 586, 1177))
         with mock.patch.object(transport, "_production_git_state", return_value=("b" * 40, True)):
             with self.assertRaisesRegex(endpoint.Refusal, "RUNTIME_GIT_STATE_MISMATCH"):
                 endpoint._verify_runtime_manifest(self.manifest, self.profile_sha)
