@@ -1,0 +1,165 @@
+{
+  "audit_artifact_sha256": {
+    "qualification/fk0957/README.md": "31ffdc0a1c14262492cb95ce1bb4e907ec5814e63870f692a82a02e0a56b4ddb",
+    "qualification/fk0957/build_release_manifest.py": "a5f66303f88385b393d1b13024c0a0f135f2ea6baf026e2118b167e836d75683",
+    "tests/reference/fk0957_corrected_oracle_audit.py": "17e81c6b692454ad188c62604d1824f06a09edebf364396b702162e2cd66617b",
+    "tests/reference/fk0957_topology_state_model.py": "ce40d94e9d0ca01f9ab08357886f1aa91debb3759816a4e3711d921ff4ed4e92",
+    "tests/reference/test_fk0957_topology_state_model.py": "eeed0740105707130be18bbc3b7392f73b92d5076e5ea3265e704944800feb03",
+    "tools/phk2_host/test_fk0957_release_oracle.py": "a773b7d4f42aa41b3a003f601c1ceea371341f13a9cd70ca8244d3e754e245a5"
+  },
+  "documentation_cli_comparison": {
+    "discrepancy": "The topology handoff says four zero mutation counters in the success summary. The actual CLI summary has three zero counters (write_count, reset_count, program_count) and jtag_operation_count=1. Production documentation is not being edited while Right's audit is active.",
+    "match": false
+  },
+  "expected_descriptor_identity": {
+    "adapter_serial": "153300000957A",
+    "card_id": "FK0957",
+    "interface": "A",
+    "pid": "6010",
+    "usb_descriptor_serial": "153300000957",
+    "vid": "0403"
+  },
+  "fresh_runtime": {
+    "cryptography_origin": "/usr/lib/python3/dist-packages/cryptography/__init__.py",
+    "cryptography_version": "41.0.7",
+    "python_executable": "/usr/bin/python3",
+    "python_version": "3.12.3",
+    "qualification_command_has_pythonpath_override": false,
+    "qualification_command_reads_tmp_source": false
+  },
+  "host_key_provenance": {
+    "ed25519_fingerprint": "SHA256:2CEM69gVgMUWTM4AmVj3s7plFQmiQxnOKlo44aur75E",
+    "hardlink_count": 1,
+    "mode_octal": "0600",
+    "path": "/home/rmann/.local/share/sidecar/ssh/fk0957-testbench-known_hosts",
+    "scope": "local bytes and fingerprint only; no SSH or network; not used by local topology CLI",
+    "sha256": "20770a7196fc873644cc4b3abd42b68a84b8b96ea06bcd95986e53f95d9e14b6"
+  },
+  "independent_inputs": {
+    "audit_harness_commit": "c7c1f7fd015149c3ce60a1401bb50682153b8c48",
+    "audit_harness_scope_note": "Reference model source is unchanged. The release adapter maps each granular model stage to production operation_state; the harness quick-check projection is not used.",
+    "corrected_oracle_commit": "ea2104c55a1d4dafe6da91c6d5ac28447ec336c1",
+    "maintenance_controller_integrated": false,
+    "maintenance_controller_reference_commit": "14258638f283576f8017ce284c44ef925b9374d6"
+  },
+  "native_library_pins": [
+    {
+      "build_id_expected": "7a7c2bbc541071e68f1c74f691d5ffba03bfb5ad",
+      "build_id_observed": "7a7c2bbc541071e68f1c74f691d5ffba03bfb5ad",
+      "installed_pin_match": true,
+      "logical_name": "libcap",
+      "realpath_expected": "/usr/lib/x86_64-linux-gnu/libcap.so.2.66",
+      "realpath_observed": "/usr/lib/x86_64-linux-gnu/libcap.so.2.66",
+      "sha256_expected": "6ac6abc86ac891c6e13486470e26f1d939f47fda9e6b5d5508a7f5ec881adc84",
+      "sha256_observed": "6ac6abc86ac891c6e13486470e26f1d939f47fda9e6b5d5508a7f5ec881adc84",
+      "size_expected": 51536,
+      "size_observed": 51536,
+      "soname": "libcap.so.2"
+    },
+    {
+      "build_id_expected": "1166cb4a3de6a68b330a78ef0f099ebddf315698",
+      "build_id_observed": "1166cb4a3de6a68b330a78ef0f099ebddf315698",
+      "installed_pin_match": true,
+      "logical_name": "libudev",
+      "realpath_expected": "/usr/lib/x86_64-linux-gnu/libudev.so.1.7.8",
+      "realpath_observed": "/usr/lib/x86_64-linux-gnu/libudev.so.1.7.8",
+      "sha256_expected": "0d6934adafb2ef3c640382440c14d6bd60f391e688c000796ffcea0c72849269",
+      "sha256_observed": "0d6934adafb2ef3c640382440c14d6bd60f391e688c000796ffcea0c72849269",
+      "size_expected": 207288,
+      "size_observed": 207288,
+      "soname": "libudev.so.1"
+    },
+    {
+      "build_id_expected": "47533e904f636332fab2f1ca8847ad7759ed19ec",
+      "build_id_observed": "47533e904f636332fab2f1ca8847ad7759ed19ec",
+      "installed_pin_match": true,
+      "logical_name": "libusb",
+      "realpath_expected": "/usr/lib/x86_64-linux-gnu/libusb-1.0.so.0.4.0",
+      "realpath_observed": "/usr/lib/x86_64-linux-gnu/libusb-1.0.so.0.4.0",
+      "sha256_expected": "751349e3def1808981dc26bbeb746e2d6ff4ca97fc2c8bc8faaa8f46c879057f",
+      "sha256_observed": "751349e3def1808981dc26bbeb746e2d6ff4ca97fc2c8bc8faaa8f46c879057f",
+      "size_expected": 117736,
+      "size_observed": 117736,
+      "soname": "libusb-1.0.so.0"
+    },
+    {
+      "build_id_expected": "a4a7992a8e66555c8141ab2a08a8465ff6e0ea65",
+      "build_id_observed": "a4a7992a8e66555c8141ab2a08a8465ff6e0ea65",
+      "installed_pin_match": true,
+      "logical_name": "libc",
+      "realpath_expected": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+      "realpath_observed": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+      "sha256_expected": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf",
+      "sha256_observed": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf",
+      "size_expected": 2129424,
+      "size_observed": 2129424,
+      "soname": "libc.so.6"
+    },
+    {
+      "build_id_expected": "5d7c81b08d369b6ea8654c825cbdff7fdce1f87c",
+      "build_id_observed": "5d7c81b08d369b6ea8654c825cbdff7fdce1f87c",
+      "installed_pin_match": true,
+      "logical_name": "libftdi",
+      "realpath_expected": "/usr/lib/x86_64-linux-gnu/libftdi1.so.2.5.0",
+      "realpath_observed": "/usr/lib/x86_64-linux-gnu/libftdi1.so.2.5.0",
+      "sha256_expected": "0e5332df54c66f14ef9107934365b47b9429df02e3ff3402436bd85e9e3e84fe",
+      "sha256_observed": "0e5332df54c66f14ef9107934365b47b9429df02e3ff3402436bd85e9e3e84fe",
+      "size_expected": 64016,
+      "size_observed": 64016,
+      "soname": "libftdi1.so.2"
+    }
+  ],
+  "production_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
+  "qualification": {
+    "corrected_oracle": {
+      "invalid_state_accepted": 0,
+      "invalid_states": 249572,
+      "valid_state_rejected": 0,
+      "valid_states": 28
+    },
+    "cycles": 3,
+    "deterministic_seed_count_per_cycle": 20,
+    "fault_order_tests_per_cycle": 300,
+    "hardware_access": false,
+    "independent_model_tests_passed": 15,
+    "randomized_enumeration_layouts_per_cycle": 400,
+    "ssh_or_network_access": false,
+    "tests_per_cycle": 193,
+    "unique_seed_count": 20,
+    "usb_or_jtag_functions_called": false
+  },
+  "release_readiness": "BLOCKED_PENDING_DOCUMENTATION_REVIEW_AND_RIGHT_AUDIT",
+  "schema": "FK0957-RELEASE-CANDIDATE-MANIFEST-v1",
+  "scope": "offline source, oracle, and mocked qualification; not live authorization",
+  "source_sha256": {
+    "tools/phk2_host/phk2_fk0957_ephemeral_bundle.py": "a60d4bb57fea4e9441bf9a89476e286da16e12d4b9bd9cf7c7df8178a41c3438",
+    "tools/phk2_host/phk2_fk0957_ephemeral_runner.py": "8e3aaf2422199072551c9be495c0335df61e3d7abaf1c4fc9f6cfd015a351813",
+    "tools/phk2_host/phk2_fk0957_idcode_gate.py": "229b4d97f8b00135a9d29b646058b2c63a7e48a70458783146ac2b17b208b5c0",
+    "tools/phk2_host/phk2_fk0957_identity_observer.py": "49651502745163b2d69d2641b319f7d88b602a60ba4d91ee042afe81e354fd7e",
+    "tools/phk2_host/phk2_fk0957_readonly_backend.py": "bc7b69f84e2851b017cf3a0e60e0e49c74f23467d97104528722992fcfd2add2",
+    "tools/phk2_host/phk2_fk0957_remote_collector.py": "d944db4b592bba442431ca24a8f0ce2d8600e9f744d8e96c50bf27119f2f60b4",
+    "tools/phk2_host/phk2_fk0957_remote_orchestrator.py": "b6ed447757484eec258ef5096be4c950c49e9ae89b63bad32fa360e881f680ff",
+    "tools/phk2_host/phk2_fk0957_topology_discovery.py": "d21e9e081d6c9fd26f97e0d2760d51b75cd9efdc3585c916a910b853c013a52e",
+    "tools/phk2_host/phk2_fk0957_topology_live_cli.py": "4d41d4b181447ad913a0c18ba14e3589fb54eed2065f23df30d94a0315458a60",
+    "tools/phk2_host/phk2_fk0957_topology_transport.py": "244c72d9398ec7468a6ec4b684437be7db1e7001c9153cbe0d88db3dfcf6c038"
+  },
+  "transaction_and_topology_sha256": {
+    "ADAPTER_SERIAL": "153300000957A",
+    "CARD_ID": "FK0957",
+    "EXPECTED_SCAN_A_TCK": 591,
+    "EXPECTED_SCAN_B_TCK": 586,
+    "EXPECTED_TOTAL_TCK": 1177,
+    "FTDI_INTERFACE_NAME": "A",
+    "FTDI_PID": 24592,
+    "FTDI_VID": 1027,
+    "GOLDEN_COMMAND_CONTRACT_SHA256": "4aa465a61ae18761eeb608a2eee9796608352a14f4b54b303a6d59db385359c5",
+    "GOLDEN_PLAN_SHA256": "0cf6be1caa3657dad96ccc16b0f87cbbda0c00e52d9bee234d1340c94e64255f",
+    "GOLDEN_SCAN_A_SHA256": "81f0fb9eefad365e50d8cdbe855274bdf408104158ac193a50798e0aaba778f2",
+    "GOLDEN_SCAN_B_SHA256": "08534f71229a30798c82cc7518a934ada0113d38ba351ddb577ddd02a845336a",
+    "GOLDEN_TDI_A_SHA256": "5393dfe214f3c6a197af537b2e94bcdfd73a2713d06c2b395d43a82237c6a246",
+    "GOLDEN_TDI_B_SHA256": "aac746341b56fbd50ab5f0d63677d261201cf5970f0ddc60f2ffaac6952c3963",
+    "GOLDEN_TDI_SHA256": "8f91089bf5ce1c1fc823596a5aaae7ff7188d9e22c313484ea23c139e7fe7a21",
+    "GOLDEN_TMS_SHA256": "76ccec34707bdc3e646f2bb226ae2d3547f7b40c623dea4933205d44d4abba1a",
+    "USB_DESCRIPTOR_SERIAL": "153300000957"
+  }
+}
