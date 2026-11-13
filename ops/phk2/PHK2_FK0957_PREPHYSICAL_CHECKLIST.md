@@ -4,6 +4,12 @@
 this phase.** This document stops before the first real access to FK0957. A
 blank, stale, ambiguous, simulated, or failed item blocks the later run.
 
+The current topology-discovery CLI can establish signed USB adapter/interface
+identity and report reset-default DR topology only. It does not establish FPGA
+DNA, IDCODE qualification, FPGA part, or current-image identity, and does not
+satisfy the later FPGA identity/current-image checklist items. Those remain
+separate physical qualification steps.
+
 ## Exact one-card identity tuple
 
 The pinned historical tuple is an expected-value reference, not proof of what

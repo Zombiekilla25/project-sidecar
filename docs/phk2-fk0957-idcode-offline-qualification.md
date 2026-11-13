@@ -1,5 +1,16 @@
 # FK0957 IDCODE qualification: offline status
 
+> **Historical document; superseded for FK0957 topology discovery.** The
+> 87-TCK IDCODE procedure, `/tmp/sidecar-raw-id-build/raw-jtag-identify`
+> path, and statements that no narrow transport exists describe an earlier
+> proposal and are not an approved command or current implementation. Do not
+> execute or reconstruct that procedure. The current software path is the
+> topology-only one-shot CLI documented in
+> [`phk2-fk0957-topology-discovery-offline.md`](phk2-fk0957-topology-discovery-offline.md).
+> It performs the fixed 591/586-TCK reset-default DR census; it does not
+> qualify IDCODE, FPGA DNA, or loaded-image identity. Any IDCODE operation
+> requires a separate future review and authorization.
+
 This is an offline preparation record. It does not authorize or perform USB,
 JTAG, XVC, or FPGA access.
 
