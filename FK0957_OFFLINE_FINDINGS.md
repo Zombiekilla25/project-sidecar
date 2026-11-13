@@ -194,3 +194,9 @@ Run it with the production repository path. Against `3226bfc1474d6afa873fce7327d
 This campaign is an independent audit artifact and does not alter production
 or the corrected reference model. No SSH, permit issuance, USB, or hardware
 operation was performed.
+
+`tests/reference/watch_fk0957_hardening_heads.py` watches only the local
+production HEAD. For each new SHA stable across polls it creates a new detached
+worktree and runs the corrected oracle, this acceptance campaign, the long-run
+attack campaign, and `git diff --check`; results stay in ignored audit output
+directories. It has an exact `--expected-head` guard in the acceptance runner.
