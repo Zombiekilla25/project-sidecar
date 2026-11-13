@@ -126,6 +126,40 @@ def publish_race(cli: Any) -> dict[str, bool]:
         }
 
 
+def parent_move_race(cli: Any, orchestrator: Any) -> dict[str, bool]:
+    with tempfile.TemporaryDirectory(prefix="fk0957-longrun-parent-move-") as temp:
+        root = Path(temp)
+        parent = root / "requested-parent"
+        moved = root / "moved-parent"
+        replacement = root / "replacement-parent"
+        parent.mkdir()
+        replacement.mkdir()
+        destination = parent / "record.json"
+        original_open_parent = orchestrator._open_path_parent
+        moved_once = False
+
+        def move_after_open(path):
+            nonlocal moved_once
+            fd, name = original_open_parent(path)
+            if not moved_once:
+                os.rename(parent, moved)
+                os.symlink(replacement, parent, target_is_directory=True)
+                moved_once = True
+            return fd, name
+
+        orchestrator._open_path_parent = move_after_open
+        try:
+            cli._publish_evidence_atomic(destination, b"SIGNED_AUDIT_FIXTURE")
+        finally:
+            orchestrator._open_path_parent = original_open_parent
+        return {
+            "race_injected": moved_once,
+            "publish_reported_success": (moved / "record.json").exists(),
+            "requested_path_resolves_to_evidence": destination.exists(),
+            "replacement_path_written": (replacement / "record.json").exists(),
+        }
+
+
 def malformed_type_campaign(validator: Any, safe_refusal: Any,
                            refusal_type: Any, seed: int = 0xF0957) -> dict[str, int]:
     import random
@@ -245,6 +279,7 @@ def main() -> int:
     import phk2_fk0957_topology_live_cli as cli
     import phk2_fk0957_topology_discovery as topology
     import phk2_fk0957_topology_transport as transport
+    import phk2_fk0957_remote_orchestrator as orchestrator
     transport_source = (host / "phk2_fk0957_topology_transport.py").read_text(encoding="utf-8")
     cli_source = (host / "phk2_fk0957_topology_live_cli.py").read_text(encoding="utf-8")
 
@@ -267,6 +302,7 @@ def main() -> int:
         "ld_preload_constructor_reproduced": ld_preload_injection(
             host / "phk2_fk0957_topology_live_cli.py"),
         "publish_race": publish_race(cli),
+        "parent_move_race": parent_move_race(cli, orchestrator),
         "malformed_type_campaign": malformed_type_campaign(
             cli._bounded_envelope, cli._safe_refusal, transport.Refusal),
         "malformed_internal_refusal_falls_back_safely": (

@@ -38,6 +38,14 @@ race reproduction against the new implementation refuses and preserves the
 competing file. The 42 focused CLI/transport tests and 209-test broader FK0957
 suite passed against this implementation.
 
+A separate directory-rename race remains: after `_open_path_parent` returns a
+directory FD, moving that directory and replacing its original path with a
+symlink causes publication to succeed under the moved directory while the
+requested pathname resolves elsewhere and contains no record. The FD prevents
+writing through the replacement symlink, but the CLI does not revalidate that
+the pathname still names the directory it published in. Include the resulting
+path/inode identity in the success decision and report.
+
 The independent selection campaign also exercised 120 permutations of one
 target plus four peers and 120 permutations with duplicate exact targets. The
 unique target was selected in all peer-orderings; all duplicate exact targets
