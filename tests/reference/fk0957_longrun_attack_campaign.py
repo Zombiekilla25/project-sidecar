@@ -242,6 +242,66 @@ def fake_backend_signing_test(host: Path) -> dict[str, int]:
     return {"tests_run": result.testsRun, "successes": result.testsRun}
 
 
+def independent_transaction_audit(plan: Any) -> dict[str, Any]:
+    """Re-decode MPSSE framing and manifest bytes without production helpers."""
+    import hashlib
+
+    def decode(commands):
+        clocks = 0
+        read_bytes = 0
+        manifest = bytearray(b"FK0957-MPSSE-SCAN-MANIFEST-v1\0")
+        for command in commands:
+            raw = bytes(command.write)
+            if not raw:
+                raise AssertionError("empty MPSSE command")
+            opcode = raw[0]
+            if opcode in (0x4B, 0x6B):
+                # MPSSE TMS commands encode TMS in bits 0..6 and the
+                # simultaneous TDI value in bit 7. Validate only the
+                # declared TMS clocks; bit 7 is a separate data signal.
+                tms_clocks = raw[1] + 1 if len(raw) >= 2 else 0
+                tms_mask = (1 << tms_clocks) - 1 if tms_clocks else 0
+                if (len(raw) != 3 or raw[1] > 6 or
+                        raw[2] & ~(tms_mask | 0x80)):
+                    raise AssertionError("malformed TMS command")
+                clocks += tms_clocks
+            elif opcode == 0x39:
+                if len(raw) < 4:
+                    raise AssertionError("truncated byte-shift command")
+                byte_count = int.from_bytes(raw[1:3], "little") + 1
+                if len(raw) != 3 + byte_count:
+                    raise AssertionError("byte-shift payload length mismatch")
+                clocks += byte_count * 8
+            else:
+                raise AssertionError(f"unexpected scan opcode {opcode:02x}")
+            read_bytes += command.read_bytes
+            label = command.label.encode("ascii")
+            scan = (command.scan or "").encode("ascii")
+            manifest.extend(len(raw).to_bytes(4, "big"))
+            manifest.extend(raw)
+            manifest.extend(command.read_bytes.to_bytes(4, "big"))
+            manifest.extend(command.tck_count.to_bytes(4, "big"))
+            manifest.extend(len(label).to_bytes(2, "big"))
+            manifest.extend(label)
+            manifest.extend(len(scan).to_bytes(2, "big"))
+            manifest.extend(scan)
+        return clocks, read_bytes, hashlib.sha256(manifest).hexdigest()
+
+    a_clocks, a_reads, a_hash = decode(plan.scan_a_commands)
+    b_clocks, b_reads, b_hash = decode(plan.scan_b_commands)
+    return {
+        "scan_a_tck_count": a_clocks, "scan_b_tck_count": b_clocks,
+        "total_tck_count": a_clocks + b_clocks,
+        "scan_a_read_bytes": a_reads, "scan_b_read_bytes": b_reads,
+        "scan_a_sha256": a_hash, "scan_b_sha256": b_hash,
+        "matches_reviewed_golden": (
+            a_clocks == 591 and b_clocks == 586 and a_clocks + b_clocks == 1177 and
+            a_reads == 73 and b_reads == 73 and
+            a_hash == "81f0fb9eefad365e50d8cdbe855274bdf408104158ac193a50798e0aaba778f2" and
+            b_hash == "08534f71229a30798c82cc7518a934ada0113d38ba351ddb577ddd02a845336a"),
+    }
+
+
 def malformed_type_campaign(validator: Any, safe_refusal: Any,
                            refusal_type: Any, seed: int = 0xF0957) -> dict[str, int]:
     import random
@@ -403,13 +463,7 @@ def main() -> int:
         "transport_hash_omits_cli_source": (
             "phk2_fk0957_topology_live_cli.py" not in transport_source and
             "Path(__file__).resolve()" in transport_source),
-        "transactions": {
-            "scan_a_tck_count": plan.scan_a_tck_count,
-            "scan_b_tck_count": plan.scan_b_tck_count,
-            "total_tck_count": plan.tck_count,
-            "scan_a_sha256": topology.scan_transaction_sha256(plan.scan_a_commands),
-            "scan_b_sha256": topology.scan_transaction_sha256(plan.scan_b_commands),
-        },
+        "transactions": independent_transaction_audit(plan),
     }
     print(json.dumps(reports, sort_keys=True))
     return 0

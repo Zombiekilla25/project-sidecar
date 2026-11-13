@@ -110,3 +110,40 @@ it remains importable and callable in production Python; a caller can bypass
 the native-device path and produce a signed record from synthetic backend
 bytes. Move this seam to test-only code or otherwise make the production
 signing path accept observations only from the native adapter.
+
+## Long-run campaign update against production HEAD `3226bfc1474d6afa873fce7327ded6dac548baae`
+
+The corrected independent oracle was rerun twice against the actual clean main
+tree after its documentation-only integration commit. Both runs tested all 28
+valid and 249,572 invalid states with zero valid rejections and zero invalid
+acceptances; each also reran 1,015 malformed-envelope cases and 42 focused
+CLI/transport tests. The separate deterministic mutation campaign generated
+10,000 malformed type cases: 9,480 were rejected/noncanonical and safely
+converted to bounded refusal output, with zero unsafe fallback failures. The
+validator raised `TypeError` for 413 unhashable field values, but the outer
+refusal wrapper contained each exception.
+
+The expanded audit harness independently decodes the literal MPSSE command
+framing and recomputes both reviewed scan manifest hashes. It confirms 591,
+586, and 1,177 TCK respectively and exact equality with the reviewed golden
+hashes. It also re-ran 120 peer orderings (all selected the unique exact target)
+and 120 duplicate-target orderings (all refused before fake open).
+
+The latest race campaign confirms the no-replace publish correction preserves
+a competing destination. It also reproduces the parent-directory move race:
+the publisher writes via the safely held directory FD and returns success,
+while the requested pathname now resolves elsewhere. The record is not written
+through the replacement symlink, but the path reported to the operator no
+longer names the published record. Evidence publication path identity therefore
+remains a blocker even though destination overwrite is fixed.
+
+The independent campaign found no change to the topology transaction and no
+enumeration-order or peer-selection defect. Offline-only blockers remain the
+startup injection routes, missing SSH/RGB separation and bridge ownership
+enforcement, incomplete source binding, callable fake-backend signing seam,
+and evidence parent-path identity race. No permit was issued and no physical
+operation was attempted.
+
+The audit script initially rejected a valid TMS command because it treated
+MPSSE's separate TDI bit (bit 7) as excess TMS payload. This was corrected in
+the audit worktree only; no production code or reference oracle was changed.
