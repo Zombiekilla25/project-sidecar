@@ -164,11 +164,15 @@ def _pinned_ssh(request_raw: bytes, *, runner=None) -> tuple[bytes, dict[str, An
     if code != 0:
         # A bounded refusal envelope may be returned with the endpoint's
         # documented nonzero status. Never expose stderr or arbitrary output.
-        try:
-            _parse_response(stdout)
-        except Refusal as exc:
-            if str(exc).startswith("remote refusal "):
-                raise Refusal(str(exc), remote_state="REMOTE_PROCESS_CONFIRMED_EXITED") from None
+        # OpenSSH uses 255 for transport/authentication failure. Bytes may have
+        # arrived before the channel failed, so even a valid refusal envelope
+        # cannot prove that the remote process has exited.
+        if code != 255:
+            try:
+                _parse_response(stdout)
+            except Refusal as exc:
+                if str(exc).startswith("remote refusal "):
+                    raise Refusal(str(exc), remote_state="REMOTE_PROCESS_CONFIRMED_EXITED") from None
         raise Refusal("SSH or remote acquisition failed; remote process cleanup must be confirmed separately",
                       remote_state="REMOTE_STATE_UNKNOWN")
     provenance = {

@@ -95,6 +95,22 @@ class RGBTopologyOrchestratorTests(unittest.TestCase):
         self.assertEqual(caught.exception.remote_state, "REMOTE_PROCESS_CONFIRMED_EXITED")
         self.assertNotIn("secret", str(caught.exception))
 
+    def test_ssh_255_never_confirms_remote_exit_even_with_refusal_bytes(self):
+        refusal = endpoint.canonical({"schema": "fk0957-remote-acquisition-v1",
+                                      "status": "REFUSED", "phase": "DEVICE_OPEN",
+                                      "code": "DEVICE_OPEN_FAILED"})
+        host = {"algorithm": "ssh-ed25519", "fingerprint": "SHA256:" + "A" * 43}
+        def runner(*_args, **_kwargs):
+            return SimpleNamespace(returncode=255, stdout=refusal, stderr=b"connection lost")
+        with mock.patch.object(ssh_policy, "_read_pinned_source", return_value=(b"pin\n", host, (1, 2))), \
+             mock.patch.object(ssh_policy, "_validated_local_ssh_auth_sock", return_value=("/agent", (3, 4))), \
+             mock.patch.object(ssh_policy, "_probe_local_ssh_agent"), \
+             mock.patch.object(ssh_policy, "_revalidate_local_ssh_auth_sock"), \
+             mock.patch.object(ssh_policy, "_validate_private_pin"):
+            with self.assertRaisesRegex(rgb.Refusal, "cleanup must be confirmed") as caught:
+                rgb._pinned_ssh(b"request", runner=runner)
+        self.assertEqual(caught.exception.remote_state, "REMOTE_STATE_UNKNOWN")
+
     def test_rejected_or_malformed_remote_output_never_reaches_signing(self):
         context = {"operation_id": "1" * 32}
         with mock.patch.object(rgb, "_validated_local_context", return_value=context), \
