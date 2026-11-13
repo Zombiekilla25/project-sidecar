@@ -26,9 +26,13 @@ No physical operation was run for this milestone.
 
 ## Offline checks
 
-The focused remote endpoint, RGB orchestrator/CLI, safe launcher, and FK0957
-suite passed 221 tests after the change. Python compileall passed. The wider
-suite preserves topology, enumeration, permit, evidence, and refusal checks.
+At the current implementation milestone, FK0957 test discovery passed 222
+tests, followed by 20 complete FK0957 suite runs under `PYTHONHASHSEED=1..20`
+(4,440 test executions). The corrected independent state oracle was rerun
+against the hardening candidate: 28 valid states accepted, 249,572 invalid
+states rejected, zero mismatches. The safe-launcher suite passed 5 tests and
+Python compileall plus `git diff --check` passed. No physical transport was
+opened.
 
 ## Remaining deployment gates
 
@@ -50,6 +54,10 @@ deployment inputs and integration work exist:
   recovery; it cannot automatically restore shared USB ownership.
 * The administrator-owned static launcher and protected `/etc` and `/var/lib`
   layouts still require deployment on the RGB and testbench hosts.
+* The production paths are not installed in this environment: the issuer trust
+  file, authorization ledger, endpoint executable, and RGB launcher are all
+  absent. The authenticated endpoint cannot be used until these protected
+  administrative artifacts are provisioned and reviewed.
 * Left's latest operations candidate `a6b2cb30ca6e93cce597f3ef609f77d0cc8f2302`
   was reviewed but not integrated wholesale: its cleanup path does not prove
   the remote child has exited before restoration, and its handoff does not
