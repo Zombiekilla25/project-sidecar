@@ -287,6 +287,7 @@ class TopologyTransportTests(unittest.TestCase):
 
     def test_production_module_has_no_backend_argument_injection_runner(self):
         self.assertFalse(hasattr(transport, "_run_with_backend"))
+        self.assertFalse(hasattr(transport, "_make_observation"))
         self.assertEqual(tuple(inspect.signature(transport.run_fk0957_topology_discovery).parameters),
                          ("authorized_permit",))
         self.assertEqual(tuple(inspect.signature(transport._run_consumed_permit).parameters),

@@ -1011,27 +1011,6 @@ def _execute_scan(backend: Any, commands: tuple[topology.Command, ...], scan: st
     return byte_result + final_result
 
 
-def _make_observation(permit: topology.DiscoveryPermit, identity: topology.DescriptorIdentity,
-                      raw_a: bytes, raw_b: bytes, plan: topology.DiscoveryPlan,
-                      source_sha256: str, runtime: dict[str, _LoadedLibrary]) -> TransportObservation:
-    proof = object()
-    runtime_provenance = tuple(
-        (name, str(item.pin.path), item.pin.sha256, item.pin.build_id, item.pin.soname,
-         item.pre_stat, item.post_stat, item.realpath)
-        for name, item in runtime.items())
-    result = TransportObservation(
-        CARD_ID, ADAPTER_SERIAL, USB_DESCRIPTOR_SERIAL, FTDI_INTERFACE_NAME, identity.usb_path,
-        f"{FTDI_VID:04x}", f"{FTDI_PID:04x}", identity.manufacturer, identity.product,
-        permit.descriptor_evidence_sha256, permit.nonce,
-        topology.scan_transaction_sha256(plan.scan_a_commands), plan.scan_a_tck_count, raw_a,
-        topology.scan_transaction_sha256(plan.scan_b_commands), plan.scan_b_tck_count, raw_b,
-        plan.tck_count, source_sha256, *_production_git_state(), runtime_provenance,
-        1, 1, False, 0, 0, 0, proof)
-    with _RESULT_LOCK:
-        _SEALED_RESULTS[proof] = hashlib.sha256(_observation_payload(result)).hexdigest()
-    return result
-
-
 def _run_consumed_permit(permit: topology.DiscoveryPermit,
                           source_sha256_before: str | None = None,
                           trace: _AttemptTrace | None = None) -> TransportObservation:
@@ -1118,7 +1097,22 @@ def _run_consumed_permit(permit: topology.DiscoveryPermit,
     runtime = getattr(backend, "_runtime", None)
     if not isinstance(runtime, dict):
         raise Refusal("transport omitted approved loaded-library provenance")
-    result = _make_observation(permit, selected_identity, raw_a, raw_b, plan, source_sha, runtime)
+    proof = object()
+    runtime_provenance = tuple(
+        (name, str(item.pin.path), item.pin.sha256, item.pin.build_id, item.pin.soname,
+         item.pre_stat, item.post_stat, item.realpath)
+        for name, item in runtime.items())
+    result = TransportObservation(
+        CARD_ID, ADAPTER_SERIAL, USB_DESCRIPTOR_SERIAL, FTDI_INTERFACE_NAME,
+        selected_identity.usb_path, f"{FTDI_VID:04x}", f"{FTDI_PID:04x}",
+        selected_identity.manufacturer, selected_identity.product,
+        permit.descriptor_evidence_sha256, permit.nonce,
+        topology.scan_transaction_sha256(plan.scan_a_commands), plan.scan_a_tck_count, raw_a,
+        topology.scan_transaction_sha256(plan.scan_b_commands), plan.scan_b_tck_count, raw_b,
+        plan.tck_count, source_sha, *_production_git_state(), runtime_provenance,
+        1, 1, False, 0, 0, 0, proof)
+    with _RESULT_LOCK:
+        _SEALED_RESULTS[proof] = hashlib.sha256(_observation_payload(result)).hexdigest()
     return result
 
 
