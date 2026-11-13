@@ -69,7 +69,7 @@
   "live_permit_issued": false,
   "live_acquisition_performed": false,
   "hardware_access": false,
-  "handoff_generated_from_head": "2122b32f4346d175adbdad67b70b8f2679a26f33",
+  "handoff_generated_from_head": "6c25237d70f104efca408219258f7a4389b4951c",
   "independent_audit_references": [
     {
       "commit": "ea2104c55a1d4dafe6da91c6d5ac28447ec336c1",
@@ -86,7 +86,7 @@
   ],
   "hardening_candidate": {
     "branch": "hardening/fk0957-production-20261113",
-    "head": "2122b32f4346d175adbdad67b70b8f2679a26f33",
+    "head": "6c25237d70f104efca408219258f7a4389b4951c",
     "base_production_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
     "release_ready": false,
     "hardware_access": false,
@@ -120,7 +120,7 @@
     "mutation_counter_semantics": "write_count/reset_count/program_count=0; jtag_operation_count=1 for the fixed read-only two-scan transaction"
   },
   "runtime_source_hashes": {
-    "tools/phk2_host/phk2_fk0957_topology_transport.py": "5cd40f8748d3d4c15e58ad6c99d69278df4dd256dff1ae0f0ef6c51047c1f735",
+    "tools/phk2_host/phk2_fk0957_topology_transport.py": "534e00f79eb6189e2dc265eabce2ff2cfb4fdfd2e374d4b5837ac473bbddc126",
     "tools/phk2_host/phk2_fk0957_topology_live_cli.py": "afcc1b5e6edd1e7229b86028647ef55437f8eab617839acd045ac65910de0b6f",
     "tools/phk2_host/phk2_fk0957_topology_discovery.py": "d21e9e081d6c9fd26f97e0d2760d51b75cd9efdc3585c916a910b853c013a52e",
     "tools/phk2_host/phk2_fk0957_idcode_gate.py": "229b4d97f8b00135a9d29b646058b2c63a7e48a70458783146ac2b17b208b5c0",
