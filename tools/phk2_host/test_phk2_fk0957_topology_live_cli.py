@@ -462,6 +462,19 @@ class LiveCliTests(unittest.TestCase):
             with self.subTest(phase=phase, changes=changes):
                 self.assertFalse(cli._bounded_envelope(envelope.as_dict()))
 
+    def test_unhashable_envelope_fields_are_rejected_without_internal_exception(self):
+        valid = json.loads(cli._fallback_refusal("PRELIVE_VALIDATION", "TRANSACTION_PIN_MISMATCH"))
+        malformed = (
+            {"phase": []}, {"phase": {}}, {"phase": None},
+            {"code": []}, {"code": {}}, {"code": None},
+            {"operation_state": []}, {"operation_state": {}},
+            {"close_from_state": []}, {"close_from_state": {}},
+        )
+        for change in malformed:
+            candidate = dict(valid, **change)
+            with self.subTest(change=change):
+                self.assertFalse(cli._bounded_envelope(candidate))
+
     def test_every_impossible_progress_envelope_is_scrubbed_at_live_cli(self):
         cases = (
             ("PRELIVE_VALIDATION", dict(device_opened=1)),

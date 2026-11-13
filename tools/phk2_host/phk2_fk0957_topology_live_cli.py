@@ -88,9 +88,11 @@ def _fallback_refusal(phase: str, code: str) -> bytes:
 def _bounded_envelope(value: Any) -> bool:
     if (not isinstance(value, dict) or set(value) != _ENVELOPE_KEYS or
             value.get("status") != "REFUSED" or
-            value.get("phase") not in transport.REFUSAL_PHASES or
-            value.get("code") not in transport.REFUSAL_CODES or
-            value.get("code") not in _PHASE_CODES.get(value.get("phase"), set()) or
+            type(value.get("phase")) is not str or
+            value["phase"] not in transport.REFUSAL_PHASES or
+            type(value.get("code")) is not str or
+            value["code"] not in transport.REFUSAL_CODES or
+            value["code"] not in _PHASE_CODES.get(value["phase"], set()) or
             value.get("evidence_path") != "none" or
             value.get("signature_verified") is not False):
         return False
@@ -119,7 +121,9 @@ def _bounded_envelope(value: Any) -> bool:
     state = value.get("operation_state")
     close_from = value.get("close_from_state")
     ranks = transport._OPERATION_STATE_RANK
-    if state not in ranks:
+    if type(state) is not str or state not in ranks:
+        return False
+    if close_from is not None and type(close_from) is not str:
         return False
     if state in {"TRANSPORT_CLOSING", "TRANSPORT_CLOSED"}:
         if close_from not in ranks or ranks[close_from] >= ranks["TRANSPORT_CLOSING"]:

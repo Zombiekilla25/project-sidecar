@@ -36,6 +36,15 @@ def response_for(pattern: tuple[int, ...]) -> tuple[bytes, bytes]:
     return pack_raw(bits)
 
 
+_TEST_SOURCE_SHA256 = "a" * 64
+
+
+def run_with_backend(permit, backend):
+    """Test-only backend injection through the concrete production entrypoint."""
+    with mock.patch.object(transport, "_NativeLibFtdi", return_value=backend):
+        return transport.run_fk0957_topology_discovery(permit)
+
+
 class FakeBackend:
     def __init__(self, candidates=None, *, failure=None, short_read=False,
                  oversized_read=False, close_failure=False):
@@ -123,6 +132,12 @@ class FakeBackend:
 
 class TopologyTransportTests(unittest.TestCase):
     def setUp(self):
+        # Native libraries are deliberately not opened in this suite. The
+        # source provenance digest is pinned to the synthetic fake runtime.
+        self._source_hash_patch = mock.patch.object(
+            transport, "transport_source_sha256", return_value=_TEST_SOURCE_SHA256)
+        self._source_hash_patch.start()
+        self.addCleanup(self._source_hash_patch.stop)
         from cryptography.hazmat.primitives import serialization
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
         self.signing_key = Ed25519PrivateKey.generate()
@@ -239,8 +254,15 @@ class TopologyTransportTests(unittest.TestCase):
 
     def run_fake(self, backend=None):
         b = backend or self.backend()
-        result = transport._run_with_backend(self.permit(), b)
+        result = run_with_backend(self.permit(), b)
         return b, result
+
+    def test_production_module_has_no_backend_argument_injection_runner(self):
+        self.assertFalse(hasattr(transport, "_run_with_backend"))
+        self.assertEqual(tuple(inspect.signature(transport.run_fk0957_topology_discovery).parameters),
+                         ("authorized_permit",))
+        self.assertEqual(tuple(inspect.signature(transport._run_consumed_permit).parameters),
+                         ("permit", "source_sha256_before", "trace"))
 
     def test_public_api_is_one_permit_and_no_generic_scan_surface(self):
         self.assertEqual(tuple(inspect.signature(transport.run_fk0957_topology_discovery).parameters),
@@ -273,7 +295,7 @@ class TopologyTransportTests(unittest.TestCase):
             original(candidate)
         backend.open_exact = check
         permit = self.permit()
-        result = transport._run_with_backend(permit, backend)
+        result = run_with_backend(permit, backend)
         self.assertEqual(backend.events.index("enumerate") < backend.events.index("open"), True)
         self.assertEqual(result.usb_descriptor_serial, "153300000957")
 
@@ -401,7 +423,7 @@ class TopologyTransportTests(unittest.TestCase):
         for candidates in ((), (good, good), (bad,), (good, bad)):
             backend = self.backend(candidates=candidates)
             with self.subTest(count=len(candidates)), self.assertRaises(transport.Refusal):
-                transport._run_with_backend(self.permit(), backend)
+                run_with_backend(self.permit(), backend)
             self.assertEqual(backend.open_count, 0)
             self.assertEqual(backend.close_count, 1)
 
@@ -412,7 +434,7 @@ class TopologyTransportTests(unittest.TestCase):
             ident = base.identity.__class__(**{**base.identity.__dict__, field: value})
             backend = self.backend(candidates=(topology.Candidate(ident, object()),))
             with self.subTest(field=field), self.assertRaises(transport.Refusal):
-                transport._run_with_backend(self.permit(), backend)
+                run_with_backend(self.permit(), backend)
             self.assertEqual(backend.open_count, 0)
 
     def test_plan_mutation_and_environment_substitution_fail_before_enumeration(self):
@@ -421,7 +443,7 @@ class TopologyTransportTests(unittest.TestCase):
         altered = topology.DiscoveryPlan(**{**plan.__dict__, "tck_count": 1178})
         with mock.patch.object(topology, "build_plan", return_value=altered):
             with self.assertRaises(transport.Refusal):
-                transport._run_with_backend(self.permit(), backend)
+                run_with_backend(self.permit(), backend)
         self.assertNotIn("enumerate", backend.events)
         command = plan.scan_a_commands[2]
         changed_command = topology.Command(command.write, 71, command.tck_count,
@@ -432,7 +454,7 @@ class TopologyTransportTests(unittest.TestCase):
             **plan.__dict__, "commands": changed_commands, "scan_a_commands": changed_a})
         with mock.patch.object(topology, "build_plan", return_value=altered_reads):
             with self.assertRaises(transport.Refusal):
-                transport._run_with_backend(self.permit(), self.backend())
+                run_with_backend(self.permit(), self.backend())
         with mock.patch.dict(os.environ, {"FTDI_SERIAL": "attacker", "FTDI_INTERFACE": "B",
                                           "PHK2_TMS": "arbitrary", "PHK2_DR_LENGTH": "1"}):
             backend, result = self.run_fake()
@@ -444,24 +466,24 @@ class TopologyTransportTests(unittest.TestCase):
             backend = self.backend(failure=phase)
             permit = self.permit()
             with self.subTest(phase=phase), self.assertRaises(transport.Refusal):
-                transport._run_with_backend(permit, backend)
+                run_with_backend(permit, backend)
             self.assertEqual(backend.close_count, 1)
             with self.assertRaises(transport.Refusal) as replay:
-                transport._run_with_backend(permit, self.backend())
+                run_with_backend(permit, self.backend())
             self.assertEqual(json.loads(replay.exception.canonical_envelope())["permit_consumed"], 1)
         backend = self.backend(short_read=True)
         with self.assertRaises(transport.Refusal):
-            transport._run_with_backend(self.permit(), backend)
+            run_with_backend(self.permit(), backend)
         self.assertEqual(backend.close_count, 1)
         backend = self.backend(oversized_read=True)
         with self.assertRaises(transport.Refusal):
-            transport._run_with_backend(self.permit(), backend)
+            run_with_backend(self.permit(), backend)
         self.assertEqual(backend.close_count, 1)
 
     def test_close_failure_and_observation_tampering_refuse(self):
         backend = self.backend(close_failure=True)
         with self.assertRaises(transport.Refusal):
-            transport._run_with_backend(self.permit(), backend)
+            run_with_backend(self.permit(), backend)
         backend, result = self.run_fake()
         altered = transport.TransportObservation(**{**result.__dict__, "scan_a_tck_count": 590})
         with self.assertRaises(transport.Refusal):
@@ -477,7 +499,7 @@ class TopologyTransportTests(unittest.TestCase):
 
     def test_post_transport_permit_field_replacement_refuses_before_signing(self):
         permit = self.permit()
-        result = transport._run_with_backend(permit, self.backend())
+        result = run_with_backend(permit, self.backend())
         extended = replace(permit, expires_at=(datetime.now(timezone.utc) +
                                                 timedelta(days=30)).isoformat())
         with self.assertRaises(transport.Refusal):
@@ -543,7 +565,7 @@ class TopologyTransportTests(unittest.TestCase):
             permit = self.permit()
             backend = self.backend(candidates=candidates)
             with self.subTest(code=code), self.assertRaises(transport.Refusal) as caught:
-                transport._run_with_backend(permit, backend)
+                run_with_backend(permit, backend)
             refusal = caught.exception
             envelope = json.loads(refusal.canonical_envelope())
             self.assertEqual(set(envelope), {
@@ -565,7 +587,7 @@ class TopologyTransportTests(unittest.TestCase):
             self.assertEqual(backend.open_count, 0)
 
         permit = self.permit()
-        result = transport._run_with_backend(permit, self.backend())
+        result = run_with_backend(permit, self.backend())
         trace = transport._AttemptTrace()
         transport._trace_from_sealed_result(trace, result)
         self.assertEqual(trace.target_candidates, 1)
@@ -588,12 +610,12 @@ class TopologyTransportTests(unittest.TestCase):
             backend = self.backend(failure=None if failure == "close" else failure,
                                    close_failure=failure == "close")
             with self.subTest(failure=failure), self.assertRaises(transport.Refusal) as caught:
-                transport._run_with_backend(permit, backend)
+                run_with_backend(permit, backend)
             envelope = json.loads(caught.exception.canonical_envelope())
             self.assertEqual((envelope["phase"], envelope["code"]), (phase, code))
             self.assertNotIn("secret", caught.exception.canonical_envelope().decode())
             with self.assertRaises(transport.Refusal) as replay:
-                transport._run_with_backend(permit, self.backend())
+                run_with_backend(permit, self.backend())
             self.assertEqual(json.loads(replay.exception.canonical_envelope())["permit_consumed"], 1)
 
     def test_permit_library_descriptor_and_local_validation_refusals_are_bounded(self):
@@ -621,7 +643,7 @@ class TopologyTransportTests(unittest.TestCase):
         self.assertNotIn("private", library.exception.canonical_envelope().decode())
 
         permit = self.permit()
-        result = transport._run_with_backend(permit, self.backend())
+        result = run_with_backend(permit, self.backend())
         with mock.patch.object(transport.topology, "parse_raw_tdo",
                                side_effect=topology.Refusal("secret stderr /unsafe/path")):
             with self.assertRaises(transport.Refusal) as validation:
@@ -632,7 +654,7 @@ class TopologyTransportTests(unittest.TestCase):
         self.assertNotIn("unsafe", validation.exception.canonical_envelope().decode())
 
         permit = self.permit()
-        result = transport._run_with_backend(permit, self.backend())
+        result = run_with_backend(permit, self.backend())
         with mock.patch.object(transport, "_read_local_private_key",
                                side_effect=transport.Refusal("secret key /private/key.pem")):
             with self.assertRaises(transport.Refusal) as signing:
@@ -660,7 +682,7 @@ class TopologyTransportTests(unittest.TestCase):
         permit = self.permit()
         backend = self.backend(failure="open")
         with self.assertRaises(transport.Refusal) as caught:
-            transport._run_with_backend(permit, backend)
+            run_with_backend(permit, backend)
         envelope = json.loads(caught.exception.canonical_envelope())
         self.assertEqual((envelope["phase"], envelope["code"]),
                          ("DEVICE_OPEN", "DEVICE_OPEN_FAILED"))
@@ -715,7 +737,7 @@ class TopologyTransportTests(unittest.TestCase):
         pem = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
                                 serialization.NoEncryption())
         permit = self.permit()
-        result = transport._run_with_backend(permit, self.backend())
+        result = run_with_backend(permit, self.backend())
         with tempfile.TemporaryDirectory() as directory:
             key_path = Path(directory) / "key.pem"
             key_path.write_bytes(pem)

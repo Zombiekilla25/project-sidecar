@@ -71,9 +71,12 @@ later phases use the same schema with their validated progress:
 
 The success summary contains `status`, `target`, the three TCK counts, both
 transaction hashes, raw-capture byte lengths and hashes, `parse_status`,
-`evidence_path`, `evidence_sha256`, `signature_verified`, four zero mutation
-counters, and `jtag_operation_count=1`. The signed file at `evidence_path`
-contains the full raw captures and parsed topology.
+`evidence_path`, `evidence_sha256`, `signature_verified`, and three zero
+mutation counters (`write_count`, `reset_count`, and `program_count`). The
+fixed two-scan topology transaction is counted separately as
+`jtag_operation_count=1`; that counter records the approved read-only JTAG
+operation and does not grant a generic JTAG capability. The signed file at
+`evidence_path` contains the full raw captures and parsed topology.
 
 ## MPSSE edge decision
 

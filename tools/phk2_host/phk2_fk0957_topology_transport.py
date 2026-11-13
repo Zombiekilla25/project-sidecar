@@ -907,6 +907,9 @@ class _NativeLibFtdi:
             raise Refusal("libftdi close failed")
 
 
+_NATIVE_BACKEND_TYPE = _NativeLibFtdi
+
+
 def _execute_scan(backend: Any, commands: tuple[topology.Command, ...], scan: str,
                   trace: _AttemptTrace | None = None) -> bytes:
     byte_result = None
@@ -940,7 +943,7 @@ def _execute_scan(backend: Any, commands: tuple[topology.Command, ...], scan: st
         backend.write_exact(command.write)
         if trace is not None:
             attr = "scan_a_tck_emitted" if scan == "A" else "scan_b_tck_emitted"
-            if not isinstance(backend, _NativeLibFtdi):
+            if not isinstance(backend, _NATIVE_BACKEND_TYPE):
                 setattr(trace, attr, getattr(trace, attr) + command.tck_count)
         if command.read_bytes:
             if trace is not None:
@@ -987,9 +990,10 @@ def _make_observation(permit: topology.DiscoveryPermit, identity: topology.Descr
     return result
 
 
-def _run_consumed_permit(permit: topology.DiscoveryPermit, backend: Any,
+def _run_consumed_permit(permit: topology.DiscoveryPermit,
                           source_sha256_before: str | None = None,
                           trace: _AttemptTrace | None = None) -> TransportObservation:
+    backend = _NativeLibFtdi(trace)
     opened = False
     closed = False
     result = None
@@ -1076,19 +1080,6 @@ def _run_consumed_permit(permit: topology.DiscoveryPermit, backend: Any,
     return result
 
 
-def _run_with_backend(permit: topology.DiscoveryPermit, backend: Any) -> TransportObservation:
-    trace = _AttemptTrace()
-    try:
-        trace.phase = "PERMIT_VALIDATION"
-        topology._consume(permit)
-        trace.permit_consumed = 1
-        trace.advance("PERMIT_VALIDATED")
-        return _run_consumed_permit(permit, backend, trace=trace)
-    except BaseException as exc:
-        trace.permit_consumed = _permit_consumption_state(permit)
-        raise _diagnostic_refusal(exc, trace) from None
-
-
 def run_fk0957_topology_discovery(authorized_permit: topology.DiscoveryPermit) -> TransportObservation:
     """Run exactly the reviewed two-scan topology census; accepts no overrides."""
     trace = _AttemptTrace()
@@ -1099,8 +1090,7 @@ def run_fk0957_topology_discovery(authorized_permit: topology.DiscoveryPermit) -
         trace.advance("PERMIT_VALIDATED")
         trace.phase = "LIBRARY_PROVENANCE"
         source_sha = transport_source_sha256()
-        backend = _NativeLibFtdi(trace)
-        return _run_consumed_permit(authorized_permit, backend, source_sha, trace)
+        return _run_consumed_permit(authorized_permit, source_sha, trace)
     except BaseException as exc:
         with topology._PERMIT_LOCK:
             if isinstance(authorized_permit, topology.DiscoveryPermit):
