@@ -24,11 +24,36 @@ non-writable path. Tests compile an isolated temporary launcher and verify
 that Python startup hooks and loader environment variables do not affect the
 child interpreter. This does not authorize hardware access.
 
+The launcher has not been installed or protected on the production host. Until
+an administrator deploys it at a reviewed absolute path, direct Python
+invocation is unsupported and refuses with `TRUSTED_LAUNCHER_REQUIRED`. No
+production command line is published for a live operation.
+
+The local remote-acquisition orchestrator validates the RGB-local
+`SSH_AUTH_SOCK` and passes it to the local SSH client. Its SSH arguments retain
+`ForwardAgent=no`; the socket is not forwarded to the testbench. This only
+supports the existing descriptor-oriented SSH flow. Topology acquisition is
+not yet split into an unsigned testbench record and RGB-only signing.
+
 The deterministic hashes and local host-key pin observation from the earlier
 software integration are recorded in
 [`results/fk0957-topology-software-handoff.json`](../results/fk0957-topology-software-handoff.json).
 That historical record does not prove current remote acquisition or bridge
 ownership readiness.
+
+The handoff identifies production main as
+`3226bfc1474d6afa873fce7327ded6dac548baae`; the separate WIP branch is
+`hardening/fk0957-production-20261113`. Its current candidate head and source
+hashes are recorded in the handoff JSON. Do not treat those candidate hashes
+as an authenticated release manifest: no trusted signed manifest currently
+authorizes the exact source bytes or clean Git state.
+
+The approved libc pin also requires requalification after the host's verified
+`libc6:amd64` update from `2.39-0ubuntu8.9` to `2.39-0ubuntu8.12`. The runtime
+continues to refuse the changed SHA256/build-id before loading the native
+transport. Details are in
+[`fk0957-native-library-requalification-required.json`](../results/fk0957-native-library-requalification-required.json);
+the immutable pin has not been changed.
 
 ## Live command status
 
@@ -50,8 +75,9 @@ transaction hashes, raw-capture byte lengths and hashes, `parse_status`,
 `evidence_path`, `evidence_sha256`, `signature_verified`, and three zero
 mutation counters (`write_count`, `reset_count`, and `program_count`). The
 fixed two-scan topology transaction is counted separately as
-`jtag_operation_count=1`; that counter records the approved read-only JTAG
-operation and does not grant a generic JTAG capability. The signed file at
+`jtag_operation_count=1`; that counter records the one fixed read-only
+topology transaction and does not grant a generic arbitrary-JTAG capability.
+The signed file at
 `evidence_path` contains the full raw captures and parsed topology.
 
 ## MPSSE edge decision
