@@ -341,6 +341,8 @@ class TransportObservation:
     descriptor_evidence_sha256: str
     permit_nonce: str
     authorization_id: str | None
+    authorization_sha256: str | None
+    operation_id: str | None
     scan_a_transaction_sha256: str
     scan_a_tck_count: int
     scan_a_raw_tdo: bytes
@@ -1036,13 +1038,16 @@ def _run_consumed_permit(permit: topology.DiscoveryPermit,
         context, _authorization_bytes, _authorization_id = endpoint._validate_request(request_raw, issuers)
         if (permit.descriptor_evidence_sha256 != context["descriptor_sha256"] or
                 permit.nonce != context["permit_nonce"] or
-                permit.authorization_id != context["authorization_id"]):
+                permit.authorization_id != context["authorization_id"] or
+                permit.authorization_sha256 != context["authorization_sha256"] or
+                permit.operation_id != context["operation_id"]):
             raise Refusal("release authorization descriptor/nonce does not match permit")
         with topology._PERMIT_LOCK:
             active = topology._ACTIVE.get(permit._token)
             binding = (permit.descriptor_evidence_sha256, permit.identity, permit.nonce,
                        permit.issued_at, permit.expires_at, permit.trusted_signer_fingerprint,
-                       permit.authorization_id)
+                       permit.authorization_id, permit.authorization_sha256,
+                       permit.operation_id)
             if active != binding or permit._token in topology._CONSUMED:
                 raise Refusal("release authorization permit is not the original active token")
         # When launched through the protected root supervisor, the supervisor
@@ -1061,7 +1066,8 @@ def _run_consumed_permit(permit: topology.DiscoveryPermit,
         active = topology._ACTIVE.get(permit._token)
         binding = (permit.descriptor_evidence_sha256, permit.identity, permit.nonce,
                    permit.issued_at, permit.expires_at, permit.trusted_signer_fingerprint,
-                   permit.authorization_id)
+                   permit.authorization_id, permit.authorization_sha256,
+                   permit.operation_id)
         if active != binding or permit._token in topology._CONSUMED:
             raise Refusal("release authorization permit identity changed before consume")
     topology._consume(permit)
@@ -1166,6 +1172,7 @@ def _run_consumed_permit(permit: topology.DiscoveryPermit,
         selected_identity.manufacturer, selected_identity.product,
         permit.descriptor_evidence_sha256, permit.nonce,
         permit.authorization_id,
+        permit.authorization_sha256, permit.operation_id,
         topology.scan_transaction_sha256(plan.scan_a_commands), plan.scan_a_tck_count, raw_a,
         topology.scan_transaction_sha256(plan.scan_b_commands), plan.scan_b_tck_count, raw_b,
         plan.tck_count, source_sha, *_production_git_state(), runtime_provenance,
@@ -1183,7 +1190,7 @@ def run_fk0957_topology_discovery(authorized_permit: topology.DiscoveryPermit) -
         if not isinstance(authorized_permit, topology.DiscoveryPermit):
             raise Refusal("topology operation requires a verified release permit")
         with _REMOTE_AUTH_LOCK:
-            request_raw = _REMOTE_AUTHORIZED_PERMITS.pop(authorized_permit._token, None)
+            request_raw = _REMOTE_AUTHORIZED_PERMITS.get(authorized_permit._token)
             auth_id = authorized_permit.authorization_id
             if (request_raw is None or type(auth_id) is not str or
                     _REMOTE_AUTHORIZED_IDS.get(auth_id) is not authorized_permit._token or
@@ -1194,9 +1201,16 @@ def run_fk0957_topology_discovery(authorized_permit: topology.DiscoveryPermit) -
                 binding = (authorized_permit.descriptor_evidence_sha256, authorized_permit.identity,
                            authorized_permit.nonce, authorized_permit.issued_at,
                            authorized_permit.expires_at, authorized_permit.trusted_signer_fingerprint,
-                           authorized_permit.authorization_id)
+                           authorized_permit.authorization_id,
+                           authorized_permit.authorization_sha256,
+                           authorized_permit.operation_id)
                 if active != binding or authorized_permit._token in topology._CONSUMED:
                     raise Refusal("topology permit identity changed before authorization consume")
+            # Perform the local one-shot transition only after the complete
+            # request/permit identity tuple has been checked. A forged alias
+            # must not burn the valid permit's attached request.
+            if _REMOTE_AUTHORIZED_PERMITS.pop(authorized_permit._token, None) != request_raw:
+                raise Refusal("topology authorization attachment changed before consume")
             _REMOTE_CONSUMED_AUTHORIZATIONS.add(auth_id)
         if request_raw is None:
             raise Refusal("topology operation requires authenticated release authorization")
@@ -1214,7 +1228,9 @@ def run_fk0957_topology_discovery(authorized_permit: topology.DiscoveryPermit) -
 def issue_fk0957_topology_permit(descriptor_evidence: bytes, expected_sha256: str,
                                   *, lifetime_seconds: int = 120,
                                   nonce: str | None = None,
-                                  authorization_id: str | None = None) -> topology.DiscoveryPermit:
+                                  authorization_id: str | None = None,
+                                  authorization_sha256: str | None = None,
+                                  operation_id: str | None = None) -> topology.DiscoveryPermit:
     """Verify the signed descriptor and issue its one-use topology permit."""
     trace = _AttemptTrace()
     trace.phase = "PERMIT_VALIDATION"
@@ -1222,7 +1238,9 @@ def issue_fk0957_topology_permit(descriptor_evidence: bytes, expected_sha256: st
     try:
         return topology.issue_permit(descriptor_evidence, expected_sha256,
                                      lifetime_seconds=lifetime_seconds, nonce=nonce,
-                                     authorization_id=authorization_id)
+                                     authorization_id=authorization_id,
+                                     authorization_sha256=authorization_sha256,
+                                     operation_id=operation_id)
     except BaseException as exc:
         if isinstance(exc, identity_gate.Refusal):
             code, phase = "DESCRIPTOR_STALE", "PERMIT_VALIDATION"
@@ -1253,13 +1271,16 @@ def _authorize_remote_permit(permit: topology.DiscoveryPermit, *, request_raw: b
         context, _, _ = endpoint._validate_request(request_raw, issuers)
         if (permit.descriptor_evidence_sha256 != context["descriptor_sha256"] or
                 permit.nonce != context["permit_nonce"] or
-                permit.authorization_id != context["authorization_id"]):
+                permit.authorization_id != context["authorization_id"] or
+                permit.authorization_sha256 != context["authorization_sha256"] or
+                permit.operation_id != context["operation_id"]):
             raise Refusal("release authorization descriptor/nonce does not match permit")
         with topology._PERMIT_LOCK:
             active = topology._ACTIVE.get(permit._token)
             binding = (permit.descriptor_evidence_sha256, permit.identity, permit.nonce,
                        permit.issued_at, permit.expires_at, permit.trusted_signer_fingerprint,
-                       permit.authorization_id)
+                       permit.authorization_id, permit.authorization_sha256,
+                       permit.operation_id)
             if active != binding or permit._token in topology._CONSUMED:
                 raise Refusal("release authorization permit is not the original active token")
     except Refusal:
@@ -1287,6 +1308,7 @@ def _validate_transport_observation(permit: topology.DiscoveryPermit,
     exact = (result.card_id, result.adapter_serial, result.usb_descriptor_serial,
              result.physical_interface, result.ftdi_vid, result.ftdi_pid,
              result.descriptor_evidence_sha256, result.permit_nonce, result.authorization_id,
+             result.authorization_sha256, result.operation_id,
              result.scan_a_transaction_sha256, result.scan_a_tck_count,
              result.scan_b_transaction_sha256, result.scan_b_tck_count,
              result.total_tck_count, result.transport_source_sha256,
@@ -1296,6 +1318,7 @@ def _validate_transport_observation(permit: topology.DiscoveryPermit,
              result.write_count, result.reset_count, result.program_count)
     expected = (CARD_ID, ADAPTER_SERIAL, USB_DESCRIPTOR_SERIAL, "A", "0403", "6010",
                 permit.descriptor_evidence_sha256, permit.nonce, permit.authorization_id,
+                permit.authorization_sha256, permit.operation_id,
                 topology.scan_transaction_sha256(plan.scan_a_commands), 591,
                 topology.scan_transaction_sha256(plan.scan_b_commands), 586,
                 1177, transport_source_sha256(), *_production_git_state(),
@@ -1317,7 +1340,8 @@ def _validate_transport_observation(permit: topology.DiscoveryPermit,
         active_binding = topology._ACTIVE.get(permit._token)
         supplied_binding = (permit.descriptor_evidence_sha256, permit.identity, permit.nonce,
                             permit.issued_at, permit.expires_at,
-                            permit.trusted_signer_fingerprint, permit.authorization_id)
+                            permit.trusted_signer_fingerprint, permit.authorization_id,
+                            permit.authorization_sha256, permit.operation_id)
         if (active_binding is None or active_binding != supplied_binding or
             permit._token not in topology._CONSUMED):
             raise Refusal("transport result lacks the original consumed descriptor permit")

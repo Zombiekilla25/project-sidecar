@@ -509,7 +509,11 @@ def _consume_authorization(auth_id: str, authorization_bytes: bytes) -> None:
 def _unsigned_record(context: dict[str, Any], permit: Any,
                      result: transport.TransportObservation, parsed: Any) -> dict[str, Any]:
     if (permit.authorization_id != context.get("authorization_id") or
+            permit.authorization_sha256 != context.get("authorization_sha256") or
+            permit.operation_id != context.get("operation_id") or
             result.authorization_id != context.get("authorization_id") or
+            result.authorization_sha256 != context.get("authorization_sha256") or
+            result.operation_id != context.get("operation_id") or
             permit.nonce != context.get("permit_nonce") or
             result.permit_nonce != context.get("permit_nonce")):
         raise Refusal("AUTHORIZATION_IDENTITY_MISMATCH", "LOCAL_VALIDATION")
@@ -523,7 +527,9 @@ def _unsigned_record(context: dict[str, Any], permit: Any,
         "card_id": result.card_id, "adapter_serial": result.adapter_serial,
         "usb_descriptor_serial": result.usb_descriptor_serial, "physical_interface": result.physical_interface,
         "descriptor_evidence_sha256": result.descriptor_evidence_sha256,
-        "authorization_id": result.authorization_id, "permit_nonce": result.permit_nonce,
+        "authorization_id": result.authorization_id,
+        "authorization_sha256": result.authorization_sha256,
+        "operation_id": result.operation_id, "permit_nonce": result.permit_nonce,
         "trusted_signer_fingerprint": permit.trusted_signer_fingerprint,
         "observation_timestamp": now, "transport_source_sha256": result.transport_source_sha256,
         "worktree_clean": result.worktree_clean,
@@ -554,7 +560,9 @@ def execute_request(raw: bytes) -> bytes:
     context, _, _ = _validate_request(raw, issuers)
     permit = transport.issue_fk0957_topology_permit(
         context["descriptor"], context["descriptor_sha256"],
-        nonce=context["permit_nonce"], authorization_id=context["authorization_id"])
+        nonce=context["permit_nonce"], authorization_id=context["authorization_id"],
+        authorization_sha256=context["authorization_sha256"],
+        operation_id=context["operation_id"])
     # The transport gate independently revalidates the signed request and
     # consumes its authorization. This prevents raw digest injection through
     # direct internal transport calls.

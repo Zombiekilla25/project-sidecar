@@ -75,6 +75,7 @@ class RemoteTopologyEndpointTests(unittest.TestCase):
             "issued_at": self.now.isoformat(),
             "expires_at": (self.now + timedelta(seconds=90)).isoformat(), "nonce": self.nonce,
         }
+        self.authorization_sha = hashlib.sha256(endpoint.canonical(self.authorization)).hexdigest()
         self.request = {
             "schema": endpoint.SCHEMA, "version": 1, "operation_id": self.operation,
             "descriptor_evidence_b64": base64.b64encode(self.descriptor).decode("ascii"),
@@ -178,7 +179,8 @@ class RemoteTopologyEndpointTests(unittest.TestCase):
         result = SimpleNamespace(
             card_id="FK0957", adapter_serial="153300000957A", usb_descriptor_serial="153300000957",
             physical_interface="A", descriptor_evidence_sha256=self.descriptor_sha, permit_nonce=self.nonce,
-            authorization_id=self.auth_id,
+            authorization_id=self.auth_id, authorization_sha256=self.authorization_sha,
+            operation_id=self.operation,
             trusted_signer_fingerprint="f" * 64,
             transport_source_sha256="8" * 64, worktree_clean=True,
             runtime_library_provenance=(), scan_a_transaction_sha256="9" * 64,
@@ -191,7 +193,9 @@ class RemoteTopologyEndpointTests(unittest.TestCase):
              mock.patch.object(transport, "issue_fk0957_topology_permit",
                                side_effect=lambda *_a, **_k: events.append("permit") or SimpleNamespace(
                                    trusted_signer_fingerprint="f" * 64, nonce=self.nonce,
-                                   authorization_id=self.auth_id)) as issue_permit, \
+                                   authorization_id=self.auth_id,
+                                   authorization_sha256=self.authorization_sha,
+                                   operation_id=self.operation)) as issue_permit, \
              mock.patch.object(transport, "_authorize_remote_permit",
                                side_effect=lambda *_a, **_k: events.append("release-bound")), \
              mock.patch.object(transport, "run_fk0957_topology_discovery",
@@ -203,9 +207,13 @@ class RemoteTopologyEndpointTests(unittest.TestCase):
         self.assertEqual(events, ["permit", "release-bound", "physical", "validate"])
         issue_permit.assert_called_once_with(
             self.descriptor, self.descriptor_sha, nonce=self.nonce,
-            authorization_id=self.auth_id)
+            authorization_id=self.auth_id, authorization_sha256=self.authorization_sha,
+            operation_id=self.operation)
         self.assertEqual(run.call_count, 1)
         self.assertEqual(record["status"], "ACQUIRED")
+        self.assertEqual((record["authorization_id"], record["authorization_sha256"],
+                          record["operation_id"], record["permit_nonce"]),
+                         (self.auth_id, self.authorization_sha, self.operation, self.nonce))
         self.assertNotIn("signature_hex", record)
         self.assertNotIn("signature_algorithm", record)
         self.assertEqual((record["scan_a_tck_count"], record["scan_b_tck_count"],

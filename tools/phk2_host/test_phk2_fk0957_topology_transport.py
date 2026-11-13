@@ -48,14 +48,19 @@ _TEST_SOURCE_SHA256 = "a" * 64
 
 @contextmanager
 def fake_release_request(permit, reconstructed_permit=None, context_nonce=None,
-                         context_authorization_id=None):
+                         context_authorization_id=None, context_authorization_sha256=None,
+                         context_operation_id=None):
     """Test-only signed-request validator substitute at the trust boundary."""
     context = {
         "descriptor_sha256": permit.descriptor_evidence_sha256,
-        "authorization_sha256": "a" * 64, "handoff_sha256": "b" * 64,
+        "authorization_sha256": (permit.authorization_sha256 if context_authorization_sha256 is None
+                                  else context_authorization_sha256),
+        "handoff_sha256": "b" * 64,
         "manifest_sha256": "c" * 64, "descriptor": b"fixture-descriptor",
         "authorization_id": (permit.authorization_id if context_authorization_id is None
                              else context_authorization_id),
+        "operation_id": (permit.operation_id or "1" * 32 if context_operation_id is None
+                         else context_operation_id),
         "permit_nonce": permit.nonce if context_nonce is None else context_nonce,
     }
     with mock.patch.object(endpoint, "_load_trust_config", return_value={"release": b"x" * 32,
@@ -219,7 +224,10 @@ class TopologyTransportTests(unittest.TestCase):
 
     def permit(self):
         return topology.issue_permit(self.raw, self.digest,
-                                     authorization_id=secrets.token_hex(32))
+                                     authorization_id=secrets.token_hex(32),
+                                     authorization_sha256="a" * 64,
+                                     operation_id="1" * 32,
+                                     nonce=secrets.token_hex(32))
 
     def backend(self, **kwargs):
         return FakeBackend(**kwargs)
@@ -832,11 +840,31 @@ class TopologyTransportTests(unittest.TestCase):
         self.assertNotIn(permit._token, topology._CONSUMED)
         self.assertNotIn(permit.authorization_id, transport._REMOTE_CONSUMED_AUTHORIZATIONS)
 
+    def test_authorization_digest_and_operation_mismatch_refuse_before_consumption_or_backend(self):
+        for mutation in ("authorization_sha256", "operation_id"):
+            permit = self.permit()
+            backend = self.backend()
+            replacement = "f" * 64 if mutation == "authorization_sha256" else "e" * 32
+            with self.subTest(mutation=mutation), fake_release_request(permit, **{
+                    "context_" + mutation: replacement}) as request_raw, \
+                    mock.patch.object(transport, "_NativeLibFtdi", return_value=backend) as backend_factory:
+                with self.assertRaises(transport.Refusal):
+                    transport._authorize_remote_permit(permit, request_raw=request_raw)
+                with self.assertRaises(transport.Refusal):
+                    transport._run_consumed_permit(permit, request_raw=request_raw)
+            backend_factory.assert_not_called()
+            self.assertEqual((backend.events, backend.open_count), ([], 0))
+            self.assertNotIn(permit._token, transport._REMOTE_AUTHORIZED_PERMITS)
+            self.assertNotIn(permit._token, topology._CONSUMED)
+            self.assertNotIn(permit.authorization_id, transport._REMOTE_CONSUMED_AUTHORIZATIONS)
+
     def test_one_authorization_cannot_attach_a_second_permit_token_or_replay(self):
         permit = self.permit()
         alternate = topology.issue_permit(
             self.raw, self.digest, nonce=permit.nonce,
-            authorization_id=permit.authorization_id)
+            authorization_id=permit.authorization_id,
+            authorization_sha256=permit.authorization_sha256,
+            operation_id=permit.operation_id)
         with fake_release_request(permit) as request_raw:
             transport._authorize_remote_permit(permit, request_raw=request_raw)
             with self.assertRaises(transport.Refusal):
@@ -848,12 +876,70 @@ class TopologyTransportTests(unittest.TestCase):
                     transport.run_fk0957_topology_discovery(permit)
         self.assertEqual(backend.open_count, 1)
         self.assertEqual(result.authorization_id, permit.authorization_id)
+        self.assertEqual((result.authorization_sha256, result.operation_id,
+                          result.permit_nonce),
+                         (permit.authorization_sha256, permit.operation_id, permit.nonce))
+
+    def test_sealed_observation_rejects_authorization_identity_substitution(self):
+        permit = self.permit()
+        result = run_with_backend(permit, self.backend())
+        for field, replacement in (("authorization_id", "f" * 64),
+                                   ("authorization_sha256", "e" * 64),
+                                   ("operation_id", "d" * 32),
+                                   ("permit_nonce", "c" * 64)):
+            forged = transport.TransportObservation(**{**result.__dict__, field: replacement})
+            with self.subTest(field=field), self.assertRaises(transport.Refusal):
+                transport.validate_transport_observation(permit, forged)
+
+    def test_permit_authorization_identity_mutation_refuses_before_backend(self):
+        original = self.permit()
+        mutations = (("authorization_id", "f" * 64),
+                     ("authorization_sha256", "e" * 64),
+                     ("operation_id", "d" * 32),
+                     ("nonce", "c" * 64))
+        with fake_release_request(original) as request_raw:
+            for field, value in mutations:
+                forged = replace(original, **{field: value})
+                backend = self.backend()
+                with self.subTest(field=field), mock.patch.object(
+                        transport, "_NativeLibFtdi", return_value=backend) as factory:
+                    with self.assertRaises(transport.Refusal):
+                        transport._authorize_remote_permit(forged, request_raw=request_raw)
+                    with self.assertRaises(transport.Refusal):
+                        transport._run_consumed_permit(forged, request_raw=request_raw)
+                factory.assert_not_called()
+                self.assertEqual((backend.events, backend.open_count), ([], 0))
+                self.assertNotIn(original._token, topology._CONSUMED)
+                self.assertNotIn(original.authorization_id,
+                                 transport._REMOTE_CONSUMED_AUTHORIZATIONS)
+
+    def test_rejected_alias_does_not_consume_original_authorization_attachment(self):
+        permit = self.permit()
+        forged = replace(permit, authorization_sha256="e" * 64)
+        with fake_release_request(permit) as request_raw:
+            transport._authorize_remote_permit(permit, request_raw=request_raw)
+            backend = self.backend()
+            with mock.patch.object(transport, "_NativeLibFtdi", return_value=backend):
+                with self.assertRaises(transport.Refusal):
+                    transport.run_fk0957_topology_discovery(forged)
+                self.assertNotIn(permit.authorization_id,
+                                 transport._REMOTE_CONSUMED_AUTHORIZATIONS)
+                self.assertIn(permit._token,
+                              transport._REMOTE_AUTHORIZED_PERMITS)
+                result = transport.run_fk0957_topology_discovery(permit)
+        self.assertEqual(backend.open_count, 1)
+        self.assertEqual((result.authorization_id, result.authorization_sha256,
+                          result.operation_id, result.permit_nonce),
+                         (permit.authorization_id, permit.authorization_sha256,
+                          permit.operation_id, permit.nonce))
 
     def test_parallel_second_permit_for_same_authorization_is_refused(self):
         permit = self.permit()
         alternate = topology.issue_permit(
             self.raw, self.digest, nonce=permit.nonce,
-            authorization_id=permit.authorization_id)
+            authorization_id=permit.authorization_id,
+            authorization_sha256=permit.authorization_sha256,
+            operation_id=permit.operation_id)
         with fake_release_request(permit) as request_raw:
             def attach(candidate):
                 try:
