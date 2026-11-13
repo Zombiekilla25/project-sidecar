@@ -23,10 +23,38 @@
     "mapped_library_identity_matches": true,
     "proposal_sha256": "348cfb276927a339fc11090f734d7f399467ee4c9cc1f9a7ae070d12f903f8e1",
     "reproduced_in_disposable_copy_of_production_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
+    "reproduced_modules": [
+      "test_phk2_fk0957_topology_libraries",
+      "test_phk2_fk0957_topology_live_cli",
+      "test_phk2_fk0957_topology_transport",
+      "test_phk2_fk0957_topology_discovery",
+      "test_phk2_fk0957_identity_observer",
+      "test_phk2_fk0957_readonly_backend",
+      "test_phk2_fk0957_remote_collector",
+      "test_phk2_fk0957_remote_orchestrator"
+    ],
     "reproduced_test_count": 173,
     "required_symbols_present": true,
     "review_commit": "6e67c4496a0e9d4c82f6a5601e50fcd1c7787d67",
     "usb_enumeration_called": false
+  },
+  "integrated_hardening_validation": {
+    "corrected_oracle": {
+      "commit": "ea2104c55a1d4dafe6da91c6d5ac28447ec336c1",
+      "invalid_accepted": 0,
+      "invalid_states": 249572,
+      "valid_rejected": 0,
+      "valid_states": 28
+    },
+    "deterministic_hash_seeds": [
+      1,
+      7,
+      13,
+      19,
+      23
+    ],
+    "full_fk0957_tests": 205,
+    "full_suite_runs_per_seed": 204
   },
   "limitations": [
     "The exact .deb archive was not cached, so its bytes were not independently rehashed; signed Packages index, dpkg package records, dpkg verification, and installed ELF hashes/build IDs agree.",
