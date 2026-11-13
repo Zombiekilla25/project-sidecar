@@ -122,6 +122,16 @@ def startup_attacks(host: Path) -> dict[str, Any]:
                 "marker_executed_before_bootstrap": bootstrap_marker.exists(),
                 "bootstrap_exit_code": bootstrap_cp.returncode,
             }
+            clean_env = {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8",
+                         "FK0957_TRUSTED_LAUNCHER": "1"}
+            clean_bootstrap = subprocess.run(
+                [sys.executable, "-I", "-S", str(bootstrap), "--launcher-self-test"],
+                env=clean_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                check=False)
+            reports["direct_bootstrap_forged_marker_accepts_self_test"] = {
+                "accepted_without_static_launcher": clean_bootstrap.returncode == 0,
+                "exit_code": clean_bootstrap.returncode,
+            }
             # A benign ctypes fixture proves that ambient search can redirect
             # a later name-based load; it does not load FTDI or USB libraries.
             marker = root / "ldpath-sentinel"
@@ -157,6 +167,21 @@ def source_gates(repo: Path) -> dict[str, Any]:
                    "TRUSTED_SOURCE_MANIFEST_SHA256" in transport or
                    "verify_release_manifest" in transport)
     launcher_source = host / "fk0957_safe_launcher.c"
+    launcher_text = launcher_source.read_text(encoding="utf-8") if launcher_source.is_file() else ""
+    launcher_build = (host / "build_fk0957_safe_launcher.py").read_text(encoding="utf-8")
+    interpreter = Path("/usr/bin/python3.12")
+    needed_result = subprocess.run(
+        ["/usr/bin/readelf", "-d", str(interpreter)], capture_output=True,
+        text=True, check=False, env={"PATH": "/usr/bin:/bin", "LANG": "C"})
+    needed_sonames = sorted(set(re.findall(r"Shared library: \[(.*?)\]", needed_result.stdout)))
+    launcher_pin_paths = set(re.findall(r'PIN\("([^\"]+\.so[^\"]*)"', launcher_text))
+    launcher_pinned_sonames = {Path(value).name for value in launcher_pin_paths}
+    interpreter_result = subprocess.run(
+        ["/usr/bin/readelf", "-l", str(interpreter)], capture_output=True,
+        text=True, check=False, env={"PATH": "/usr/bin:/bin", "LANG": "C"})
+    interp_match = re.search(r"Requesting program interpreter: ([^]]+)", interpreter_result.stdout)
+    interpreter_loader = interp_match.group(1) if interp_match else None
+    pinned_loader = "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
     launcher_binary = Path("/usr/local/bin/fk0957-topology-live-one-shot")
     runtime_sha_includes = {
         "live_cli": "phk2_fk0957_topology_live_cli.py" in hash_fn,
@@ -170,9 +195,24 @@ def source_gates(repo: Path) -> dict[str, Any]:
     return {
         "launcher_source_present": launcher_source.is_file(),
         "launcher_binary_installed_at_reviewed_path": launcher_binary.is_file(),
-        "launcher_clears_startup_vars": all(token in launcher_source.read_text(encoding="utf-8")
-                                              for token in ("execve(", '"/usr/bin/python3"',
-                                                            '"-I"', '"-S"')) if launcher_source.is_file() else False,
+        "launcher_clears_startup_vars": all(token in launcher_text
+                                              for token in ("execve(", '"/usr/bin/python3.12"',
+                                                            '"-I"', '"-S"', "clean_env")),
+        "launcher_prestart_pins_python_loader_libc": all(token in launcher_text for token in (
+            '"/usr/bin/python3.12"', '"/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"',
+            '"/usr/lib/x86_64-linux-gnu/libc.so.6"')),
+        "launcher_pins_python_dynamic_dependencies": False,
+        "python_dynamic_needed_sonames": needed_sonames,
+        "python_unpinned_dynamic_needed_sonames": sorted(set(needed_sonames) - launcher_pinned_sonames),
+        "python_pt_interp": interpreter_loader,
+        "python_pt_interp_currently_resolves_to_pinned_loader": (
+            os.path.realpath(interpreter_loader) == pinned_loader if interpreter_loader else False),
+        "launcher_binds_pt_interp_path_to_pinned_loader": (
+            bool(interpreter_loader and interpreter_loader in launcher_text)),
+        "launcher_pins_bootstrap_digest": "bootstrap_sha256" in launcher_text or
+                                           "BOOTSTRAP_SHA256" in launcher_text,
+        "launcher_build_requires_admin_owned_output": "--output" in launcher_build and
+                                                      "chown" in launcher_build,
         "cli_calls_ssh": bool(re.search(r"subprocess\.(run|Popen)|ssh\\b", cli)),
         "cli_has_remote_signing_protocol": "remote-sign" in cli or "signing_request" in cli,
         "cli_uses_local_native_transport": "perform_fk0957_topology_discovery_once" in cli,

@@ -25,6 +25,16 @@ def git(repo: Path, *args: str) -> str:
     return result.stdout.strip()
 
 
+def fetch_branch(repo: Path, remote: str, branch: str) -> bool:
+    refspec = f"refs/heads/{branch}:refs/remotes/{remote}/{branch}"
+    result = run(["git", "-C", str(repo), "fetch", "--no-tags", remote, refspec])
+    if result.returncode:
+        print(f"hardening watcher: fetch failed for {remote}/{branch}; retaining last fetched ref",
+              file=sys.stderr, flush=True)
+        return False
+    return True
+
+
 def audit_head(repo: Path, audit: Path, sha: str, logical: str) -> dict[str, object]:
     worktrees = audit / "worktrees"
     results = audit / "results" / f"candidate-{sha}"
@@ -84,19 +94,34 @@ def main() -> int:
     parser.add_argument("--logical-candidate", required=True)
     parser.add_argument("--interval", type=float, default=5.0)
     parser.add_argument("--stable-polls", type=int, default=2)
+    parser.add_argument("--remote", help="optional remote to refresh read-only before polling")
+    parser.add_argument("--remote-branch", help="remote branch to monitor; defaults to current branch")
+    parser.add_argument("--fetch-interval", type=float, default=30.0,
+                        help="seconds between read-only remote fetches")
     parser.add_argument("--once", action="store_true", help="audit current HEAD once")
     args = parser.parse_args()
     repo, audit = args.production_repo.resolve(), args.audit_repo.resolve()
     if not (repo / ".git").exists() or not (audit / ".git").exists():
         parser.error("both paths must be Git repositories")
-    seen = git(repo, "rev-parse", "HEAD")
+    branch = args.remote_branch or git(repo, "branch", "--show-current")
+    remote_ref = None
+    if args.remote:
+        if not branch:
+            parser.error("--remote-branch is required when the checkout is detached")
+        remote_ref = f"refs/remotes/{args.remote}/{branch}"
+        fetch_branch(repo, args.remote, branch)
+    seen = git(repo, "rev-parse", remote_ref) if remote_ref else git(repo, "rev-parse", "HEAD")
     if args.once:
         print(json.dumps(audit_head(repo, audit, seen, args.logical_candidate), sort_keys=True))
         return 0
     candidate, stable = None, 0
+    last_fetch = time.monotonic()
     while True:
         time.sleep(max(1.0, args.interval))
-        current = git(repo, "rev-parse", "HEAD")
+        if args.remote and time.monotonic() - last_fetch >= max(args.interval, args.fetch_interval):
+            fetch_branch(repo, args.remote, branch)
+            last_fetch = time.monotonic()
+        current = git(repo, "rev-parse", remote_ref) if remote_ref else git(repo, "rev-parse", "HEAD")
         if current == seen:
             candidate, stable = None, 0
             continue
