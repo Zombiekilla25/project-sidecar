@@ -101,6 +101,10 @@ class FakeBackend:
         self._fail("read")
         if size == 2:  # MPSSE sync only
             return topology.MPSSE_SYNC_REPLY
+        if self.failure == "scan_a_read" and self.read_index < 2:
+            raise OSError("secret=DO_NOT_REPORT path=/private/raw")
+        if self.failure == "scan_b_read" and self.read_index >= 2:
+            raise OSError("secret=DO_NOT_REPORT path=/private/raw")
         responses = (response_for(topology.tdi_pattern()), response_for(topology.tdi_pattern_b()))
         value = responses[self.read_index // 2][0 if self.read_index % 2 == 0 else 1]
         self.read_index += 1
@@ -317,8 +321,9 @@ class TopologyTransportTests(unittest.TestCase):
             with self.subTest(phase=phase), self.assertRaises(transport.Refusal):
                 transport._run_with_backend(permit, backend)
             self.assertEqual(backend.close_count, 1)
-            with self.assertRaises(topology.Refusal):
+            with self.assertRaises(transport.Refusal) as replay:
                 transport._run_with_backend(permit, self.backend())
+            self.assertEqual(json.loads(replay.exception.canonical_envelope())["permit_consumed"], 1)
         backend = self.backend(short_read=True)
         with self.assertRaises(transport.Refusal):
             transport._run_with_backend(self.permit(), backend)
@@ -393,6 +398,146 @@ class TopologyTransportTests(unittest.TestCase):
             native._ftdi.ftdi_read_data = mock.Mock(return_value=bad_count)
             with self.subTest(read_result=bad_count), self.assertRaises(transport.Refusal):
                 native.read_exact(6)
+
+        trace = transport._AttemptTrace()
+        trace.phase = "SCAN_A_WRITE"
+        native._trace = trace
+        native._ftdi = SimpleNamespace(ftdi_write_data=mock.Mock(side_effect=(5, 0)))
+        with self.assertRaises(transport.Refusal):
+            native.write_exact(bytes.fromhex("39 03 00 11 22 33 44"))
+        self.assertEqual(trace.scan_a_tck_emitted, 16)
+        self.assertEqual(trace.refuse().envelope.scan_a_tck_emitted, 16)
+
+    def test_refusal_envelope_is_canonical_bounded_and_phase_specific(self):
+        cases = (
+            ((), "DEVICE_SELECTION", "NO_TARGET_CANDIDATE"),
+            ((self.backend().candidate, self.backend().candidate),
+             "DEVICE_SELECTION", "MULTIPLE_TARGET_CANDIDATES"),
+        )
+        for candidates, phase, code in cases:
+            permit = self.permit()
+            backend = self.backend(candidates=candidates)
+            with self.subTest(code=code), self.assertRaises(transport.Refusal) as caught:
+                transport._run_with_backend(permit, backend)
+            refusal = caught.exception
+            envelope = json.loads(refusal.canonical_envelope())
+            self.assertEqual(set(envelope), {
+                "status", "phase", "code", "evidence_path", "signature_verified",
+                "return_code", "target_candidates", "device_opened", "scan_a_started",
+                "scan_a_tck_emitted", "scan_b_started", "scan_b_tck_emitted",
+                "transport_closed", "permit_consumed",
+            })
+            self.assertEqual(envelope["status"], "REFUSED")
+            self.assertEqual(envelope["evidence_path"], "none")
+            self.assertIs(envelope["signature_verified"], False)
+            self.assertEqual((envelope["phase"], envelope["code"]), (phase, code))
+            self.assertEqual(envelope["permit_consumed"], 1)
+            self.assertNotIn("reason", envelope)
+            self.assertNotIn("path", envelope)
+            self.assertNotIn("stderr", envelope)
+            self.assertNotIn("secret", refusal.canonical_envelope().decode())
+            self.assertEqual(backend.open_count, 0)
+
+        phases = (
+            ("open", "DEVICE_OPEN", "DEVICE_OPEN_FAILED"),
+            ("initialize", "MPSSE_INIT", "MPSSE_INIT_FAILED"),
+            ("scan_a", "SCAN_A_WRITE", "SCAN_A_WRITE_FAILED"),
+            ("scan_a_read", "SCAN_A_READ", "SCAN_A_READ_FAILED"),
+            ("scan_b", "SCAN_B_WRITE", "SCAN_B_WRITE_FAILED"),
+            ("scan_b_read", "SCAN_B_READ", "SCAN_B_READ_FAILED"),
+            ("close", "TRANSPORT_CLOSE", "TRANSPORT_CLOSE_FAILED"),
+        )
+        for failure, phase, code in phases:
+            permit = self.permit()
+            backend = self.backend(failure=None if failure == "close" else failure,
+                                   close_failure=failure == "close")
+            with self.subTest(failure=failure), self.assertRaises(transport.Refusal) as caught:
+                transport._run_with_backend(permit, backend)
+            envelope = json.loads(caught.exception.canonical_envelope())
+            self.assertEqual((envelope["phase"], envelope["code"]), (phase, code))
+            self.assertNotIn("secret", caught.exception.canonical_envelope().decode())
+            with self.assertRaises(transport.Refusal) as replay:
+                transport._run_with_backend(permit, self.backend())
+            self.assertEqual(json.loads(replay.exception.canonical_envelope())["permit_consumed"], 1)
+
+    def test_permit_library_descriptor_and_local_validation_refusals_are_bounded(self):
+        with self.assertRaises(transport.Refusal) as invalid:
+            transport.run_fk0957_topology_discovery(object())
+        env = json.loads(invalid.exception.canonical_envelope())
+        self.assertEqual((env["phase"], env["code"]), ("PERMIT_VALIDATION", "PERMIT_INVALID"))
+        self.assertEqual(env["permit_consumed"], "unknown")
+
+        with self.assertRaises(transport.Refusal) as stale:
+            transport.issue_fk0957_topology_permit(b"not descriptor", "0" * 64)
+        env = json.loads(stale.exception.canonical_envelope())
+        self.assertEqual((env["phase"], env["code"]), ("PERMIT_VALIDATION", "DESCRIPTOR_STALE"))
+        self.assertEqual(env["permit_consumed"], 0)
+
+        permit = self.permit()
+        with mock.patch.object(transport, "transport_source_sha256",
+                               side_effect=transport.Refusal("secret path /private/native.so")):
+            with self.assertRaises(transport.Refusal) as library:
+                transport.run_fk0957_topology_discovery(permit)
+        env = json.loads(library.exception.canonical_envelope())
+        self.assertEqual((env["phase"], env["code"]),
+                         ("LIBRARY_PROVENANCE", "LIBRARY_PIN_MISMATCH"))
+        self.assertEqual(env["permit_consumed"], 1)
+        self.assertNotIn("private", library.exception.canonical_envelope().decode())
+
+        permit = self.permit()
+        result = transport._run_with_backend(permit, self.backend())
+        with mock.patch.object(transport.topology, "parse_raw_tdo",
+                               side_effect=topology.Refusal("secret stderr /unsafe/path")):
+            with self.assertRaises(transport.Refusal) as validation:
+                transport.validate_transport_observation(permit, result)
+        env = json.loads(validation.exception.canonical_envelope())
+        self.assertEqual((env["phase"], env["code"]),
+                         ("LOCAL_VALIDATION", "LOCAL_VALIDATION_FAILED"))
+        self.assertNotIn("unsafe", validation.exception.canonical_envelope().decode())
+
+        permit = self.permit()
+        result = transport._run_with_backend(permit, self.backend())
+        with mock.patch.object(transport, "_read_local_private_key",
+                               side_effect=transport.Refusal("secret key /private/key.pem")):
+            with self.assertRaises(transport.Refusal) as signing:
+                transport.sign_local_discovery_record(permit, result)
+        env = json.loads(signing.exception.canonical_envelope())
+        self.assertEqual((env["phase"], env["code"]),
+                         ("LOCAL_SIGNING", "LOCAL_SIGNING_FAILED"))
+        self.assertNotIn("private", signing.exception.canonical_envelope().decode())
+        self.assertNotIn("signature_hex", env)
+
+    def test_one_shot_workflow_orders_validate_before_local_sign_and_never_retries(self):
+        events = []
+        permit = object()
+        result = object()
+        with mock.patch.object(transport, "issue_fk0957_topology_permit",
+                               side_effect=lambda *_a, **_k: events.append("permit") or permit), \
+             mock.patch.object(transport, "run_fk0957_topology_discovery",
+                               side_effect=lambda _p: events.append("acquire") or result) as acquire, \
+             mock.patch.object(transport, "validate_transport_observation",
+                               side_effect=lambda *_a: events.append("validate")), \
+             mock.patch.object(transport, "sign_local_discovery_record",
+                               side_effect=lambda *_a: events.append("sign") or {"signed": True}):
+            envelope = transport.perform_fk0957_topology_discovery_once(b"descriptor", "a" * 64)
+        self.assertEqual(events, ["permit", "acquire", "validate", "sign"])
+        self.assertEqual(acquire.call_count, 1)
+        self.assertEqual(envelope, {"signed": True})
+
+        events.clear()
+        failure = transport.Refusal("untrusted secret text")
+        with mock.patch.object(transport, "issue_fk0957_topology_permit",
+                               return_value=permit), \
+             mock.patch.object(transport, "run_fk0957_topology_discovery",
+                               side_effect=failure) as acquire, \
+             mock.patch.object(transport, "validate_transport_observation") as validate, \
+             mock.patch.object(transport, "sign_local_discovery_record") as sign:
+            with self.assertRaises(transport.Refusal) as caught:
+                transport.perform_fk0957_topology_discovery_once(b"descriptor", "a" * 64)
+        self.assertEqual(acquire.call_count, 1)
+        validate.assert_not_called()
+        sign.assert_not_called()
+        self.assertEqual(json.loads(caught.exception.canonical_envelope())["status"], "REFUSED")
 
     def test_local_record_builder_signs_only_after_valid_transport(self):
         from cryptography.hazmat.primitives import serialization
