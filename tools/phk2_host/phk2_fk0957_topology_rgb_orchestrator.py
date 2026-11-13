@@ -180,6 +180,10 @@ def _pinned_ssh(request_raw: bytes, *, runner=None) -> tuple[bytes, dict[str, An
                 if isinstance(status_raw, str):
                     status_raw = status_raw.encode("utf-8", "strict")
                 status = endpoint._parse_canonical(status_raw, 1024 * 1024)
+                status_fields = {"schema", "operation_id", "authorization_id", "authorization_sha256",
+                                 "handoff_sha256", "manifest_sha256", "production_head",
+                                 "transaction_profile_sha256", "target", "one_shot", "registered_ns",
+                                 "state", "process", "exit_code", "reaped_ns", "result_b64"}
                 auth_payload = request_value.get("release_authorization", {}).get("payload", {})
                 handoff_payload = request_value.get("handoff", {}).get("payload", {})
                 manifest_payload = request_value.get("runtime_manifest", {}).get("payload", {})
@@ -187,7 +191,8 @@ def _pinned_ssh(request_raw: bytes, *, runner=None) -> tuple[bytes, dict[str, An
                 auth_sha = hashlib.sha256(endpoint.canonical(auth_payload)).hexdigest()
                 handoff_sha = hashlib.sha256(endpoint.canonical(handoff_payload)).hexdigest()
                 manifest_sha = hashlib.sha256(endpoint.canonical(manifest_payload)).hexdigest()
-                if (status.get("schema") != "fk0957-supervisor-status-v1" or
+                if (set(status) != status_fields or
+                        status.get("schema") != "fk0957-supervisor-status-v1" or
                         status.get("operation_id") != operation_id or
                         status.get("authorization_id") != auth_id or
                         status.get("authorization_sha256") != auth_sha or
@@ -199,6 +204,12 @@ def _pinned_ssh(request_raw: bytes, *, runner=None) -> tuple[bytes, dict[str, An
                     raise ValueError("status binding mismatch")
                 if status.get("state") not in {"EXITED_SUCCESS", "EXITED_REFUSAL", "EXITED_FAILURE"}:
                     raise ValueError("status is not terminal")
+                terminal_code = status.get("exit_code")
+                if (type(terminal_code) is not int or not -255 <= terminal_code <= 255 or
+                        (status["state"] == "EXITED_SUCCESS" and terminal_code != 0) or
+                        (status["state"] == "EXITED_REFUSAL" and terminal_code != 2) or
+                        (status["state"] == "EXITED_FAILURE" and terminal_code in (0, 2))):
+                    raise ValueError("terminal process state contradicts exit status")
                 child_identity = status.get("process")
                 if (type(child_identity) is not dict or child_identity.get("operation_id") != operation_id or
                         child_identity.get("authorization_id") != auth_id or
@@ -209,12 +220,14 @@ def _pinned_ssh(request_raw: bytes, *, runner=None) -> tuple[bytes, dict[str, An
                         not re.fullmatch(r"[0-9a-f]{64}", str(child_identity.get("executable_sha256", ""))) or
                         not re.fullmatch(r"[0-9a-f]{64}", str(child_identity.get("argv_sha256", "")))):
                     raise ValueError("child identity binding invalid")
-                if type(status.get("reaped_ns")) is not int or type(status.get("exit_code")) is not int:
+                if (type(status.get("registered_ns")) is not int or status["registered_ns"] <= 0 or
+                        type(status.get("reaped_ns")) is not int or status["reaped_ns"] <= 0 or
+                        status["reaped_ns"] < status["registered_ns"]):
                     raise ValueError("reap proof absent")
                 stdout = base64.b64decode(status.get("result_b64", ""), validate=True)
                 if not stdout or len(stdout) > MAX_RESPONSE_BYTES:
                     raise ValueError("recovered result absent or oversized")
-                code = status["exit_code"]
+                code = terminal_code
             except BaseException:
                 raise Refusal("remote process state unknown after SSH loss; do not restore ownership",
                               remote_state="REMOTE_STATE_UNKNOWN") from None

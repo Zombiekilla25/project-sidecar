@@ -1200,18 +1200,20 @@ def issue_fk0957_topology_permit(descriptor_evidence: bytes, expected_sha256: st
 
 def _authorize_remote_permit(permit: topology.DiscoveryPermit, *, request_raw: bytes | None = None,
                              **untrusted_digests: Any) -> None:
-    """Bind a permit only after revalidating and consuming the signed request.
+    """Bind a permit only inside the protected supervisor-launched endpoint.
 
     Raw caller-supplied digests are not authority. This internal transport
-    gate independently verifies release authorization, handoff, target,
-    manifest and freshness through the endpoint's pinned trust configuration,
-    then durably consumes the authorization before registering the permit.
+    gate independently verifies the signed release request, handoff, target,
+    manifest and freshness. The root supervisor has consumed the authorization
+    ledger before launching this process and supplies the kernel peer capability.
     """
     if (not isinstance(permit, topology.DiscoveryPermit) or type(request_raw) is not bytes or
             untrusted_digests):
         raise Refusal("remote release authorization context is invalid")
     try:
         import phk2_fk0957_remote_topology_endpoint as endpoint
+        if not endpoint.supervisor_capability_valid():
+            raise Refusal("remote authorization requires protected supervisor capability")
         issuers = endpoint._load_trust_config()
         context, _, _ = endpoint._validate_request(request_raw, issuers)
         if permit.descriptor_evidence_sha256 != context["descriptor_sha256"]:

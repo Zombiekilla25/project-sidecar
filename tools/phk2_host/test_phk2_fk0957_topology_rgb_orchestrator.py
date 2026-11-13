@@ -132,7 +132,7 @@ class RGBTopologyOrchestratorTests(unittest.TestCase):
             "manifest_sha256": hashlib.sha256(endpoint.canonical(manifest_payload)).hexdigest(),
             "production_head": manifest_payload.get("production_head"),
             "transaction_profile_sha256": manifest_payload.get("transaction_profile_sha256"),
-            "target": "FK0957", "one_shot": True,
+            "target": "FK0957", "one_shot": True, "registered_ns": 100,
             "state": "EXITED_SUCCESS", "exit_code": 0, "reaped_ns": 123,
             "process": {"operation_id": operation, "authorization_id": auth_id,
                         "pid": 100, "parent_pid": 50, "start_identity": "12345",
