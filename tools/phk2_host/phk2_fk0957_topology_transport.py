@@ -59,8 +59,8 @@ LIBRARY_PINS = (
     _LibraryPin("libusb", LIBUSB_REALPATH, LIBUSB_SHA256,
                 LIBUSB_BUILD_ID, "libusb-1.0.so.0", 117736),
     _LibraryPin("libc", Path("/usr/lib/x86_64-linux-gnu/libc.so.6"),
-                "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf",
-                "a4a7992a8e66555c8141ab2a08a8465ff6e0ea65", "libc.so.6", 2129424),
+                "755a371e86cc9f564ab54f66140747700fb0a103f698f659f2060f707897e09a",
+                "8cebda42d140fc2b09639f8b13a5d5f2e617ef09", "libc.so.6", 2129424),
     _LibraryPin("libftdi", LIBFTDI_REALPATH, LIBFTDI_SHA256,
                 LIBFTDI_BUILD_ID, "libftdi1.so.2", 64016),
 )

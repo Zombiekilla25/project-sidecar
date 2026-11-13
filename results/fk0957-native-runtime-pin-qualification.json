@@ -1,0 +1,92 @@
+{
+  "change": {
+    "component": "libc",
+    "loader_pin_policy": "loader inventoried separately; Python application pin enforcement does not occur before interpreter startup; no PRESTART validation claim",
+    "new_pin": {
+      "build_id": "8cebda42d140fc2b09639f8b13a5d5f2e617ef09",
+      "sha256": "755a371e86cc9f564ab54f66140747700fb0a103f698f659f2060f707897e09a"
+    },
+    "old_pin": {
+      "build_id": "a4a7992a8e66555c8141ab2a08a8465ff6e0ea65",
+      "sha256": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf"
+    },
+    "reason": "Ubuntu unattended-upgrade changed libc6 from 2.39-0ubuntu8.9 to 2.39-0ubuntu8.12; actual installed object matched signed repository/package provenance and passed isolated loader/symbol/tests."
+  },
+  "device_io": false,
+  "hardening_base_head": "9cf6bbfb9d3fa1bd9f2bbe232feda39d91fc5aee",
+  "hardware_access": false,
+  "independent_qualification": {
+    "ftdi_context_created": false,
+    "independent_test_count": 173,
+    "loaded_fd_hash_matches": true,
+    "loader_override_variables_refused": true,
+    "mapped_library_identity_matches": true,
+    "proposal_sha256": "348cfb276927a339fc11090f734d7f399467ee4c9cc1f9a7ae070d12f903f8e1",
+    "reproduced_in_disposable_copy_of_production_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
+    "reproduced_test_count": 173,
+    "required_symbols_present": true,
+    "review_commit": "6e67c4496a0e9d4c82f6a5601e50fcd1c7787d67",
+    "usb_enumeration_called": false
+  },
+  "limitations": [
+    "The exact .deb archive was not cached, so its bytes were not independently rehashed; signed Packages index, dpkg package records, dpkg verification, and installed ELF hashes/build IDs agree.",
+    "The dynamic loader was inventoried, but this candidate does not pin/check it before Python startup.",
+    "This is runtime qualification evidence only; not administrator deployment or live authorization."
+  ],
+  "network_access": false,
+  "package_provenance": {
+    "apt_history": "/var/log/apt/history.log: unattended-upgrade 2026-11-13 06:10:11 from 2.39-0ubuntu8.9 to 2.39-0ubuntu8.12",
+    "archive_cached": false,
+    "dpkg_verify": "PASS",
+    "package_record": {
+      "filename": "pool/main/g/glibc/libc6_2.39-0ubuntu8.12_amd64.deb",
+      "package": "libc6:amd64",
+      "sha256": "d821b41fc59cb4978ecd53bc83e5c964ac15d305c8d2ac4c8a35aebe55010fb9",
+      "size": 3264258,
+      "version": "2.39-0ubuntu8.12"
+    },
+    "signed_inrelease": {
+      "noble-security": "Good signature, Ubuntu archive key F6ECB3762474EDA9D21B7022871920D1991BC93C",
+      "noble-updates": "Good signature, Ubuntu archive key F6ECB3762474EDA9D21B7022871920D1991BC93C"
+    },
+    "signed_packages_index_sha256_match": true
+  },
+  "production_main_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
+  "runtime": {
+    "libc": {
+      "build_id": "8cebda42d140fc2b09639f8b13a5d5f2e617ef09",
+      "package": "libc6:amd64",
+      "path": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+      "realpath": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+      "sha256": "755a371e86cc9f564ab54f66140747700fb0a103f698f659f2060f707897e09a",
+      "version": "2.39-0ubuntu8.12"
+    },
+    "libftdi": {
+      "build_id": "5d7c81b08d369b6ea8654c825cbdff7fdce1f87c",
+      "package": "libftdi1-2:amd64",
+      "path": "/usr/lib/x86_64-linux-gnu/libftdi1.so.2.5.0",
+      "realpath": "/usr/lib/x86_64-linux-gnu/libftdi1.so.2.5.0",
+      "sha256": "0e5332df54c66f14ef9107934365b47b9429df02e3ff3402436bd85e9e3e84fe",
+      "version": "1.5-6build5"
+    },
+    "libusb": {
+      "build_id": "47533e904f636332fab2f1ca8847ad7759ed19ec",
+      "package": "libusb-1.0-0:amd64",
+      "path": "/usr/lib/x86_64-linux-gnu/libusb-1.0.so.0.4.0",
+      "realpath": "/usr/lib/x86_64-linux-gnu/libusb-1.0.so.0.4.0",
+      "sha256": "751349e3def1808981dc26bbeb746e2d6ff4ca97fc2c8bc8faaa8f46c879057f",
+      "version": "2:1.0.27-1"
+    },
+    "loader": {
+      "build_id": "231ab65dd867a89dce29cb958fd5ca50abb1aa34",
+      "package": "libc6:amd64",
+      "path": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+      "realpath": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+      "sha256": "5fc0940888e9d2e1a00e66d6b1a559c36364ee867683652e1074fa576952cc3f",
+      "version": "2.39-0ubuntu8.12"
+    }
+  },
+  "schema": "FK0957-NATIVE-RUNTIME-REQUALIFICATION-v1",
+  "status": "QUALIFIED_FOR_OFFLINE_LIBRARY_PIN_UPDATE_NOT_DEPLOYMENT",
+  "usb_access": false
+}

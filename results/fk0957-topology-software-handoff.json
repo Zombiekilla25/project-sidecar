@@ -1,75 +1,162 @@
 {
-  "schema": "FK0957-TOPOLOGY-SOFTWARE-HANDOFF-v1",
-  "qualification_scope": "offline software integration and regression only",
-  "production_code_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
-  "reference_model_commit": "ea2104c55a1d4dafe6da91c6d5ac28447ec336c1",
-  "independent_review": {
-    "result": "READY_FOR_PRODUCTION_INTEGRATION=YES",
-    "valid_state_rejected": 0,
-    "invalid_state_accepted": 0,
-    "post_publish_semantics": "PASS",
-    "failure_output_bounding": "PASS",
-    "enumeration_security": "PASS",
-    "transaction_invariants": "PASS",
-    "production_comparison": "PASS: 28 valid accepted; 249572 invalid rejected"
-  },
-  "corrected_state_model": {
-    "valid_states_tested": 28,
-    "invalid_states_tested": 249572,
-    "valid_state_rejected": 0,
-    "invalid_state_accepted": 0,
-    "reference_model_commit": "ea2104c55a1d4dafe6da91c6d5ac28447ec336c1"
-  },
-  "production_tests": {
-    "focused_tests_passed": 189,
-    "all_host_tool_tests_passed": 293,
-    "corrected_reference_model_tests_passed": 15,
-    "compileall": "PASS",
-    "production_import_smoke": "PASS",
-    "git_diff_check": "PASS",
-    "deterministic_soak": {
-      "seeds": 8,
-      "fault_order_checks": 112,
-      "randomized_enumeration_scenarios": 320,
-      "total_checks": 808,
-      "result": "PASS"
+  "approved_native_library_pins": [
+    {
+      "build_id": "7a7c2bbc541071e68f1c74f691d5ffba03bfb5ad",
+      "current_match": true,
+      "name": "libcap",
+      "path": "/usr/lib/x86_64-linux-gnu/libcap.so.2.66",
+      "sha256": "6ac6abc86ac891c6e13486470e26f1d939f47fda9e6b5d5508a7f5ec881adc84"
+    },
+    {
+      "build_id": "1166cb4a3de6a68b330a78ef0f099ebddf315698",
+      "current_match": true,
+      "name": "libudev",
+      "path": "/usr/lib/x86_64-linux-gnu/libudev.so.1.7.8",
+      "sha256": "0d6934adafb2ef3c640382440c14d6bd60f391e688c000796ffcea0c72849269"
+    },
+    {
+      "build_id": "47533e904f636332fab2f1ca8847ad7759ed19ec",
+      "current_match": true,
+      "name": "libusb",
+      "path": "/usr/lib/x86_64-linux-gnu/libusb-1.0.so.0.4.0",
+      "sha256": "751349e3def1808981dc26bbeb746e2d6ff4ca97fc2c8bc8faaa8f46c879057f"
+    },
+    {
+      "approved_build_id": "8cebda42d140fc2b09639f8b13a5d5f2e617ef09",
+      "approved_sha256": "755a371e86cc9f564ab54f66140747700fb0a103f698f659f2060f707897e09a",
+      "current_match": true,
+      "name": "libc",
+      "observed_build_id": "8cebda42d140fc2b09639f8b13a5d5f2e617ef09",
+      "observed_sha256": "755a371e86cc9f564ab54f66140747700fb0a103f698f659f2060f707897e09a",
+      "path": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+      "previous_build_id": "a4a7992a8e66555c8141ab2a08a8465ff6e0ea65",
+      "previous_sha256": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf"
+    },
+    {
+      "build_id": "5d7c81b08d369b6ea8654c825cbdff7fdce1f87c",
+      "current_match": true,
+      "name": "libftdi",
+      "path": "/usr/lib/x86_64-linux-gnu/libftdi1.so.2.5.0",
+      "sha256": "0e5332df54c66f14ef9107934365b47b9429df02e3ff3402436bd85e9e3e84fe"
     }
-  },
-  "source_files": {
-    "tools/phk2_host/phk2_fk0957_topology_transport.py": "244c72d9398ec7468a6ec4b684437be7db1e7001c9153cbe0d88db3dfcf6c038",
-    "tools/phk2_host/phk2_fk0957_topology_live_cli.py": "4d41d4b181447ad913a0c18ba14e3589fb54eed2065f23df30d94a0315458a60",
-    "tools/phk2_host/phk2_fk0957_topology_discovery.py": "d21e9e081d6c9fd26f97e0d2760d51b75cd9efdc3585c916a910b853c013a52e",
-    "tools/phk2_host/phk2_fk0957_idcode_gate.py": "229b4d97f8b00135a9d29b646058b2c63a7e48a70458783146ac2b17b208b5c0"
+  ],
+  "corrected_state_model": {
+    "invalid_state_accepted": 0,
+    "invalid_states_tested": 249572,
+    "reference_model_commit": "ea2104c55a1d4dafe6da91c6d5ac28447ec336c1",
+    "valid_state_rejected": 0,
+    "valid_states_tested": 28
   },
   "descriptor_identity": {
-    "card_id": "FK0957",
     "adapter_serial": "153300000957A",
-    "usb_descriptor_serial": "153300000957",
-    "vid": "0403",
+    "card_id": "FK0957",
+    "interface": "A",
     "pid": "6010",
-    "interface": "A"
+    "usb_descriptor_serial": "153300000957",
+    "vid": "0403"
   },
-  "transactions": {
-    "scan_a_tck_count": 591,
-    "scan_b_tck_count": 586,
-    "total_tck_count": 1177,
-    "scan_a_sha256": "81f0fb9eefad365e50d8cdbe855274bdf408104158ac193a50798e0aaba778f2",
-    "scan_b_sha256": "08534f71229a30798c82cc7518a934ada0113d38ba351ddb577ddd02a845336a",
-    "transaction_changed_from_preintegration_main": false,
-    "golden_source_commit": "dd51f7eb7a0c1956e0691c35de83905291e0fc42"
-  },
-  "testbench_host_key_pin_observation": {
-    "source_path": "/home/rmann/.local/share/sidecar/ssh/fk0957-testbench-known_hosts",
-    "mode": "0600",
-    "hardlink_count": 1,
-    "known_hosts_sha256": "20770a7196fc873644cc4b3abd42b68a84b8b96ea06bcd95986e53f95d9e14b6",
-    "ed25519_fingerprint": "SHA256:2CEM69gVgMUWTM4AmVj3s7plFQmiQxnOKlo44aur75E",
-    "verification_scope": "local file metadata and fingerprint only; no SSH or network access; not consumed by the local topology CLI"
-  },
-  "live_permit_issued": false,
-  "live_acquisition_performed": false,
-  "hardware_access": false,
   "handoff_generated_from_head": "6c25237d70f104efca408219258f7a4389b4951c",
+  "hardening_candidate": {
+    "base_production_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
+    "branch": "hardening/fk0957-production-20261113",
+    "hardware_access": false,
+    "head": "941d84234fa2cbff1ffb741661e6679197b9070c",
+    "live_acquisition_performed": false,
+    "native_library_requalification": "Independently reproduced: 173/173 suites with updated libc pin; prestart loader validation still absent.",
+    "native_runtime_prestart_validation": false,
+    "native_runtime_requalification": "Independent Right result reproduced: 173/173 FK0957 tests with one libc pin update in a disposable tree; integrated WIP pin tests also pass.",
+    "release_ready": false,
+    "runtime_source_hashes_match": true,
+    "unresolved_gates": [
+      "remote unsigned topology acquisition and RGB-only signing split",
+      "fresh permit-bound bridge ownership handoff with trusted issuer",
+      "administrator-controlled safe-launcher deployment",
+      "authenticated release manifest for exact runtime sources and clean Git state",
+      "native libc requalification after verified OS package update"
+    ]
+  },
+  "hardening_milestone": {
+    "branch": "hardening/fk0957-production-20261113",
+    "candidate_head": "fe94ef45e5b2ab5b3e4ed1ea8bc4f278751a67c0",
+    "evidence_parent_path_race_tests": "4 focused adversarial regressions pass",
+    "left_operations_review": "docs/handoffs/FK0957_LEFT_OPERATIONS_PATCH_REVIEW.md",
+    "native_library_requalification_artifact": "results/fk0957-native-library-requalification-required.json",
+    "native_runtime_inventory": "results/fk0957-native-runtime-inventory.json",
+    "production_main_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
+    "remaining_defect_classes": [
+      1,
+      2,
+      3,
+      4,
+      7,
+      8
+    ],
+    "ssh_authentication": "Local SSH_AUTH_SOCK remains available to local client; ForwardAgent=no",
+    "status": "WIP; not production ready",
+    "wip_remote_publish_authorized": true
+  },
+  "hardening_qualification": {
+    "all_fk0957_test_errors": 0,
+    "all_fk0957_tests_run": 204,
+    "compileall": "PASS",
+    "corrected_oracle_latest": "PASS: 28 valid accepted; 249572 invalid rejected; zero mismatches",
+    "corrected_oracle_randomized_checks": "400 enumeration scenarios and 300 fault-order checks",
+    "corrected_oracle_randomized_enumeration_scenarios": 400,
+    "corrected_oracle_randomized_fault_order_checks": 300,
+    "corrected_oracle_randomized_seeds": 20,
+    "corrected_state_oracle_commit": "ea2104c55a1d4dafe6da91c6d5ac28447ec336c1",
+    "evidence_parent_path_attack_tests": "PASS: rename/replacement/symlink/hardlink regression coverage",
+    "focused_tests_passed": 47,
+    "git_diff_check": "PASS",
+    "hardening_branch_tip_before_this_manifest_refresh": "fe94ef45e5b2ab5b3e4ed1ea8bc4f278751a67c0",
+    "hardware_access": false,
+    "invalid_state_accepted": 0,
+    "invalid_states_tested": 249572,
+    "latest_corrected_oracle": "PASS: 28 valid accepted; 249572 invalid rejected; 0 mismatches; 20 seeds",
+    "latest_evidence_race_soak": {
+      "cases": 160,
+      "cases_per_seed": 8,
+      "result": "PASS",
+      "seeds": 20
+    },
+    "latest_focused_tests_passed": 115,
+    "latest_full_fk0957_test_errors": 2,
+    "latest_full_fk0957_tests_run": 200,
+    "latest_malformed_envelope_fuzz": {
+      "cases": 20000,
+      "result": "PASS",
+      "uncaught_exceptions": 0
+    },
+    "left_operations_candidate": {
+      "agent_probe_reimplemented_locally": true,
+      "commit": "7ab491f1385a960c133b58134e18c2fec6a5b95b",
+      "committed_contract_integrated": false,
+      "current_left_worktree": "in progress with uncommitted validator/profile changes",
+      "latest_combined_contract_tests": "58 run; 1 error (NameError: tempfile not defined)",
+      "review": "docs/handoffs/FK0957_LEFT_OPERATIONS_PATCH_REVIEW.md"
+    },
+    "live_acquisition_performed": false,
+    "local_ssh_agent": "Owner-owned 0775 GNOME socket accepted only under private owner-only parent; forwarding disabled.",
+    "mutation_counter_semantics": "write_count/reset_count/program_count=0; jtag_operation_count=1 for the fixed read-only two-scan transaction",
+    "native_pin_reproduction_tests": 173,
+    "native_requalification_commit": "6e67c4496a0e9d4c82f6a5601e50fcd1c7787d67",
+    "native_runtime_inventory_status": "libc pin independently requalified and integrated on WIP branch; loader inventoried, not prestart-validated",
+    "orchestrator_tests_after_agent_probe": 68,
+    "production_importable_backend_argument_seam": "REMOVED",
+    "production_main_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
+    "production_main_modified": false,
+    "randomized_enumeration_scenarios": 400,
+    "randomized_fault_order_checks": 300,
+    "randomized_seeds": 20,
+    "ssh_agent_adversarial_tests": "PASS: owner/type/symlink/replacement/public-parent/missing/stale; protected 0775 GNOME socket accepted under 0700 parent",
+    "ssh_agent_probe": "PASS: valid agent identity response required; no identities refuse before SSH; ForwardAgent=no",
+    "startup_injection_regressions": "PASS: static launcher, -I -S, hostile sitecustomize/usercustomize, PYTHONPATH/PYTHONHOME/PYTHONUSERBASE, LD_PRELOAD/LD_LIBRARY_PATH and PATH substitution",
+    "test_error_reason": "The installed libc SHA256/build-id differs from the immutable approved pin; native runtime tests correctly refuse.",
+    "unhashable_refusal_fields": "CANONICAL_REJECT",
+    "valid_state_rejected": 0,
+    "valid_states_tested": 28
+  },
+  "hardware_access": false,
   "independent_audit_references": [
     {
       "commit": "ea2104c55a1d4dafe6da91c6d5ac28447ec336c1",
@@ -84,154 +171,85 @@
       "scope": "no-overwrite atomic evidence publication correction"
     }
   ],
-  "hardening_candidate": {
-    "branch": "hardening/fk0957-production-20261113",
-    "head": "fe94ef45e5b2ab5b3e4ed1ea8bc4f278751a67c0",
-    "base_production_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
-    "release_ready": false,
-    "hardware_access": false,
-    "live_acquisition_performed": false,
-    "unresolved_gates": [
-      "remote unsigned topology acquisition and RGB-only signing split",
-      "fresh permit-bound bridge ownership handoff with trusted issuer",
-      "administrator-controlled safe-launcher deployment",
-      "authenticated release manifest for exact runtime sources and clean Git state",
-      "native libc requalification after verified OS package update"
-    ],
-    "runtime_source_hashes_match": true
-  },
-  "hardening_qualification": {
-    "corrected_state_oracle_commit": "ea2104c55a1d4dafe6da91c6d5ac28447ec336c1",
-    "valid_states_tested": 28,
-    "invalid_states_tested": 249572,
-    "valid_state_rejected": 0,
+  "independent_review": {
+    "enumeration_security": "PASS",
+    "failure_output_bounding": "PASS",
     "invalid_state_accepted": 0,
-    "randomized_seeds": 20,
-    "randomized_enumeration_scenarios": 400,
-    "randomized_fault_order_checks": 300,
-    "focused_tests_passed": 47,
-    "all_fk0957_tests_run": 192,
-    "all_fk0957_test_errors": 2,
-    "test_error_reason": "The installed libc SHA256/build-id differs from the immutable approved pin; native runtime tests correctly refuse.",
-    "compileall": "PASS",
-    "git_diff_check": "PASS",
-    "startup_injection_regressions": "PASS: static launcher, -I -S, hostile sitecustomize/usercustomize, PYTHONPATH/PYTHONHOME/PYTHONUSERBASE, LD_PRELOAD/LD_LIBRARY_PATH and PATH substitution",
-    "production_importable_backend_argument_seam": "REMOVED",
-    "unhashable_refusal_fields": "CANONICAL_REJECT",
-    "mutation_counter_semantics": "write_count/reset_count/program_count=0; jtag_operation_count=1 for the fixed read-only two-scan transaction",
-    "latest_focused_tests_passed": 115,
-    "latest_full_fk0957_tests_run": 200,
-    "latest_full_fk0957_test_errors": 2,
-    "latest_full_fk0957_test_error_reason": "Both errors are native library tests refusing the changed installed libc SHA256/build-id; immutable pin intentionally remains unchanged.",
-    "corrected_oracle_latest": "PASS: 28 valid accepted; 249572 invalid rejected; zero mismatches",
-    "corrected_oracle_randomized_seeds": 20,
-    "corrected_oracle_randomized_checks": "400 enumeration scenarios and 300 fault-order checks",
-    "evidence_parent_path_attack_tests": "PASS: rename/replacement/symlink/hardlink regression coverage",
-    "local_ssh_agent": "Validated local SSH_AUTH_SOCK passed to local SSH client; ForwardAgent=no retained",
-    "production_main_modified": false,
-    "hardware_access": false,
-    "live_acquisition_performed": false,
-    "corrected_oracle_randomized_enumeration_scenarios": 400,
-    "corrected_oracle_randomized_fault_order_checks": 300,
-    "latest_evidence_race_soak": {
-      "seeds": 20,
-      "cases_per_seed": 8,
-      "cases": 160,
-      "result": "PASS"
-    },
-    "latest_malformed_envelope_fuzz": {
-      "cases": 20000,
-      "uncaught_exceptions": 0,
-      "result": "PASS"
-    },
-    "ssh_agent_probe": "PASS: valid agent identity response required; no identities refuse before SSH; ForwardAgent=no",
-    "orchestrator_tests_after_agent_probe": 64,
-    "native_runtime_inventory_status": "INVENTORY_ONLY_NOT_APPROVAL; libc pin mismatch remains",
-    "latest_corrected_oracle": "PASS: 28 valid accepted; 249572 invalid rejected; 0 mismatches; 20 seeds",
-    "left_operations_candidate": {
-      "commit": "7ab491f1385a960c133b58134e18c2fec6a5b95b",
-      "review": "docs/handoffs/FK0957_LEFT_OPERATIONS_PATCH_REVIEW.md",
-      "committed_contract_integrated": false,
-      "current_left_worktree": "in progress with uncommitted validator/profile changes",
-      "latest_combined_contract_tests": "58 run; 1 error (NameError: tempfile not defined)",
-      "agent_probe_reimplemented_locally": true
-    },
-    "production_main_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
-    "hardening_branch_tip_before_this_manifest_refresh": "fe94ef45e5b2ab5b3e4ed1ea8bc4f278751a67c0"
+    "post_publish_semantics": "PASS",
+    "production_comparison": "PASS: 28 valid accepted; 249572 invalid rejected",
+    "result": "READY_FOR_PRODUCTION_INTEGRATION=YES",
+    "transaction_invariants": "PASS",
+    "valid_state_rejected": 0
   },
+  "live_acquisition_performed": false,
+  "live_permit_issued": false,
+  "maintenance_controller_reference": null,
+  "native_runtime_requalification": "results/fk0957-native-runtime-pin-qualification.json",
+  "production_code_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
+  "production_tests": {
+    "all_host_tool_tests_passed": 293,
+    "compileall": "PASS",
+    "corrected_reference_model_tests_passed": 15,
+    "deterministic_soak": {
+      "fault_order_checks": 112,
+      "randomized_enumeration_scenarios": 320,
+      "result": "PASS",
+      "seeds": 8,
+      "total_checks": 808
+    },
+    "focused_tests_passed": 189,
+    "git_diff_check": "PASS",
+    "production_import_smoke": "PASS"
+  },
+  "qualification_scope": "offline software integration and regression only",
+  "reference_model_commit": "ea2104c55a1d4dafe6da91c6d5ac28447ec336c1",
   "runtime_source_hashes": {
-    "tools/phk2_host/phk2_fk0957_topology_transport.py": "534e00f79eb6189e2dc265eabce2ff2cfb4fdfd2e374d4b5837ac473bbddc126",
-    "tools/phk2_host/phk2_fk0957_topology_live_cli.py": "44d39f4d06420d311a80634d6c49d0e7c79f0fb05bc7d1ac5040b70a42d51ce7",
-    "tools/phk2_host/phk2_fk0957_topology_discovery.py": "d21e9e081d6c9fd26f97e0d2760d51b75cd9efdc3585c916a910b853c013a52e",
-    "tools/phk2_host/phk2_fk0957_idcode_gate.py": "229b4d97f8b00135a9d29b646058b2c63a7e48a70458783146ac2b17b208b5c0",
-    "tools/phk2_host/phk2_fk0957_remote_orchestrator.py": "2fb427065d3ecf43e5d869f12088882fa32a071c13d5ac88c3cf761b9781985a",
-    "tools/phk2_host/phk2_fk0957_remote_collector.py": "d944db4b592bba442431ca24a8f0ce2d8600e9f744d8e96c50bf27119f2f60b4",
-    "tools/phk2_host/phk2_fk0957_readonly_backend.py": "bc7b69f84e2851b017cf3a0e60e0e49c74f23467d97104528722992fcfd2add2",
-    "tools/phk2_host/phk2_fk0957_identity_observer.py": "49651502745163b2d69d2641b319f7d88b602a60ba4d91ee042afe81e354fd7e",
+    "tools/phk2_host/build_fk0957_safe_launcher.py": "11b5cf6bf6399c9321edf311433b4d1dde53d6d72111c60f0195c89b0b62089a",
+    "tools/phk2_host/fk0957_safe_bootstrap.py": "5f6aa7153431479fb6959333cb30f5873145cd509d32cb89da4bae31b3cd7e3d",
+    "tools/phk2_host/fk0957_safe_launcher.c": "4dfb65d68ed9b152ccad3d99550a15a4c311fcda7078083dd981caa739c554d5",
     "tools/phk2_host/phk2_fk0957_ephemeral_bundle.py": "a60d4bb57fea4e9441bf9a89476e286da16e12d4b9bd9cf7c7df8178a41c3438",
     "tools/phk2_host/phk2_fk0957_ephemeral_runner.py": "8e3aaf2422199072551c9be495c0335df61e3d7abaf1c4fc9f6cfd015a351813",
-    "tools/phk2_host/fk0957_safe_launcher.c": "4dfb65d68ed9b152ccad3d99550a15a4c311fcda7078083dd981caa739c554d5",
-    "tools/phk2_host/fk0957_safe_bootstrap.py": "5f6aa7153431479fb6959333cb30f5873145cd509d32cb89da4bae31b3cd7e3d",
-    "tools/phk2_host/build_fk0957_safe_launcher.py": "11b5cf6bf6399c9321edf311433b4d1dde53d6d72111c60f0195c89b0b62089a"
+    "tools/phk2_host/phk2_fk0957_idcode_gate.py": "229b4d97f8b00135a9d29b646058b2c63a7e48a70458783146ac2b17b208b5c0",
+    "tools/phk2_host/phk2_fk0957_identity_observer.py": "49651502745163b2d69d2641b319f7d88b602a60ba4d91ee042afe81e354fd7e",
+    "tools/phk2_host/phk2_fk0957_readonly_backend.py": "bc7b69f84e2851b017cf3a0e60e0e49c74f23467d97104528722992fcfd2add2",
+    "tools/phk2_host/phk2_fk0957_remote_collector.py": "d944db4b592bba442431ca24a8f0ce2d8600e9f744d8e96c50bf27119f2f60b4",
+    "tools/phk2_host/phk2_fk0957_remote_orchestrator.py": "5ad10665b89257dcbc06bee63f942d63c86cb200c9e4e8cf18ddd406e51779a9",
+    "tools/phk2_host/phk2_fk0957_topology_discovery.py": "d21e9e081d6c9fd26f97e0d2760d51b75cd9efdc3585c916a910b853c013a52e",
+    "tools/phk2_host/phk2_fk0957_topology_live_cli.py": "44d39f4d06420d311a80634d6c49d0e7c79f0fb05bc7d1ac5040b70a42d51ce7",
+    "tools/phk2_host/phk2_fk0957_topology_transport.py": "ea6d087de011f9d76daaeb57dcebc3fd944bd80649169aeff95f29277285b8b3"
   },
-  "approved_native_library_pins": [
-    {
-      "name": "libcap",
-      "path": "/usr/lib/x86_64-linux-gnu/libcap.so.2.66",
-      "sha256": "6ac6abc86ac891c6e13486470e26f1d939f47fda9e6b5d5508a7f5ec881adc84",
-      "build_id": "7a7c2bbc541071e68f1c74f691d5ffba03bfb5ad",
-      "current_match": true
-    },
-    {
-      "name": "libudev",
-      "path": "/usr/lib/x86_64-linux-gnu/libudev.so.1.7.8",
-      "sha256": "0d6934adafb2ef3c640382440c14d6bd60f391e688c000796ffcea0c72849269",
-      "build_id": "1166cb4a3de6a68b330a78ef0f099ebddf315698",
-      "current_match": true
-    },
-    {
-      "name": "libusb",
-      "path": "/usr/lib/x86_64-linux-gnu/libusb-1.0.so.0.4.0",
-      "sha256": "751349e3def1808981dc26bbeb746e2d6ff4ca97fc2c8bc8faaa8f46c879057f",
-      "build_id": "47533e904f636332fab2f1ca8847ad7759ed19ec",
-      "current_match": true
-    },
-    {
-      "name": "libc",
-      "path": "/usr/lib/x86_64-linux-gnu/libc.so.6",
-      "approved_sha256": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf",
-      "approved_build_id": "a4a7992a8e66555c8141ab2a08a8465ff6e0ea65",
-      "observed_sha256": "755a371e86cc9f564ab54f66140747700fb0a103f698f659f2060f707897e09a",
-      "observed_build_id": "8cebda42d140fc2b09639f8b13a5d5f2e617ef09",
-      "current_match": false
-    },
-    {
-      "name": "libftdi",
-      "path": "/usr/lib/x86_64-linux-gnu/libftdi1.so.2.5.0",
-      "sha256": "0e5332df54c66f14ef9107934365b47b9429df02e3ff3402436bd85e9e3e84fe",
-      "build_id": "5d7c81b08d369b6ea8654c825cbdff7fdce1f87c",
-      "current_match": true
-    }
-  ],
-  "maintenance_controller_reference": null,
-  "hardening_milestone": {
-    "branch": "hardening/fk0957-production-20261113",
-    "candidate_head": "fe94ef45e5b2ab5b3e4ed1ea8bc4f278751a67c0",
-    "production_main_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
-    "status": "WIP; not production ready",
-    "wip_remote_publish_authorized": true,
-    "evidence_parent_path_race_tests": "4 focused adversarial regressions pass",
-    "ssh_authentication": "Local SSH_AUTH_SOCK remains available to local client; ForwardAgent=no",
-    "native_library_requalification_artifact": "results/fk0957-native-library-requalification-required.json",
-    "remaining_defect_classes": [
-      1,
-      2,
-      3,
-      4,
-      7,
-      8
-    ],
-    "left_operations_review": "docs/handoffs/FK0957_LEFT_OPERATIONS_PATCH_REVIEW.md",
-    "native_runtime_inventory": "results/fk0957-native-runtime-inventory.json"
+  "runtime_source_hashes_match": true,
+  "schema": "FK0957-TOPOLOGY-SOFTWARE-HANDOFF-v1",
+  "source_files": {
+    "tools/phk2_host/build_fk0957_safe_launcher.py": "11b5cf6bf6399c9321edf311433b4d1dde53d6d72111c60f0195c89b0b62089a",
+    "tools/phk2_host/fk0957_safe_bootstrap.py": "5f6aa7153431479fb6959333cb30f5873145cd509d32cb89da4bae31b3cd7e3d",
+    "tools/phk2_host/fk0957_safe_launcher.c": "4dfb65d68ed9b152ccad3d99550a15a4c311fcda7078083dd981caa739c554d5",
+    "tools/phk2_host/phk2_fk0957_ephemeral_bundle.py": "a60d4bb57fea4e9441bf9a89476e286da16e12d4b9bd9cf7c7df8178a41c3438",
+    "tools/phk2_host/phk2_fk0957_ephemeral_runner.py": "8e3aaf2422199072551c9be495c0335df61e3d7abaf1c4fc9f6cfd015a351813",
+    "tools/phk2_host/phk2_fk0957_idcode_gate.py": "229b4d97f8b00135a9d29b646058b2c63a7e48a70458783146ac2b17b208b5c0",
+    "tools/phk2_host/phk2_fk0957_identity_observer.py": "49651502745163b2d69d2641b319f7d88b602a60ba4d91ee042afe81e354fd7e",
+    "tools/phk2_host/phk2_fk0957_readonly_backend.py": "bc7b69f84e2851b017cf3a0e60e0e49c74f23467d97104528722992fcfd2add2",
+    "tools/phk2_host/phk2_fk0957_remote_collector.py": "d944db4b592bba442431ca24a8f0ce2d8600e9f744d8e96c50bf27119f2f60b4",
+    "tools/phk2_host/phk2_fk0957_remote_orchestrator.py": "5ad10665b89257dcbc06bee63f942d63c86cb200c9e4e8cf18ddd406e51779a9",
+    "tools/phk2_host/phk2_fk0957_topology_discovery.py": "d21e9e081d6c9fd26f97e0d2760d51b75cd9efdc3585c916a910b853c013a52e",
+    "tools/phk2_host/phk2_fk0957_topology_live_cli.py": "44d39f4d06420d311a80634d6c49d0e7c79f0fb05bc7d1ac5040b70a42d51ce7",
+    "tools/phk2_host/phk2_fk0957_topology_transport.py": "ea6d087de011f9d76daaeb57dcebc3fd944bd80649169aeff95f29277285b8b3"
+  },
+  "testbench_host_key_pin_observation": {
+    "ed25519_fingerprint": "SHA256:2CEM69gVgMUWTM4AmVj3s7plFQmiQxnOKlo44aur75E",
+    "hardlink_count": 1,
+    "known_hosts_sha256": "20770a7196fc873644cc4b3abd42b68a84b8b96ea06bcd95986e53f95d9e14b6",
+    "mode": "0600",
+    "source_path": "/home/rmann/.local/share/sidecar/ssh/fk0957-testbench-known_hosts",
+    "verification_scope": "local file metadata and fingerprint only; no SSH or network access; not consumed by the local topology CLI"
+  },
+  "transactions": {
+    "golden_source_commit": "dd51f7eb7a0c1956e0691c35de83905291e0fc42",
+    "scan_a_sha256": "81f0fb9eefad365e50d8cdbe855274bdf408104158ac193a50798e0aaba778f2",
+    "scan_a_tck_count": 591,
+    "scan_b_sha256": "08534f71229a30798c82cc7518a934ada0113d38ba351ddb577ddd02a845336a",
+    "scan_b_tck_count": 586,
+    "total_tck_count": 1177,
+    "transaction_changed_from_preintegration_main": false
   }
 }

@@ -1,84 +1,92 @@
 {
-  "schema": "fk0957-native-runtime-inventory-v1",
-  "status": "INVENTORY_ONLY_NOT_APPROVAL",
-  "hardware_access": false,
-  "usb_access": false,
-  "network_access": false,
-  "python_entrypoint": {
-    "configured_path": "/usr/bin/python3",
-    "realpath": "/usr/bin/python3.12",
-    "sha256": "e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f",
-    "build_id": "337d65cf00021797985cc9f77c0cc334a9fbeb38",
-    "package_owner": "python3.12-minimal: /usr/bin/python3.12"
-  },
   "elf_loader": {
-    "interpreter_path": "/lib64/ld-linux-x86-64.so.2",
-    "realpath": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
-    "sha256": "5fc0940888e9d2e1a00e66d6b1a559c36364ee867683652e1074fa576952cc3f",
+    "approved_pin_present": false,
     "build_id": "231ab65dd867a89dce29cb958fd5ca50abb1aa34",
+    "interpreter_path": "/lib64/ld-linux-x86-64.so.2",
     "package_owner": "libc6:amd64: /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
-    "approved_pin_present": false
+    "package_version": "2.39-0ubuntu8.12",
+    "qualification_status": "inventoried; prestart pin enforcement not implemented",
+    "realpath": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+    "sha256": "5fc0940888e9d2e1a00e66d6b1a559c36364ee867683652e1074fa576952cc3f"
   },
+  "hardware_access": false,
   "native_libraries": [
     {
-      "name": "libcap",
-      "approved_path": "/usr/lib/x86_64-linux-gnu/libcap.so.2.66",
-      "approved_sha256": "6ac6abc86ac891c6e13486470e26f1d939f47fda9e6b5d5508a7f5ec881adc84",
-      "approved_build_id": "7a7c2bbc541071e68f1c74f691d5ffba03bfb5ad",
+      "actual_build_id": "7a7c2bbc541071e68f1c74f691d5ffba03bfb5ad",
       "actual_realpath": "/usr/lib/x86_64-linux-gnu/libcap.so.2.66",
       "actual_sha256": "6ac6abc86ac891c6e13486470e26f1d939f47fda9e6b5d5508a7f5ec881adc84",
-      "actual_build_id": "7a7c2bbc541071e68f1c74f691d5ffba03bfb5ad",
-      "package_owner": "libcap2:amd64: /usr/lib/x86_64-linux-gnu/libcap.so.2.66",
-      "approved_pin_match": true
+      "approved_build_id": "7a7c2bbc541071e68f1c74f691d5ffba03bfb5ad",
+      "approved_path": "/usr/lib/x86_64-linux-gnu/libcap.so.2.66",
+      "approved_pin_match": true,
+      "approved_sha256": "6ac6abc86ac891c6e13486470e26f1d939f47fda9e6b5d5508a7f5ec881adc84",
+      "name": "libcap",
+      "package_owner": "libcap2:amd64: /usr/lib/x86_64-linux-gnu/libcap.so.2.66"
     },
     {
-      "name": "libudev",
-      "approved_path": "/usr/lib/x86_64-linux-gnu/libudev.so.1.7.8",
-      "approved_sha256": "0d6934adafb2ef3c640382440c14d6bd60f391e688c000796ffcea0c72849269",
-      "approved_build_id": "1166cb4a3de6a68b330a78ef0f099ebddf315698",
+      "actual_build_id": "1166cb4a3de6a68b330a78ef0f099ebddf315698",
       "actual_realpath": "/usr/lib/x86_64-linux-gnu/libudev.so.1.7.8",
       "actual_sha256": "0d6934adafb2ef3c640382440c14d6bd60f391e688c000796ffcea0c72849269",
-      "actual_build_id": "1166cb4a3de6a68b330a78ef0f099ebddf315698",
-      "package_owner": "libudev1:amd64: /usr/lib/x86_64-linux-gnu/libudev.so.1.7.8",
-      "approved_pin_match": true
+      "approved_build_id": "1166cb4a3de6a68b330a78ef0f099ebddf315698",
+      "approved_path": "/usr/lib/x86_64-linux-gnu/libudev.so.1.7.8",
+      "approved_pin_match": true,
+      "approved_sha256": "0d6934adafb2ef3c640382440c14d6bd60f391e688c000796ffcea0c72849269",
+      "name": "libudev",
+      "package_owner": "libudev1:amd64: /usr/lib/x86_64-linux-gnu/libudev.so.1.7.8"
     },
     {
-      "name": "libusb",
-      "approved_path": "/usr/lib/x86_64-linux-gnu/libusb-1.0.so.0.4.0",
-      "approved_sha256": "751349e3def1808981dc26bbeb746e2d6ff4ca97fc2c8bc8faaa8f46c879057f",
-      "approved_build_id": "47533e904f636332fab2f1ca8847ad7759ed19ec",
+      "actual_build_id": "47533e904f636332fab2f1ca8847ad7759ed19ec",
       "actual_realpath": "/usr/lib/x86_64-linux-gnu/libusb-1.0.so.0.4.0",
       "actual_sha256": "751349e3def1808981dc26bbeb746e2d6ff4ca97fc2c8bc8faaa8f46c879057f",
-      "actual_build_id": "47533e904f636332fab2f1ca8847ad7759ed19ec",
-      "package_owner": "libusb-1.0-0:amd64: /usr/lib/x86_64-linux-gnu/libusb-1.0.so.0.4.0",
-      "approved_pin_match": true
+      "approved_build_id": "47533e904f636332fab2f1ca8847ad7759ed19ec",
+      "approved_path": "/usr/lib/x86_64-linux-gnu/libusb-1.0.so.0.4.0",
+      "approved_pin_match": true,
+      "approved_sha256": "751349e3def1808981dc26bbeb746e2d6ff4ca97fc2c8bc8faaa8f46c879057f",
+      "name": "libusb",
+      "package_owner": "libusb-1.0-0:amd64: /usr/lib/x86_64-linux-gnu/libusb-1.0.so.0.4.0"
     },
     {
-      "name": "libc",
-      "approved_path": "/usr/lib/x86_64-linux-gnu/libc.so.6",
-      "approved_sha256": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf",
-      "approved_build_id": "a4a7992a8e66555c8141ab2a08a8465ff6e0ea65",
+      "actual_build_id": "8cebda42d140fc2b09639f8b13a5d5f2e617ef09",
       "actual_realpath": "/usr/lib/x86_64-linux-gnu/libc.so.6",
       "actual_sha256": "755a371e86cc9f564ab54f66140747700fb0a103f698f659f2060f707897e09a",
-      "actual_build_id": "8cebda42d140fc2b09639f8b13a5d5f2e617ef09",
+      "approved_build_id": "8cebda42d140fc2b09639f8b13a5d5f2e617ef09",
+      "approved_path": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+      "approved_pin_match": true,
+      "approved_sha256": "755a371e86cc9f564ab54f66140747700fb0a103f698f659f2060f707897e09a",
+      "name": "libc",
       "package_owner": "libc6:amd64: /usr/lib/x86_64-linux-gnu/libc.so.6",
-      "approved_pin_match": false
+      "package_version": "2.39-0ubuntu8.12",
+      "previous_approved_build_id": "a4a7992a8e66555c8141ab2a08a8465ff6e0ea65",
+      "previous_approved_sha256": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf"
     },
     {
-      "name": "libftdi",
-      "approved_path": "/usr/lib/x86_64-linux-gnu/libftdi1.so.2.5.0",
-      "approved_sha256": "0e5332df54c66f14ef9107934365b47b9429df02e3ff3402436bd85e9e3e84fe",
-      "approved_build_id": "5d7c81b08d369b6ea8654c825cbdff7fdce1f87c",
+      "actual_build_id": "5d7c81b08d369b6ea8654c825cbdff7fdce1f87c",
       "actual_realpath": "/usr/lib/x86_64-linux-gnu/libftdi1.so.2.5.0",
       "actual_sha256": "0e5332df54c66f14ef9107934365b47b9429df02e3ff3402436bd85e9e3e84fe",
-      "actual_build_id": "5d7c81b08d369b6ea8654c825cbdff7fdce1f87c",
-      "package_owner": "libftdi1-2:amd64: /usr/lib/x86_64-linux-gnu/libftdi1.so.2.5.0",
-      "approved_pin_match": true
+      "approved_build_id": "5d7c81b08d369b6ea8654c825cbdff7fdce1f87c",
+      "approved_path": "/usr/lib/x86_64-linux-gnu/libftdi1.so.2.5.0",
+      "approved_pin_match": true,
+      "approved_sha256": "0e5332df54c66f14ef9107934365b47b9429df02e3ff3402436bd85e9e3e84fe",
+      "name": "libftdi",
+      "package_owner": "libftdi1-2:amd64: /usr/lib/x86_64-linux-gnu/libftdi1.so.2.5.0"
     }
   ],
+  "network_access": false,
+  "python_entrypoint": {
+    "build_id": "337d65cf00021797985cc9f77c0cc334a9fbeb38",
+    "configured_path": "/usr/bin/python3",
+    "package_owner": "python3.12-minimal: /usr/bin/python3.12",
+    "realpath": "/usr/bin/python3.12",
+    "sha256": "e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f"
+  },
   "qualification": {
-    "libc_pin_pass": false,
-    "right_independent_requalification_received": false,
-    "pins_changed": false
-  }
+    "dynamic_loader_prestart_pin_enforced": false,
+    "hardware_access": false,
+    "libc_pin_pass": true,
+    "pins_changed": true,
+    "right_independent_requalification_received": true,
+    "usb_access": false
+  },
+  "schema": "fk0957-native-runtime-inventory-v1",
+  "status": "PIN_QUALIFIED_FOR_WIP_INTEGRATION_PRESTART_LOADER_BOUNDARY_PENDING",
+  "usb_access": false
 }
