@@ -1,7 +1,27 @@
-# FK0957 reset-default DR topology discovery (offline preparation)
+# FK0957 reset-default DR topology discovery
 
-This detached-worktree implementation is mock-only. It does not provide a
-production USB/FTDI opener, CLI, live invocation path, or local evidence signer.
+## Production software status
+
+The one-shot local topology transport and CLI are integrated in production
+code commit `dd51f7eb7a0c1956e0691c35de83905291e0fc42`. The transport uses the
+pinned native FTDI/libusb runtime, exact descriptor-bound FK0957 selection,
+the fixed two-scan MPSSE plan, local validation, local signing, and atomic
+evidence publication. The CLI has no scan or transport override options.
+
+The corrected independent state model at
+`ea2104c55a1d4dafe6da91c6d5ac28447ec336c1` reports 28 valid and 249,572
+invalid boundary states; production accepts all 28 valid states and rejects
+all invalid states. The focused production suite passed 187 tests, including
+enumeration, refusal, permit/replay, library provenance, transaction, and
+evidence atomicity coverage. Right's independent review reported
+`READY_FOR_PRODUCTION_INTEGRATION=YES` and all corresponding invariants passed.
+
+This is a software qualification record only. It does not issue a permit,
+perform a live acquisition, or authorize hardware access.
+
+The deterministic hashes and local host-key pin provenance recorded for this
+integration are in
+[`results/fk0957-topology-software-handoff.json`](../results/fk0957-topology-software-handoff.json).
 
 ## MPSSE edge decision
 
@@ -85,11 +105,9 @@ signing code exists here.
 
 ## Readiness boundary
 
-The mock algorithm and permit policy are implemented and tested. The
-production entry point refuses because no narrow adapter yet connects the
-permit to a complete exact-device sysfs/libusb enumeration, opens only the
-selected FTDI handle, executes the fixed MPSSE command plan, and returns
-internally read bytes. Therefore this patch is **not live-ready**. The next
-blocker is the separately reviewed narrow FTDI transport adapter and its
-mocked exact-device/open/close tests. Do not add IR-length discovery until a
-separate safe instruction-update procedure is reviewed.
+The production path and its offline invariants are present and independently
+reviewed. A live topology read remains a separate physical operation requiring
+the applicable operator authorization and live preflight. This software
+qualification performed no USB, JTAG, or hardware access. Do not extend this
+path to IR-length discovery, IDCODE qualification, DNA, or image identity
+without a separate review and authorization.

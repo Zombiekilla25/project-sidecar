@@ -1,0 +1,57 @@
+{
+  "schema": "FK0957-TOPOLOGY-SOFTWARE-HANDOFF-v1",
+  "qualification_scope": "offline software integration and regression only",
+  "production_code_head": "dd51f7eb7a0c1956e0691c35de83905291e0fc42",
+  "reference_model_commit": "ea2104c55a1d4dafe6da91c6d5ac28447ec336c1",
+  "independent_review": {
+    "result": "READY_FOR_PRODUCTION_INTEGRATION=YES",
+    "valid_state_rejected": 0,
+    "invalid_state_accepted": 0,
+    "post_publish_semantics": "PASS",
+    "failure_output_bounding": "PASS",
+    "enumeration_security": "PASS",
+    "transaction_invariants": "PASS"
+  },
+  "corrected_state_model": {
+    "valid_states_tested": 28,
+    "invalid_states_tested": 249572,
+    "valid_state_rejected": 0,
+    "invalid_state_accepted": 0
+  },
+  "production_tests": {
+    "focused_tests_passed": 187,
+    "compileall": "PASS",
+    "git_diff_check": "PASS"
+  },
+  "source_files": {
+    "tools/phk2_host/phk2_fk0957_topology_transport.py": "244c72d9398ec7468a6ec4b684437be7db1e7001c9153cbe0d88db3dfcf6c038",
+    "tools/phk2_host/phk2_fk0957_topology_live_cli.py": "97ce539009bd39e5808dfcd4fa68f2fc27ad00a86f6913353b59cff88ff1f756"
+  },
+  "descriptor_identity": {
+    "card_id": "FK0957",
+    "adapter_serial": "153300000957A",
+    "usb_descriptor_serial": "153300000957",
+    "vid": "0403",
+    "pid": "6010",
+    "interface": "A"
+  },
+  "transactions": {
+    "scan_a_tck_count": 591,
+    "scan_b_tck_count": 586,
+    "total_tck_count": 1177,
+    "scan_a_sha256": "81f0fb9eefad365e50d8cdbe855274bdf408104158ac193a50798e0aaba778f2",
+    "scan_b_sha256": "08534f71229a30798c82cc7518a934ada0113d38ba351ddb577ddd02a845336a",
+    "transaction_changed_from_preintegration_main": false
+  },
+  "testbench_host_key_pin_observation": {
+    "source_path": "/home/rmann/.local/share/sidecar/ssh/fk0957-testbench-known_hosts",
+    "mode": "0600",
+    "hardlink_count": 1,
+    "known_hosts_sha256": "20770a7196fc873644cc4b3abd42b68a84b8b96ea06bcd95986e53f95d9e14b6",
+    "ed25519_fingerprint": "SHA256:2CEM69gVgMUWTM4AmVj3s7plFQmiQxnOKlo44aur75E",
+    "verification_scope": "local file metadata and fingerprint only; no SSH or network access"
+  },
+  "live_permit_issued": false,
+  "live_acquisition_performed": false,
+  "hardware_access": false
+}
