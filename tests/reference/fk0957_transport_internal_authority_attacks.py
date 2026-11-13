@@ -63,16 +63,23 @@ def run(candidate: Path) -> dict:
                     normal_endpoint_opens = backend.open_count
                     with transport._REMOTE_AUTH_LOCK:
                         transport._REMOTE_AUTHORIZED_PERMITS[token] = request_case.request_bytes()
-                    result = transport.run_fk0957_topology_discovery(permit)
+                    try:
+                        result = transport.run_fk0957_topology_discovery(permit)
+                        direct_route = "OBSERVATION_RETURNED"
+                    except transport.Refusal:
+                        result = None
+                        direct_route = "REFUSED"
                     outputs[attack] = {
                         "normal_endpoint_result": normal_endpoint,
                         "normal_endpoint_fake_open_count": normal_endpoint_opens,
                         "request_signatures_valid": True,
                         "descriptor_evidence_signature_valid": False,
                         "runtime_manifest_validated": True,
+                        "direct_internal_route": direct_route,
+                        "observation_returned": result is not None and
+                        result.descriptor_evidence_sha256 == request_case.descriptor_sha,
                         "fake_backend_open_count": backend.open_count,
                         "fake_backend_close_count": backend.close_count,
-                        "observation_returned": result.descriptor_evidence_sha256 == request_case.descriptor_sha,
                         "permit_consumed": token in topology._CONSUMED,
                         "hardware_backend_used": False,
                     }
@@ -82,8 +89,10 @@ def run(candidate: Path) -> dict:
                         transport._run_consumed_permit(
                             permit, source_sha256_before="0" * 64,
                             request_raw=request_case.request_bytes())
+                    except TypeError:
+                        outcome = "CALLER_SOURCE_HASH_PARAMETER_REJECTED"
                     except transport.Refusal:
-                        outcome = "REFUSED_AFTER_POST_IO_SOURCE_HASH_MISMATCH"
+                        outcome = "REFUSED"
                     outputs[attack] = {
                         "request_signatures_valid": True,
                         "descriptor_evidence_signature_valid": False,
