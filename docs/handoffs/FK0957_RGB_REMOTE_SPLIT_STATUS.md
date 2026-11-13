@@ -1,0 +1,59 @@
+# FK0957 remote acquisition and RGB signing WIP
+
+This note records the offline implementation milestone on the hardening
+branch. It is not production authorization and does not permit a live read.
+
+## Implemented path
+
+The testbench endpoint is `phk2_fk0957_remote_topology_endpoint.py`. Its fixed
+entrypoint accepts one canonical request, verifies signed release authorization,
+handoff and runtime manifest records, consumes a durable authorization ledger
+entry before transport acquisition, invokes one fixed topology transaction,
+and emits an unsigned result. It has no signing import or arbitrary vector
+interface.
+
+The RGB entrypoint is `phk2_fk0957_topology_rgb_cli.py`, selected by the safe
+bootstrap. It uses the pinned SSH policy with `ForwardAgent=no`, keeps the
+validated agent socket in the local SSH child environment, validates the
+returned unsigned record and raw TDO locally, signs on RGB, verifies the signed
+envelope and atomically publishes evidence. Refusals and SSH timeouts do not
+sign or publish; timeout means remote state is unknown and must not trigger
+ownership restoration. The prior combined local acquisition/signing API now
+fails closed.
+
+The fixed transaction remains Scan A 591 TCK, Scan B 586 TCK, total 1177 TCK.
+No physical operation was run for this milestone.
+
+## Offline checks
+
+The focused remote endpoint, RGB orchestrator/CLI, safe launcher, and FK0957
+suite passed 221 tests after the change. Python compileall passed. The wider
+suite preserves topology, enumeration, permit, evidence, and refusal checks.
+
+## Remaining deployment gates
+
+This code is intentionally non-operational until the following trusted
+deployment inputs and integration work exist:
+
+* `TRUST_CONFIG_SHA256` in the remote endpoint is empty. The protected release
+  and handoff issuer public-key pin file and corresponding administrator-held
+  issuer keys have not been provisioned. The endpoint therefore refuses before
+  transport open.
+* The signed manifest currently checks the remote endpoint, transport,
+  discovery, and identity-gate source subset. It is not yet the complete
+  authenticated cross-host release manifest covering RGB launcher, CLI,
+  signer, configuration, and all runtime sources.
+* The reviewed maintenance authority has not been integrated as a trusted
+  handoff issuer. Caller-supplied bridge state is not an authority.
+* There is no remote supervisor/status protocol that proves the acquisition
+  process exited after SSH loss. The RGB path fails closed and requires manual
+  recovery; it cannot automatically restore shared USB ownership.
+* The administrator-owned static launcher and protected `/etc` and `/var/lib`
+  layouts still require deployment on the RGB and testbench hosts.
+* Left's latest operations candidate `a6b2cb30ca6e93cce597f3ef609f77d0cc8f2302`
+  was reviewed but not integrated wholesale: its cleanup path does not prove
+  the remote child has exited before restoration, and its handoff does not
+  provide the missing pinned issuer authority.
+
+Production main was not modified. No SSH to the testbench, network acquisition,
+USB, JTAG, bridge/client action, or hardware access occurred.

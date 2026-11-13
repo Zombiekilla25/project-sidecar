@@ -694,15 +694,8 @@ class TopologyTransportTests(unittest.TestCase):
 
         permit = self.permit()
         result = run_with_backend(permit, self.backend())
-        with mock.patch.object(signing, "_read_local_private_key",
-                               side_effect=transport.Refusal("secret key /private/key.pem")):
-            with self.assertRaises(transport.Refusal) as sign_failure:
-                signing.sign_local_discovery_record(permit, result)
-        env = json.loads(sign_failure.exception.canonical_envelope())
-        self.assertEqual((env["phase"], env["code"]),
-                         ("LOCAL_SIGNING", "LOCAL_SIGNING_FAILED"))
-        self.assertNotIn("private", sign_failure.exception.canonical_envelope().decode())
-        self.assertNotIn("signature_hex", env)
+        with self.assertRaisesRegex(signing.Refusal, "disabled"):
+            signing.sign_local_discovery_record(permit, result)
 
     def test_operation_state_transitions_are_monotonic(self):
         trace = transport._AttemptTrace()
@@ -739,60 +732,22 @@ class TopologyTransportTests(unittest.TestCase):
         self.assertTrue(_bounded_envelope(envelope))
 
     def test_one_shot_workflow_orders_validate_before_local_sign_and_never_retries(self):
-        events = []
-        permit = object()
-        result = object()
-        with mock.patch.object(transport, "issue_fk0957_topology_permit",
-                               side_effect=lambda *_a, **_k: events.append("permit") or permit), \
-             mock.patch.object(transport, "run_fk0957_topology_discovery",
-                               side_effect=lambda _p: events.append("acquire") or result) as acquire, \
-             mock.patch.object(transport, "validate_transport_observation",
-                               side_effect=lambda *_a: events.append("validate")), \
-             mock.patch.object(signing, "sign_local_discovery_record",
-                               side_effect=lambda *_a: events.append("sign") or {"signed": True}):
-            envelope = signing.perform_fk0957_topology_discovery_once(b"descriptor", "a" * 64)
-        self.assertEqual(events, ["permit", "acquire", "validate", "sign"])
-        self.assertEqual(acquire.call_count, 1)
-        self.assertEqual(envelope, {"signed": True})
-
-        events.clear()
-        failure = transport.Refusal("untrusted secret text")
-        with mock.patch.object(transport, "issue_fk0957_topology_permit",
-                               return_value=permit), \
-             mock.patch.object(transport, "run_fk0957_topology_discovery",
-                               side_effect=failure) as acquire, \
-             mock.patch.object(transport, "validate_transport_observation") as validate, \
-             mock.patch.object(signing, "sign_local_discovery_record") as sign:
-            with self.assertRaises(transport.Refusal) as caught:
+        with mock.patch.object(transport, "run_fk0957_topology_discovery") as acquire:
+            with self.assertRaisesRegex(signing.Refusal, "disabled"):
                 signing.perform_fk0957_topology_discovery_once(b"descriptor", "a" * 64)
-        self.assertEqual(acquire.call_count, 1)
-        validate.assert_not_called()
-        sign.assert_not_called()
-        self.assertEqual(json.loads(caught.exception.canonical_envelope())["status"], "REFUSED")
+        acquire.assert_not_called()
 
     def test_local_record_builder_signs_only_after_valid_transport(self):
-        from cryptography.hazmat.primitives import serialization
-        key = self.signing_key
-        pem = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
-                                serialization.NoEncryption())
         permit = self.permit()
         result = run_with_backend(permit, self.backend())
-        with tempfile.TemporaryDirectory() as directory:
-            key_path = Path(directory) / "key.pem"
-            key_path.write_bytes(pem)
-            key_path.chmod(0o600)
-            with mock.patch.object(signing, "LOCAL_SIGNING_KEY_PATH", key_path):
-                envelope = signing.sign_local_discovery_record(permit, result)
-                self.assertEqual(envelope["signer_fingerprint"], self.fingerprint)
-                encoded_record = orchestrator.canonical(envelope["payload"])
-                self.assertEqual(hashlib.sha256(encoded_record).hexdigest(), envelope["payload_sha256"])
-                key.public_key().verify(bytes.fromhex(envelope["signature_hex"]), encoded_record)
-                record = envelope["payload"]
-                self.assertTrue(record["topology_discovery_only"])
-                self.assertFalse(record["idcode_qualification_pass"])
-                self.assertFalse(record["fpga_dna_observed"])
-                self.assertFalse(record["loaded_image_identity_observed"])
-                self.assertFalse(record["bitstream_identity_observed"])
+        with self.assertRaisesRegex(signing.Refusal, "disabled"):
+            signing.sign_local_discovery_record(permit, result)
+
+    def test_rgb_signer_has_no_production_transport_import(self):
+        import inspect
+        source = inspect.getsource(signing)
+        self.assertNotIn("import phk2_fk0957_topology_transport", source)
+        self.assertNotIn("run_fk0957_topology_discovery(", source)
 
 
 if __name__ == "__main__":

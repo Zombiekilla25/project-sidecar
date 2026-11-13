@@ -349,7 +349,7 @@ def _validate_request(raw: bytes, issuers: dict[str, bytes], *, now: datetime | 
             "authorization_sha256": auth_sha_raw.hex(), "handoff_sha256": hashlib.sha256(canonical(handoff)).hexdigest(),
             "manifest_sha256": hashlib.sha256(canonical(manifest)).hexdigest(),
             "production_head": manifest["production_head"], "transaction_profile_sha256": profile_sha,
-            "permit_nonce": nonce}, auth_bytes, auth_id
+            "permit_nonce": nonce, "expires_at": auth["expires_at"]}, auth_bytes, auth_id
 
 
 def _consume_authorization(auth_id: str, authorization_bytes: bytes) -> None:
@@ -415,6 +415,7 @@ def _unsigned_record(context: dict[str, Any], permit: Any,
         "card_id": result.card_id, "adapter_serial": result.adapter_serial,
         "usb_descriptor_serial": result.usb_descriptor_serial, "physical_interface": result.physical_interface,
         "descriptor_evidence_sha256": result.descriptor_evidence_sha256, "permit_nonce": result.permit_nonce,
+        "trusted_signer_fingerprint": permit.trusted_signer_fingerprint,
         "observation_timestamp": now, "transport_source_sha256": result.transport_source_sha256,
         "worktree_clean": result.worktree_clean,
         "runtime_library_provenance": [

@@ -52,7 +52,7 @@ def main(argv: list[str] | None = None) -> int:
     sys.path.append(str(system_packages))
     sys.path.insert(0, str(host_tools))
     try:
-        import phk2_fk0957_topology_live_cli as live_cli
+        import phk2_fk0957_topology_rgb_cli as live_cli
     except Exception:
         return _refuse()
     return int(live_cli.main(args))

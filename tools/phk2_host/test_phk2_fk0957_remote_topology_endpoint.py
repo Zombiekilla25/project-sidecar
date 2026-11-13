@@ -146,6 +146,7 @@ class RemoteTopologyEndpointTests(unittest.TestCase):
         result = SimpleNamespace(
             card_id="FK0957", adapter_serial="153300000957A", usb_descriptor_serial="153300000957",
             physical_interface="A", descriptor_evidence_sha256=self.descriptor_sha, permit_nonce="7" * 64,
+            trusted_signer_fingerprint="f" * 64,
             transport_source_sha256="8" * 64, worktree_clean=True,
             runtime_library_provenance=(), scan_a_transaction_sha256="9" * 64,
             scan_a_tck_count=591, scan_a_raw_tdo=b"a", scan_b_transaction_sha256="a" * 64,
@@ -156,7 +157,8 @@ class RemoteTopologyEndpointTests(unittest.TestCase):
              mock.patch.object(transport, "_production_git_state", return_value=("a" * 40, True)), \
              mock.patch.object(endpoint, "_consume_authorization", side_effect=lambda *_: events.append("consume")), \
              mock.patch.object(transport, "issue_fk0957_topology_permit",
-                               side_effect=lambda *_a, **_k: events.append("permit") or object()), \
+                               side_effect=lambda *_a, **_k: events.append("permit") or SimpleNamespace(
+                                   trusted_signer_fingerprint="f" * 64)), \
              mock.patch.object(transport, "run_fk0957_topology_discovery",
                                side_effect=lambda *_: events.append("physical") or result) as run, \
              mock.patch.object(transport, "validate_transport_observation",
