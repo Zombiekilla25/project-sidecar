@@ -328,6 +328,31 @@ def run(candidate: Path) -> dict:
             receipt_writer_attacks["forged_terminal_restorable"] = protocol.restore_allowed(classified)
         finally:
             forged_terminal.doCleanups()
+        pid_reuse = receipt_fixtures.RemoteReceiptStoreTests()
+        pid_reuse.setUp()
+        try:
+            pid_reuse.store.create(pid_reuse.payload)
+            pid_reuse.store.transition(pid_reuse.operation_id, "CLAIMED",
+                                       process=None, exit_code=None)
+            process = {
+                "pid": __import__("os").getpid(), "start_identity": "99123",
+                "uid": __import__("os").getuid(),
+                "executable": pid_reuse.payload["expected_executable"],
+                "executable_sha256": pid_reuse.payload["expected_executable_sha256"],
+                "argv_sha256": "6" * 64, "cwd": "/",
+                "operation_id_argument": pid_reuse.operation_id,
+            }
+            with mock.patch.object(receipts, "process_start_identity", return_value="99123"):
+                pid_reuse.store.transition(pid_reuse.operation_id, "RUNNING",
+                                           process=process, exit_code=None)
+            with mock.patch.object(receipts, "process_start_identity", return_value="99124"):
+                result = pid_reuse.store.status(operation_id=pid_reuse.operation_id,
+                                                query_nonce="b" * 64,
+                                                launch_closed=True)["status"]
+            receipt_writer_attacks["pid_start_identity_mismatch_status"] = result
+            receipt_writer_attacks["pid_start_identity_mismatch_restorable"] = protocol.restore_allowed(result)
+        finally:
+            pid_reuse.doCleanups()
 
     # Deterministic type/value fuzzing for challenge-bound status. Every case
     # starts from a valid canonical NOT_STARTED status; the mutator changes at
