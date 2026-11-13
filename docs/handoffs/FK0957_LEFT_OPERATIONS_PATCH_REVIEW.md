@@ -39,3 +39,12 @@ operation. The candidate contract must be revised to model that distinction.
 Left's contract and handoff documents are retained as review input only. They
 must not be presented as a trusted issuer, a production manifest, or a ready
 remote topology acquisition path. Production main remains unchanged.
+
+After review of commit `7ab491f`, Left's worktree acquired an uncommitted
+contract/profile draft that adds Ed25519 envelope verification. That draft
+accepts its `trusted_*_public_key` and expected fingerprints as function
+arguments, so the trusted caller still has to pin those values; it does not
+itself establish a trust root. It also remains unwired to the acquisition
+path. The combined contract/orchestrator suite on that changing worktree most
+recently ran 58 tests and failed one with `NameError: tempfile is not defined`.
+Treat the dirty worktree as in progress, not as a reviewed commit.

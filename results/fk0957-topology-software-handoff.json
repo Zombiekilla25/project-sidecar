@@ -86,7 +86,7 @@
   ],
   "hardening_candidate": {
     "branch": "hardening/fk0957-production-20261113",
-    "head": "8455fa43a59bcc65fa199bf6de8e81601564b571",
+    "head": "8725b15728ed0731ee47a81a9145e72e0c52b565",
     "base_production_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
     "release_ready": false,
     "hardware_access": false,
@@ -118,7 +118,7 @@
     "production_importable_backend_argument_seam": "REMOVED",
     "unhashable_refusal_fields": "CANONICAL_REJECT",
     "mutation_counter_semantics": "write_count/reset_count/program_count=0; jtag_operation_count=1 for the fixed read-only two-scan transaction",
-    "latest_focused_tests_passed": 114,
+    "latest_focused_tests_passed": 115,
     "latest_full_fk0957_tests_run": 199,
     "latest_full_fk0957_test_errors": 2,
     "latest_full_fk0957_test_error_reason": "The two approved native-library tests refuse because installed libc SHA256/build-id differs from immutable pin; details in results/fk0957-native-library-requalification-required.json.",
@@ -145,7 +145,16 @@
     },
     "ssh_agent_probe": "PASS: valid agent identity response required; no identities refuse before SSH; ForwardAgent=no",
     "orchestrator_tests_after_agent_probe": 64,
-    "native_runtime_inventory_status": "INVENTORY_ONLY_NOT_APPROVAL; libc pin mismatch remains"
+    "native_runtime_inventory_status": "INVENTORY_ONLY_NOT_APPROVAL; libc pin mismatch remains",
+    "latest_corrected_oracle": "PASS: 28 valid accepted; 249572 invalid rejected; 0 mismatches; 20 seeds",
+    "left_operations_candidate": {
+      "commit": "7ab491f1385a960c133b58134e18c2fec6a5b95b",
+      "review": "docs/handoffs/FK0957_LEFT_OPERATIONS_PATCH_REVIEW.md",
+      "committed_contract_integrated": false,
+      "current_left_worktree": "in progress with uncommitted validator/profile changes",
+      "latest_combined_contract_tests": "58 run; 1 error (NameError: tempfile not defined)",
+      "agent_probe_reimplemented_locally": true
+    }
   },
   "runtime_source_hashes": {
     "tools/phk2_host/phk2_fk0957_topology_transport.py": "534e00f79eb6189e2dc265eabce2ff2cfb4fdfd2e374d4b5837ac473bbddc126",
@@ -204,7 +213,7 @@
   "maintenance_controller_reference": null,
   "hardening_milestone": {
     "branch": "hardening/fk0957-production-20261113",
-    "candidate_head": "8455fa43a59bcc65fa199bf6de8e81601564b571",
+    "candidate_head": "8725b15728ed0731ee47a81a9145e72e0c52b565",
     "production_main_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
     "status": "WIP; not production ready",
     "wip_remote_publish_authorized": true,
