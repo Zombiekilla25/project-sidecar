@@ -12,6 +12,35 @@ TOOLS = ROOT / "tools" / "phk2_host"
 
 
 class SafeLauncherTests(unittest.TestCase):
+    def test_prestart_runtime_hash_and_build_id_mismatches_refuse_before_python(self):
+        source = (TOOLS / "fk0957_safe_launcher.c").read_text()
+        python_hash = "e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f"
+        loader_build_id = "231ab65dd867a89dce29cb958fd5ca50abb1aa34"
+        expected = '{"status":"REFUSED","phase":"PRESTART_VALIDATION","code":"NATIVE_RUNTIME_PIN_MISMATCH"}\n'
+        with tempfile.TemporaryDirectory(prefix="fk0957-prestart-pin-test-") as raw:
+            root = Path(raw)
+            for label, changed in (
+                ("hash", source.replace(python_hash, "0" + python_hash[1:], 1)),
+                ("build-id", source.replace(loader_build_id, "0" + loader_build_id[1:], 1)),
+            ):
+                with self.subTest(label=label):
+                    variant = root / f"launcher-{label}.c"
+                    output = root / f"launcher-{label}"
+                    variant.write_text(changed)
+                    subprocess.run([
+                        "/usr/bin/cc", "-static", "-O2", "-Wall", "-Wextra",
+                        "-fstack-protector-strong", "-D_FORTIFY_SOURCE=3",
+                        "-Wno-deprecated-declarations", str(variant), "-o", str(output), "-lcrypto",
+                    ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                       env={"PATH": "/usr/bin:/bin", "LANG": "C"})
+                    run = subprocess.run([str(output), "--launcher-self-test"], check=False,
+                                         text=True, stdout=subprocess.PIPE,
+                                         stderr=subprocess.PIPE, timeout=10,
+                                         env={"PATH": "/bad/path", "LD_PRELOAD": "/bad/preload"})
+                    self.assertEqual(run.returncode, 126)
+                    self.assertEqual(run.stdout, expected)
+                    self.assertEqual(run.stderr, "")
+
     def test_static_launcher_blocks_hostile_python_and_loader_environment(self):
         with tempfile.TemporaryDirectory(prefix="fk0957-launcher-test-") as raw:
             root = Path(raw)

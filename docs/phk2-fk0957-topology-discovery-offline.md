@@ -52,9 +52,12 @@ The host's verified `libc6:amd64` update from `2.39-0ubuntu8.9` to
 `2.39-0ubuntu8.12` has been independently requalified for the WIP native
 library loader. The libc SHA256/build ID are now pinned to the installed
 package bytes in this branch; Right's result was reproduced with 173 tests in
-a disposable production-baseline copy. The exact `.deb` was not cached, and
-the dynamic loader is inventoried but not checked before Python starts. This
-does not establish prestart library validation or authorize a live operation.
+a disposable production-baseline copy. The static launcher source now checks
+the pinned Python, loader, libc, libftdi, and libusb hashes/build IDs before
+starting Python. Its wrong-pin tests refuse before Python startup. The exact
+`.deb` was not cached, and the launcher has not been administrator-deployed,
+so this does not establish an installed production trust boundary or
+authorize a live operation.
 See [`FK0957_NATIVE_RUNTIME_REQUALIFICATION.md`](handoffs/FK0957_NATIVE_RUNTIME_REQUALIFICATION.md)
 and [`fk0957-native-runtime-pin-qualification.json`](../results/fk0957-native-runtime-pin-qualification.json).
 The older `fk0957-native-library-requalification-required.json` records the
@@ -62,8 +65,8 @@ original mismatch and remains historical evidence.
 
 The interpreter, ELF loader, and pinned native-library state are inventoried in
 [`fk0957-native-runtime-inventory.json`](../results/fk0957-native-runtime-inventory.json).
-That inventory now reflects the qualified libc pin, while explicitly marking
-the ELF loader as not prestart-enforced. Review of Left's operations candidate is in
+That inventory now reflects the qualified libc pin; the tested launcher source
+enforces the loader pin before Python, but is not deployed. Review of Left's operations candidate is in
 [`FK0957_LEFT_OPERATIONS_PATCH_REVIEW.md`](handoffs/FK0957_LEFT_OPERATIONS_PATCH_REVIEW.md).
 
 ## Live command status

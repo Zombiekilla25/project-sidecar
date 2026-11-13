@@ -18,8 +18,9 @@ def main() -> int:
     output.parent.mkdir(parents=True, exist_ok=True)
     escaped = str(bootstrap).replace("\\", "\\\\").replace('"', '\\"')
     define = '-DFK0957_BOOTSTRAP_PATH="' + escaped + '"'
-    command = ["/usr/bin/cc", "-static", "-O2", "-Wall", "-Wextra", define,
-               str(source), "-o", str(output)]
+    command = ["/usr/bin/cc", "-static", "-O2", "-Wall", "-Wextra",
+               "-fstack-protector-strong", "-D_FORTIFY_SOURCE=3", define,
+               "-Wno-deprecated-declarations", str(source), "-o", str(output), "-lcrypto"]
     subprocess.run(command, check=True, env={"PATH": "/usr/bin:/bin", "LANG": "C"})
     return 0
 

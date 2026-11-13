@@ -32,11 +32,15 @@ remain unchanged.
 The dynamic loader itself was separately inventoried at
 `/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2`, SHA256
 `5fc0940888e9d2e1a00e66d6b1a559c36364ee867683652e1074fa576952cc3f`, build
-ID `231ab65dd867a89dce29cb958fd5ca50abb1aa34`. The current static launcher
-sanitizes loader/Python environment before interpreter startup, but it does not
-verify the loader bytes before the loader executes. Therefore this pin update
-does not establish `PRESTART_NATIVE_LIBRARY_VALIDATION=YES`, administrator
-launcher deployment, or live-operation readiness.
+ID `231ab65dd867a89dce29cb958fd5ca50abb1aa34`. The static launcher source now
+checks hashes and ELF build IDs for the approved Python executable, dynamic
+loader, libc, libftdi, and libusb before `execve` starts Python. It opens each
+fixed absolute path with `O_NOFOLLOW`, requires a root-owned singly-linked
+regular file with safe mode, and rechecks file identity after hashing. Wrong
+hash and wrong build-ID launchers refuse before Python in offline regressions.
+The launcher and bootstrap have not been installed at an administrator-owned
+path, so the source-level prestart check is not yet enforced by a deployed
+production entrypoint.
 
 Machine-readable provenance and test results are in
 [`fk0957-native-runtime-pin-qualification.json`](../../results/fk0957-native-runtime-pin-qualification.json).
