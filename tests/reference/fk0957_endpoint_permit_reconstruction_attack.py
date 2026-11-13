@@ -93,8 +93,19 @@ def run(candidate: Path) -> dict:
                  mock.patch.object(transport, "validate_transport_observation",
                                    side_effect=capture_permits):
                 try:
-                    endpoint.execute_request(request_case.request_bytes())
+                    acquired_raw = endpoint.execute_request(request_case.request_bytes())
                     observed["endpoint_status"] = "ACQUIRED"
+                    acquired = json.loads(acquired_raw)
+                    observed["result_authorization_id"] = acquired.get("authorization_id")
+                    observed["result_operation_id"] = acquired.get("operation_id")
+                    observed["result_descriptor_sha256"] = acquired.get(
+                        "descriptor_evidence_sha256")
+                    observed["result_permit_nonce"] = acquired.get("permit_nonce")
+                    observed["end_to_end_identity_equal"] = (
+                        acquired.get("authorization_id") == request_case.auth_id and
+                        acquired.get("operation_id") == request_case.operation and
+                        acquired.get("descriptor_evidence_sha256") == transport_case.digest and
+                        acquired.get("permit_nonce") == request_case.nonce)
                 except (endpoint.Refusal, transport.Refusal) as exc:
                     observed["endpoint_status"] = "REFUSED"
                     envelope = getattr(exc, "envelope", None)
