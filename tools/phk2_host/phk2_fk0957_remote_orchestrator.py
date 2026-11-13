@@ -279,7 +279,14 @@ def _open_path_parent(path: Path) -> tuple[int, str]:
 
 
 def _validated_local_ssh_auth_sock() -> tuple[str, tuple[int, int]]:
-    """Validate the RGB-local agent endpoint; it is never forwarded remotely."""
+    """Validate RGB's agent path; the same authenticated UID is a trusted principal.
+
+    No-follow dirfd traversal and before/after inode checks catch pathname
+    substitution by other principals. They do not make a pathname safe against
+    a hostile process with the same UID racing after the final check; that
+    process is inside the local RGB trust boundary. OpenSSH receives the path
+    only in the local child environment, with agent forwarding disabled.
+    """
     raw = os.environ.get("SSH_AUTH_SOCK")
     if not isinstance(raw, str) or not raw or len(raw) > 107 or "\x00" in raw:
         raise Refusal("local SSH agent socket is unavailable or malformed")

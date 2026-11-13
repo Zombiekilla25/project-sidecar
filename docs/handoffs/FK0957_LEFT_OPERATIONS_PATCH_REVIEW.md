@@ -36,6 +36,18 @@ only in the local child environment; `ForwardAgent=no` and
 `ClearAllForwardings=yes` remain required, and the remote command/stdin do not
 contain the socket path or key material.
 
+**Trust boundary:** local processes already running under the authenticated
+RGB user's UID are treated as the same trusted principal. The pathname-based
+SSH agent protocol cannot eliminate a race against a malicious process with
+that same UID after the final pre-`exec` inode check. The validator protects
+against other users and namespace substitution across validation by using
+no-follow dirfd traversal, checking ownership/type, and rechecking the socket
+inode immediately before launching OpenSSH. The 0775 socket is accepted only
+because its containing keyring directory is owner-only 0700. If hostile
+same-UID processes enter the threat model, this path-based OpenSSH agent
+interface must be replaced by a broker or inherited connected descriptor;
+the current code does not claim to defend that principal.
+
 ## Remote-operation and handoff contract: not integrated
 
 The operation-contract/profile commits remain design input, not a production
