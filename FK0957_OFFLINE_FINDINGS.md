@@ -1,8 +1,10 @@
 # FK0957 long-run offline adversarial findings
 
 Audited production tree: `/home/rmann/project-sidecar-phk2-first-silicon-host-20261109`
-at `25b2d1260267cd484f1ecb74e96420bbd7504965` (production code candidate
-`dd51f7eb7a0c1956e0691c35de83905291e0fc42`). No production source was edited.
+at `4d9a222db332b35f605a06a0f05dc2cdc331c940` (production code candidate
+`dd51f7eb7a0c1956e0691c35de83905291e0fc42` is an ancestor). No production
+source was edited by this audit. At the latest check, unrelated documentation
+files were modified but the production code diff was clean.
 
 ## Reproduced blockers
 
@@ -23,18 +25,18 @@ An in-process check cannot undo `LD_PRELOAD` execution that already occurred.
 
 ### Medium: evidence publication race in the reviewed `25b2d126` snapshot
 
-At the start of this campaign, `_publish_evidence_atomic` checked that the
+On the initial audited snapshot, `_publish_evidence_atomic` checked that the
 output name was absent, then called `os.replace`. A deterministic injected
 writer created the destination between those operations; its file was
 overwritten and publication reported success. This was reproduced on the
 reviewed `25b2d126` snapshot.
 
-During the campaign, real main advanced to `895654a4303064ecef6eb363e08bd28c96852bb7`
-and received uncommitted changes that replace `os.replace` with `os.link` and
-add a concurrent-output regression. The independent reproduction against
-that working-tree version now refuses and preserves the competing file. These
-changes are not ours and remain uncommitted; this report does not certify that
-candidate until the full suite and source review complete.
+During the campaign, real main advanced and commit
+`4d9a222db332b35f605a06a0f05dc2cdc331c940` replaced `os.replace` with atomic
+no-replace `os.link` and added a concurrent-output regression. The independent
+race reproduction against the new implementation refuses and preserves the
+competing file. The 42 focused CLI/transport tests and 209-test broader FK0957
+suite passed against this implementation.
 
 The independent selection campaign also exercised 120 permutations of one
 target plus four peers and 120 permutations with duplicate exact targets. The
@@ -72,4 +74,17 @@ documentation should be reconciled with code before a live run.
 - Focused mock suites: state, enumeration, refusal, atomic publish, runtime
   pins and output failure tests pass, except for the documented optional
   `blake3` import-only environment error in one physical-close test.
+- The complete 233-test selected suite had 232 passing tests and one error
+  from that same optional `blake3` dependency; excluding only that unrelated
+  import-only test, all 23 physical-close tests passed.
 - No SSH, USB, JTAG, permit issuance, or hardware access occurred.
+
+## Additional provenance finding
+
+`transport_source_sha256()` hashes the transport/discovery modules, IDCODE
+gate, remote orchestrator, historical native source, and pinned libraries; it
+does not hash `phk2_fk0957_topology_live_cli.py` or require a Git HEAD/clean
+tree check. The topology record therefore does not bind the CLI validation,
+signing orchestration, and publish code to its transport hash. The operator
+can perform a manual HEAD review, but the documented invocation does not
+enforce that precondition.
