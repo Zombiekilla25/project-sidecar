@@ -1,0 +1,476 @@
+"""One-shot unsigned FK0957 topology acquisition endpoint for the testbench.
+
+The endpoint has no signing key, signing import, arbitrary scan parameters, or
+retry path. Trust-key pins are deliberately unset until an approved
+maintenance/release authority provisions them; production therefore fails
+closed before opening a device until that authority is installed.
+"""
+from __future__ import annotations
+
+import base64
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import stat
+import subprocess
+import sys
+from typing import Any
+
+import phk2_fk0957_topology_discovery as topology
+import phk2_fk0957_topology_transport as transport
+
+SCHEMA = "fk0957-remote-topology-request-v1"
+MAX_REQUEST_BYTES = 512 * 1024
+MAX_RECORD_BYTES = 512 * 1024
+EXPECTED_TARGET = {
+    "card_id": "FK0957", "adapter_serial": "153300000957A",
+    "usb_descriptor_serial": "153300000957", "vid": "0403", "pid": "6010",
+    "interface": "A",
+}
+TRUST_CONFIG = Path("/etc/sidecar/fk0957/remote-trust.json")
+# Filled only by a reviewed release-authority provisioning commit. Empty pins
+# are an intentional fail-closed state and are not caller-configurable.
+TRUST_CONFIG_SHA256 = ""
+CONSUMED_AUTHORIZATION_DIR = Path("/var/lib/sidecar/fk0957/consumed-release-authorizations")
+HEX64 = re.compile(r"[0-9a-f]{64}\Z")
+HEX40 = re.compile(r"[0-9a-f]{40}\Z")
+OPERATION_ID = re.compile(r"[0-9a-f]{32}\Z")
+
+REQUEST_FIELDS = {
+    "schema", "version", "operation_id", "descriptor_evidence_b64",
+    "descriptor_evidence_sha256", "handoff", "release_authorization",
+    "runtime_manifest",
+}
+SIGNED_FIELDS = {"payload", "payload_sha256", "signature_algorithm", "signature_hex", "issuer"}
+HANDOFF_FIELDS = {
+    "schema", "version", "handoff_id", "operation_id", "authorization_id",
+    "permit_sha256", "target", "bridge_executable_sha256", "bridge_config_sha256",
+    "expected_clients", "expected_lanes", "bridge_release_state", "usbfs_ownership",
+    "production_head", "manifest_sha256", "transaction_profile_sha256",
+    "issued_at", "expires_at",
+}
+AUTH_FIELDS = {
+    "schema", "version", "authorization_id", "operation_id", "permit_sha256",
+    "handoff_sha256", "target", "production_head", "manifest_sha256",
+    "transaction_profile_sha256", "issued_at", "expires_at", "nonce",
+}
+MANIFEST_FIELDS = {
+    "schema", "version", "production_head", "worktree_clean", "source_hashes",
+    "native_runtime_hashes", "transaction_profile_sha256", "issued_at",
+}
+
+
+class Refusal(ValueError):
+    def __init__(self, code: str, phase: str = "PRELIVE_VALIDATION"):
+        super().__init__(code)
+        self.code = code
+        self.phase = phase
+
+    def envelope(self) -> dict[str, Any]:
+        return {"schema": "fk0957-remote-acquisition-v1", "status": "REFUSED",
+                "phase": self.phase, "code": self.code}
+
+
+def canonical(value: Any) -> bytes:
+    return (json.dumps(value, sort_keys=True, separators=(",", ":"),
+                       ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8")
+
+
+def _unique_pairs(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate key")
+        result[key] = value
+    return result
+
+
+def _parse_canonical(raw: bytes, limit: int) -> dict[str, Any]:
+    if type(raw) is not bytes or not raw or len(raw) > limit:
+        raise Refusal("REQUEST_SIZE_INVALID")
+    try:
+        value = json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_pairs,
+                           parse_constant=lambda _: (_ for _ in ()).throw(ValueError("constant")))
+    except (UnicodeError, ValueError, json.JSONDecodeError):
+        raise Refusal("REQUEST_JSON_INVALID") from None
+    if type(value) is not dict or canonical(value) != raw:
+        raise Refusal("REQUEST_NOT_CANONICAL")
+    return value
+
+
+def _strict_hex(value: Any, pattern: re.Pattern[str]) -> bool:
+    return type(value) is str and pattern.fullmatch(value) is not None
+
+
+def _load_trust_config() -> dict[str, bytes]:
+    """Load immutable issuer keys; hashes are source-pinned, not CLI/env inputs."""
+    if not _strict_hex(TRUST_CONFIG_SHA256, HEX64):
+        raise Refusal("ISSUER_PINS_NOT_PROVISIONED")
+    raw = _read_protected_file(TRUST_CONFIG, owner=0, mode=0o400,
+                               limit=64 * 1024, failure="ISSUER_CONFIG")
+    if hashlib.sha256(raw).hexdigest() != TRUST_CONFIG_SHA256:
+        raise Refusal("ISSUER_CONFIG_PIN_MISMATCH")
+    value = _parse_canonical(raw, 64 * 1024)
+    if set(value) != {"schema", "version", "release_issuer_ed25519_b64", "handoff_issuer_ed25519_b64"} or \
+            value["schema"] != "fk0957-remote-issuer-pins-v1" or type(value["version"]) is not int or value["version"] != 1:
+        raise Refusal("ISSUER_CONFIG_SCHEMA_INVALID")
+    keys = {}
+    try:
+        for name in ("release", "handoff"):
+            encoded = value[f"{name}_issuer_ed25519_b64"]
+            if type(encoded) is not str:
+                raise ValueError
+            key = base64.b64decode(encoded, validate=True)
+            if len(key) != 32:
+                raise ValueError
+            keys[name] = key
+    except (ValueError, base64.binascii.Error):
+        raise Refusal("ISSUER_CONFIG_KEY_INVALID") from None
+    return keys
+
+
+def _open_absolute_parent(path: Path) -> tuple[int, str]:
+    if not path.is_absolute() or ".." in path.parts:
+        raise Refusal("PROTECTED_PATH_INVALID")
+    fd = os.open("/", os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0))
+    try:
+        for part in path.parts[1:-1]:
+            child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0), dir_fd=fd)
+            info = os.fstat(child)
+            if (not stat.S_ISDIR(info.st_mode) or info.st_uid not in (0, os.getuid()) or
+                    info.st_mode & 0o022):
+                os.close(child)
+                raise Refusal("PROTECTED_PATH_PARENT_UNSAFE")
+            os.close(fd)
+            fd = child
+        return fd, path.name
+    except BaseException:
+        os.close(fd)
+        raise
+
+
+def _read_protected_file(path: Path, *, owner: int, mode: int, limit: int,
+                         failure: str) -> bytes:
+    try:
+        parent_fd, name = _open_absolute_parent(path)
+        try:
+            fd = os.open(name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) |
+                         getattr(os, "O_CLOEXEC", 0), dir_fd=parent_fd)
+            try:
+                before = os.fstat(fd)
+                if (not stat.S_ISREG(before.st_mode) or before.st_uid != owner or
+                        before.st_nlink != 1 or stat.S_IMODE(before.st_mode) != mode or
+                        before.st_size < 1 or before.st_size > limit):
+                    raise Refusal(f"{failure}_UNSAFE")
+                chunks = bytearray()
+                while len(chunks) <= limit:
+                    block = os.read(fd, min(65536, limit + 1 - len(chunks)))
+                    if not block:
+                        break
+                    chunks.extend(block)
+                after = os.fstat(fd)
+                if (len(chunks) > limit or
+                        (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) !=
+                        (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)):
+                    raise Refusal(f"{failure}_CHANGED_DURING_READ")
+                return bytes(chunks)
+            finally:
+                os.close(fd)
+        finally:
+            os.close(parent_fd)
+    except Refusal:
+        raise
+    except OSError:
+        raise Refusal(f"{failure}_UNAVAILABLE") from None
+
+
+def _verify_signed(envelope: Any, *, expected_issuer: str, public_key_raw: bytes,
+                   payload_fields: set[str], schema: str) -> tuple[dict[str, Any], bytes, bytes]:
+    if type(envelope) is not dict or set(envelope) != SIGNED_FIELDS:
+        raise Refusal("SIGNED_RECORD_SCHEMA_INVALID")
+    payload = envelope["payload"]
+    if type(payload) is not dict or set(payload) != payload_fields or \
+            payload.get("schema") != schema or type(payload.get("version")) is not int or payload["version"] != 1:
+        raise Refusal("SIGNED_RECORD_PAYLOAD_INVALID")
+    if envelope["issuer"] != expected_issuer or envelope["signature_algorithm"] != "Ed25519":
+        raise Refusal("SIGNED_RECORD_ISSUER_INVALID")
+    payload_bytes = canonical(payload)
+    payload_sha = hashlib.sha256(payload_bytes).hexdigest()
+    if envelope["payload_sha256"] != payload_sha or not _strict_hex(envelope["signature_hex"], re.compile(r"[0-9a-f]{128}\Z")):
+        raise Refusal("SIGNED_RECORD_DIGEST_INVALID")
+    try:
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+        Ed25519PublicKey.from_public_bytes(public_key_raw).verify(bytes.fromhex(envelope["signature_hex"]), payload_bytes)
+    except Exception:
+        raise Refusal("SIGNED_RECORD_SIGNATURE_INVALID") from None
+    return payload, payload_bytes, bytes.fromhex(payload_sha)
+
+
+def _parse_time(value: Any) -> datetime:
+    if type(value) is not str:
+        raise Refusal("AUTHORIZATION_TIME_INVALID")
+    try:
+        result = datetime.fromisoformat(value)
+    except ValueError:
+        raise Refusal("AUTHORIZATION_TIME_INVALID") from None
+    if result.tzinfo is None:
+        raise Refusal("AUTHORIZATION_TIME_INVALID")
+    return result.astimezone(timezone.utc)
+
+
+def _valid_window(issued: Any, expires: Any, *, now: datetime, max_age: int = 120) -> None:
+    start, end = _parse_time(issued), _parse_time(expires)
+    if end <= start or end - start > __import__("datetime").timedelta(seconds=max_age) or \
+            now.astimezone(timezone.utc) < start or now.astimezone(timezone.utc) >= end:
+        raise Refusal("AUTHORIZATION_EXPIRED_OR_STALE")
+
+
+def _profile_hash() -> str:
+    plan = topology.build_plan()
+    profile = {"schema": "fk0957-fixed-reset-default-dr-profile-v1", "scan_a_sha256": plan.scan_a_commands and topology.scan_transaction_sha256(plan.scan_a_commands),
+               "scan_b_sha256": topology.scan_transaction_sha256(plan.scan_b_commands),
+               "scan_a_tck_count": 591, "scan_b_tck_count": 586, "total_tck_count": 1177,
+               "ir_update": False}
+    if (plan.scan_a_tck_count, plan.scan_b_tck_count, plan.tck_count) != (591, 586, 1177):
+        raise Refusal("TRANSACTION_PROFILE_MISMATCH", "PRELIVE_VALIDATION")
+    return hashlib.sha256(canonical(profile)).hexdigest()
+
+
+def _verify_runtime_manifest(manifest: dict[str, Any], profile_sha: str) -> None:
+    repo = Path(__file__).resolve().parents[2]
+    expected_sources = {
+        "tools/phk2_host/phk2_fk0957_remote_topology_endpoint.py",
+        "tools/phk2_host/phk2_fk0957_topology_transport.py",
+        "tools/phk2_host/phk2_fk0957_topology_discovery.py",
+        "tools/phk2_host/phk2_fk0957_idcode_gate.py",
+    }
+    if set(manifest["source_hashes"]) != expected_sources:
+        raise Refusal("RUNTIME_SOURCE_SET_INVALID")
+    for relative in sorted(expected_sources):
+        path = repo / relative
+        try:
+            info = path.lstat()
+            if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_nlink != 1:
+                raise Refusal("RUNTIME_SOURCE_UNSAFE")
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        except Refusal:
+            raise
+        except OSError:
+            raise Refusal("RUNTIME_SOURCE_UNAVAILABLE") from None
+        if digest != manifest["source_hashes"][relative]:
+            raise Refusal("RUNTIME_SOURCE_HASH_MISMATCH")
+    head, clean = transport._production_git_state(repo)
+    if not clean or head != manifest["production_head"]:
+        raise Refusal("RUNTIME_GIT_STATE_MISMATCH")
+    expected_native = {pin.name: pin.sha256 for pin in transport.LIBRARY_PINS}
+    if manifest["native_runtime_hashes"] != expected_native:
+        raise Refusal("NATIVE_RUNTIME_MANIFEST_MISMATCH")
+    if manifest["transaction_profile_sha256"] != profile_sha:
+        raise Refusal("TRANSACTION_PROFILE_MISMATCH")
+
+
+def _validate_request(raw: bytes, issuers: dict[str, bytes], *, now: datetime | None = None) -> tuple[dict[str, Any], bytes, str]:
+    request = _parse_canonical(raw, MAX_REQUEST_BYTES)
+    if set(request) != REQUEST_FIELDS or request.get("schema") != SCHEMA or type(request.get("version")) is not int or request["version"] != 1:
+        raise Refusal("REQUEST_SCHEMA_INVALID")
+    operation_id = request["operation_id"]
+    if not _strict_hex(operation_id, OPERATION_ID):
+        raise Refusal("OPERATION_ID_INVALID")
+    try:
+        descriptor = base64.b64decode(request["descriptor_evidence_b64"], validate=True)
+    except (TypeError, ValueError, base64.binascii.Error):
+        raise Refusal("DESCRIPTOR_ENCODING_INVALID") from None
+    descriptor_sha = hashlib.sha256(descriptor).hexdigest()
+    if not descriptor or request["descriptor_evidence_sha256"] != descriptor_sha:
+        raise Refusal("DESCRIPTOR_DIGEST_INVALID")
+    if set(issuers) != {"release", "handoff"} or any(type(issuers[k]) is not bytes or len(issuers[k]) != 32 for k in issuers):
+        raise Refusal("ISSUER_PINS_NOT_PROVISIONED")
+    current = now or datetime.now(timezone.utc)
+    auth, auth_bytes, auth_sha_raw = _verify_signed(
+        request["release_authorization"], expected_issuer="FK0957_RELEASE_AUTHORITY",
+        public_key_raw=issuers["release"], payload_fields=AUTH_FIELDS,
+        schema="fk0957-release-authorization-v1")
+    handoff, handoff_bytes, handoff_sha_raw = _verify_signed(
+        request["handoff"], expected_issuer="FK0957_MAINTENANCE_AUTHORITY",
+        public_key_raw=issuers["handoff"], payload_fields=HANDOFF_FIELDS,
+        schema="fk0957-maintenance-handoff-v1")
+    manifest, _manifest_bytes, _ = _verify_signed(
+        request["runtime_manifest"], expected_issuer="FK0957_RELEASE_AUTHORITY",
+        public_key_raw=issuers["release"], payload_fields=MANIFEST_FIELDS,
+        schema="fk0957-runtime-source-manifest-v1")
+    profile_sha = _profile_hash()
+    if (manifest["worktree_clean"] is not True or not _strict_hex(manifest["production_head"], HEX40) or
+            type(manifest["source_hashes"]) is not dict or type(manifest["native_runtime_hashes"]) is not dict or
+            manifest["transaction_profile_sha256"] != profile_sha):
+        raise Refusal("RUNTIME_MANIFEST_INVALID")
+    for mapping in (manifest["source_hashes"], manifest["native_runtime_hashes"]):
+        if not mapping or any(type(k) is not str or not k or not _strict_hex(v, HEX64) for k, v in mapping.items()):
+            raise Refusal("RUNTIME_MANIFEST_INVALID")
+    _verify_runtime_manifest(manifest, profile_sha)
+    _valid_window(auth.get("issued_at"), auth.get("expires_at"), now=current)
+    _valid_window(handoff.get("issued_at"), handoff.get("expires_at"), now=current)
+    target = {**EXPECTED_TARGET}
+    expected_handoff = {
+        "operation_id": operation_id, "authorization_id": auth["authorization_id"],
+        "permit_sha256": descriptor_sha, "target": target,
+        "production_head": manifest["production_head"], "manifest_sha256": hashlib.sha256(canonical(manifest)).hexdigest(),
+        "transaction_profile_sha256": profile_sha,
+    }
+    expected_auth = {
+        "operation_id": operation_id, "permit_sha256": descriptor_sha,
+        "handoff_sha256": hashlib.sha256(canonical(handoff)).hexdigest(), "target": target,
+        "production_head": manifest["production_head"], "manifest_sha256": hashlib.sha256(canonical(manifest)).hexdigest(),
+        "transaction_profile_sha256": profile_sha,
+    }
+    if any(handoff.get(k) != v for k, v in expected_handoff.items()) or \
+            any(auth.get(k) != v for k, v in expected_auth.items()):
+        raise Refusal("AUTHORIZATION_BINDING_MISMATCH")
+    clients, lanes = handoff["expected_clients"], handoff["expected_lanes"]
+    if (handoff["bridge_release_state"] != "RELEASED" or
+            handoff["usbfs_ownership"] != "EXCLUSIVE" or
+            type(clients) is not list or not clients or
+            any(type(item) is not str or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", item) for item in clients) or
+            type(lanes) is not list or not lanes or
+            any(type(item) is not str or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,64}", item) for item in lanes) or
+            len(set(clients)) != len(clients) or len(set(lanes)) != len(lanes) or
+            not _strict_hex(handoff["handoff_id"], HEX64) or
+            not _strict_hex(handoff["bridge_executable_sha256"], HEX64) or
+            not _strict_hex(handoff["bridge_config_sha256"], HEX64)):
+        raise Refusal("HANDOFF_OWNERSHIP_UNKNOWN")
+    auth_id = auth["authorization_id"]
+    nonce = auth["nonce"]
+    if not _strict_hex(auth_id, HEX64) or not _strict_hex(nonce, HEX64):
+        raise Refusal("AUTHORIZATION_ID_INVALID")
+    return {"operation_id": operation_id, "descriptor": descriptor,
+            "descriptor_sha256": descriptor_sha, "authorization_id": auth_id,
+            "authorization_sha256": auth_sha_raw.hex(), "handoff_sha256": hashlib.sha256(canonical(handoff)).hexdigest(),
+            "manifest_sha256": hashlib.sha256(canonical(manifest)).hexdigest(),
+            "production_head": manifest["production_head"], "transaction_profile_sha256": profile_sha,
+            "permit_nonce": nonce}, auth_bytes, auth_id
+
+
+def _consume_authorization(auth_id: str, authorization_bytes: bytes) -> None:
+    """Durably consume before permit creation/device open; O_EXCL serializes races."""
+    root = CONSUMED_AUTHORIZATION_DIR
+    dir_fd = -1
+    try:
+        if not root.is_absolute() or ".." in root.parts:
+            raise Refusal("AUTHORIZATION_LEDGER_UNSAFE")
+        dir_fd = os.open("/", os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0))
+        for index, part in enumerate(root.parts[1:]):
+            child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0), dir_fd=dir_fd)
+            info = os.fstat(child)
+            final = index == len(root.parts[1:]) - 1
+            if (not stat.S_ISDIR(info.st_mode) or
+                    (final and (info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o700)) or
+                    (not final and (info.st_uid not in (0, os.getuid()) or
+                                    (info.st_mode & 0o022 and
+                                     not (info.st_uid == 0 and info.st_mode & stat.S_ISVTX))))):
+                os.close(child)
+                raise Refusal("AUTHORIZATION_LEDGER_UNSAFE")
+            os.close(dir_fd)
+            dir_fd = child
+    except Refusal:
+        if dir_fd >= 0:
+            os.close(dir_fd)
+        raise
+    except OSError:
+        if dir_fd >= 0:
+            os.close(dir_fd)
+        raise Refusal("AUTHORIZATION_LEDGER_UNAVAILABLE") from None
+    name = auth_id + ".consumed"
+    try:
+        try:
+            fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL |
+                         getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0),
+                         0o600, dir_fd=dir_fd)
+        except FileExistsError:
+            raise Refusal("AUTHORIZATION_REPLAY") from None
+        try:
+            digest = hashlib.sha256(authorization_bytes).hexdigest().encode("ascii") + b"\n"
+            offset = 0
+            while offset < len(digest):
+                offset += os.write(fd, digest[offset:])
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+        os.fsync(dir_fd)
+    finally:
+        if dir_fd >= 0:
+            os.close(dir_fd)
+
+
+def _unsigned_record(context: dict[str, Any], permit: Any,
+                     result: transport.TransportObservation, parsed: Any) -> dict[str, Any]:
+    now = datetime.now(timezone.utc).isoformat()
+    return {
+        "schema": "fk0957-unsigned-topology-acquisition-v1", "status": "ACQUIRED",
+        "operation_id": context["operation_id"], "authorization_id": context["authorization_id"],
+        "authorization_sha256": context["authorization_sha256"], "handoff_sha256": context["handoff_sha256"],
+        "manifest_sha256": context["manifest_sha256"], "production_head": context["production_head"],
+        "transaction_profile_sha256": context["transaction_profile_sha256"],
+        "card_id": result.card_id, "adapter_serial": result.adapter_serial,
+        "usb_descriptor_serial": result.usb_descriptor_serial, "physical_interface": result.physical_interface,
+        "descriptor_evidence_sha256": result.descriptor_evidence_sha256, "permit_nonce": result.permit_nonce,
+        "observation_timestamp": now, "transport_source_sha256": result.transport_source_sha256,
+        "worktree_clean": result.worktree_clean,
+        "runtime_library_provenance": [
+            {"logical_name": row[0], "approved_path": row[1], "expected_sha256": row[2],
+             "expected_build_id": row[3], "soname": row[4], "loaded_object_realpath": row[7]}
+            for row in result.runtime_library_provenance],
+        "scan_a_transaction_sha256": result.scan_a_transaction_sha256,
+        "scan_a_tck_count": result.scan_a_tck_count, "scan_a_raw_tdo_hex": result.scan_a_raw_tdo.hex(),
+        "scan_b_transaction_sha256": result.scan_b_transaction_sha256,
+        "scan_b_tck_count": result.scan_b_tck_count, "scan_b_raw_tdo_hex": result.scan_b_raw_tdo.hex(),
+        "total_tck_count": result.total_tck_count, "matched_device_count": result.matched_device_count,
+        "opened_device_count": result.opened_device_count, "second_device_opened": result.second_device_opened,
+        "aggregate_dr_length": parsed.aggregate_dr_length, "observed_taps_tdo_to_tdi": parsed.taps_tdo_to_tdi,
+        "raw_tdo_scan_a_bits_lsb_first": parsed.raw_tdo_scan_a_bits,
+        "raw_tdo_scan_b_bits_lsb_first": parsed.raw_tdo_scan_b_bits,
+        "write_count": result.write_count, "reset_count": result.reset_count,
+        "program_count": result.program_count, "jtag_operation_count": 1,
+        "topology_discovery_only": True, "idcode_qualification_pass": False,
+        "fpga_dna_observed": False, "loaded_image_identity_observed": False,
+        "bitstream_identity_observed": False,
+    }
+
+
+def execute_request(raw: bytes) -> bytes:
+    """Fixed production route. The only substitution point is native transport itself."""
+    issuers = _load_trust_config()
+    context, authorization_bytes, auth_id = _validate_request(raw, issuers)
+    _consume_authorization(auth_id, authorization_bytes)
+    permit = transport.issue_fk0957_topology_permit(
+        context["descriptor"], context["descriptor_sha256"])
+    result = transport.run_fk0957_topology_discovery(permit)
+    parsed = transport.validate_transport_observation(permit, result)
+    record = _unsigned_record(context, permit, result, parsed)
+    encoded = canonical(record)
+    if len(encoded) > MAX_RECORD_BYTES:
+        raise Refusal("UNSIGNED_RECORD_OVERSIZED", "LOCAL_VALIDATION")
+    return encoded
+
+
+def main() -> int:
+    if len(sys.argv) != 1:
+        sys.stdout.buffer.write(canonical(Refusal("ARGUMENTS_NOT_ALLOWED").envelope()))
+        return 2
+    raw = sys.stdin.buffer.read(MAX_REQUEST_BYTES + 1)
+    try:
+        result = execute_request(raw)
+    except Refusal as exc:
+        result = canonical(exc.envelope())
+        sys.stdout.buffer.write(result)
+        return 2
+    except BaseException:
+        sys.stdout.buffer.write(canonical(Refusal("INTERNAL_REFUSAL").envelope()))
+        return 2
+    sys.stdout.buffer.write(result)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

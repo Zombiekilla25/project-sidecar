@@ -9,9 +9,10 @@ atomic evidence publication. The corrected independent state model at
 and 249,572 invalid boundary states.
 
 The current hardening branch is not a live-ready release. It adds a static
-launcher and prevents ordinary direct execution of the Python CLI, but the
-complete remote unsigned-acquisition/RGB-only-signing split, signed bridge
-ownership handoff, and release-manifest source authorization are still
+launcher and a fail-closed remote unsigned-acquisition endpoint, but approved
+issuer pins have not been provisioned and the RGB orchestrator is not wired to
+the endpoint. Signed bridge ownership handoff, immutable release authorization,
+complete release-manifest authority, and remote cleanup proof are still
 required. Do not run an acquisition command or issue a permit until those
 items are implemented and independently reviewed. No launcher binary was
 built into or installed on the production host by this offline work.
@@ -47,8 +48,11 @@ been moved to the separate
 `tools/phk2_host/phk2_fk0957_topology_signing.py` module. The physical module
 does not import the RGB orchestrator or signing module and has no signing-key
 path. The current checked-in CLI still performs local acquisition followed
-by local signing; this source separation alone does not establish a remote
-unsigned acquisition endpoint.
+by local signing. A separate testbench endpoint now validates one-shot signed
+authorization/handoff/manifest envelopes and emits only a canonical unsigned
+record, but its issuer trust pin is intentionally unset until the approved
+maintenance/release authority provisions it. The RGB SSH-to-unsigned-record
+orchestration and remote-process-exit cleanup proof are not yet connected.
 
 The deterministic hashes and local host-key pin observation from the earlier
 software integration are recorded in
