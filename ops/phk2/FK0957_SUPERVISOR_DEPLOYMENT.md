@@ -64,14 +64,17 @@ exactly `true`; all other states require manual recovery.
 
 ## Authorization identity and consumption
 
-The signed release authorization's `authorization_id` and `nonce` are copied
-unchanged into the immutable topology permit. The permit also binds the signed
-descriptor digest and is checked against the supervisor-validated request
-before it is attached to the one-shot transport call. The transport consumes
-that same permit object once before constructing its native backend; it does
-not issue a replacement permit. The transport observation and unsigned
-acquisition record carry the same authorization ID and nonce, which RGB
-validates against its original signed request before signing.
+The signed release authorization's `authorization_id`, canonical payload
+SHA256, `operation_id`, and `nonce` are copied unchanged into the immutable
+topology permit. The permit also binds the signed descriptor digest and is
+checked against the supervisor-validated request before it is attached to the
+one-shot transport call. The transport consumes that same permit object once
+before constructing its native backend; it does not issue a replacement
+permit. The transport observation and unsigned acquisition record carry the
+same four authorization identity fields, which RGB validates against its
+original signed request before signing. The handoff references the same
+`authorization_id`; the signed release authorization binds the canonical
+handoff digest, avoiding a circular hash dependency.
 
 The release authorization ledger has one consumption point: the protected
 supervisor's exclusive ledger create, after full request, handoff, target,
