@@ -401,6 +401,18 @@ class RemoteOrchestratorTests(unittest.TestCase):
         with self.assertRaises(remote.Refusal):
             remote._validated_local_ssh_auth_sock()
 
+    def test_agent_parent_directory_replacement_refuses(self):
+        replacement = Path(self.pin_dir.name) / "replacement-parent"
+        replacement.mkdir(mode=0o700)
+
+        def swapped_parent(_path):
+            fd = os.open(replacement, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            return fd, self.agent_path.name
+
+        with mock.patch.object(remote, "_open_path_parent", side_effect=swapped_parent):
+            with self.assertRaises(remote.Refusal):
+                remote._validated_local_ssh_auth_sock()
+
     def test_agent_socket_wrong_type_and_nonresponsive_socket_refuse(self):
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / "regular-file"

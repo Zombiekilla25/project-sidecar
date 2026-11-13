@@ -30,8 +30,8 @@ checks the socket inode twice, requires the socket owner to be the effective
 user, and accepts group/other socket bits only when an owner-owned 0700
 ancestor protects the endpoint. The observed `/run/user/1000/keyring/ssh`
 socket is uid/gid 1000, mode 0775, under a uid 1000 mode 0700 parent. New
-regressions cover wrong owner/type, symlink, inode replacement, unsafe shared
-parent, missing socket, and stale/unresponsive socket. SSH receives this socket
+regressions cover wrong owner/type, symlink, socket and parent-directory inode replacement, unsafe shared parent, missing
+socket, and stale/unresponsive socket. SSH receives this socket
 only in the local child environment; `ForwardAgent=no` and
 `ClearAllForwardings=yes` remain required, and the remote command/stdin do not
 contain the socket path or key material.
