@@ -71,13 +71,10 @@ STATE_BY_STAGE = {
 for _stage in (
     "SCAN_A_NAV_WRITE", "SCAN_A_BULK_WRITE", "SCAN_A_BULK_READ",
     "SCAN_A_FINAL_WRITE", "SCAN_A_FINAL_READ", "SCAN_A_EXIT_WRITE",
-):
-    STATE_BY_STAGE[_stage] = "SCAN_A_ACTIVE"
-for _stage in (
     "SCAN_B_NAV_WRITE", "SCAN_B_BULK_WRITE", "SCAN_B_BULK_READ",
     "SCAN_B_FINAL_WRITE", "SCAN_B_FINAL_READ", "SCAN_B_EXIT_WRITE",
 ):
-    STATE_BY_STAGE[_stage] = "SCAN_B_ACTIVE"
+    STATE_BY_STAGE[_stage] = _stage
 
 PHASE_CODES = {
     "PRELIVE_VALIDATION": "TRANSACTION_PIN_MISMATCH",
@@ -126,11 +123,7 @@ def _candidate_close_from(snapshot, model) -> str:
         return "DEVICE_SELECTED"
     if origin == model.Stage.MPSSE_INIT:
         return "DEVICE_OPENED"
-    if origin.value <= model.Stage.SCAN_A_EXIT_WRITE:
-        return "SCAN_A_ACTIVE"
-    if origin.value <= model.Stage.SCAN_B_EXIT_WRITE:
-        return "SCAN_B_ACTIVE"
-    return "SCAN_B_COMPLETE"
+    return origin.name
 
 
 def refusal_envelope(snapshot, model) -> dict[str, Any] | None:
@@ -154,14 +147,15 @@ def refusal_envelope(snapshot, model) -> dict[str, Any] | None:
     transport_closed = int(snapshot.transport_closed)
 
     if stage == model.Stage.TRANSPORT_CLOSE:
-        if snapshot.failure_origin is None:
+        if snapshot.failure_origin is None and snapshot.transport_closed:
             # A successfully closed transport has moved to local validation.
             phase = "LOCAL_VALIDATION"
             code = PHASE_CODES[phase]
             op_state = "TRANSPORT_CLOSED"
             close_from = "SCAN_B_COMPLETE"
         else:
-            close_from = _candidate_close_from(snapshot, model)
+            close_from = (_candidate_close_from(snapshot, model)
+                          if snapshot.failure_origin is not None else "SCAN_B_COMPLETE")
             op_state = "TRANSPORT_CLOSED" if snapshot.transport_closed else "TRANSPORT_CLOSING"
     elif stage in (model.Stage.LOCAL_VALIDATION, model.Stage.SIGNING_STAGING,
                    model.Stage.ATOMIC_PUBLISH):
@@ -171,8 +165,11 @@ def refusal_envelope(snapshot, model) -> dict[str, Any] | None:
                 op_state = "TRANSPORT_CLOSED"
             elif snapshot.signing_staged:
                 op_state = "SIGNED_STAGED"
-        elif stage == model.Stage.ATOMIC_PUBLISH and not snapshot.signing_staged:
-            op_state = "LOCAL_VALIDATED"
+        elif stage == model.Stage.ATOMIC_PUBLISH:
+            if not snapshot.local_validation_passed:
+                op_state = "TRANSPORT_CLOSED"
+            elif not snapshot.signing_staged:
+                op_state = "LOCAL_VALIDATED"
 
     return {
         "status": "REFUSED", "phase": phase, "code": code,
@@ -191,6 +188,8 @@ def refusal_envelope(snapshot, model) -> dict[str, Any] | None:
 
 def compare_state_corpus(model, validator: Callable[[dict[str, Any]], bool]) -> dict[str, int]:
     valid = invalid = valid_rejected = invalid_accepted = 0
+    valid_rejected_examples: list[str] = []
+    invalid_accepted_examples: list[str] = []
     for snapshot in model.boundary_combinations():
         expected = model.legal_snapshot(snapshot)
         valid += int(expected)
@@ -202,13 +201,19 @@ def compare_state_corpus(model, validator: Callable[[dict[str, Any]], bool]) -> 
         accepted = False if envelope is None else bool(validator(envelope))
         if expected and not accepted:
             valid_rejected += 1
+            if len(valid_rejected_examples) < 5:
+                valid_rejected_examples.append(repr(snapshot))
         elif not expected and accepted:
             invalid_accepted += 1
+            if len(invalid_accepted_examples) < 5:
+                invalid_accepted_examples.append(repr(snapshot))
     return {
         "valid_states": valid,
         "invalid_states": invalid,
         "valid_state_rejected": valid_rejected,
         "invalid_state_accepted": invalid_accepted,
+        "valid_rejected_examples": valid_rejected_examples,
+        "invalid_accepted_examples": invalid_accepted_examples,
     }
 
 
@@ -247,7 +252,7 @@ def targeted_checks(cli, transport) -> dict[str, bool]:
 
     permit_relationships = (
         validate(_manual_envelope("PERMIT_VALIDATION", "PRELIVE",
-                                  target_candidates="unknown", device_opened=0,
+                                  target_candidates=0, device_opened=0,
                                   permit_consumed=0)) and
         not validate(_manual_envelope("PERMIT_VALIDATION", "PRELIVE",
                                       target_candidates=0, device_opened=0,
@@ -267,15 +272,26 @@ def targeted_checks(cli, transport) -> dict[str, bool]:
                                       target_candidates=1, device_opened=1)))
 
     scan_boundaries = True
-    for ticks in (0, 1, 590, 591):
+    for ticks in (0, 1, 585, 586, 590, 591):
+        write_state = ("SCAN_A_NAV_WRITE" if ticks <= 9 else
+                       "SCAN_A_BULK_WRITE" if ticks <= 585 else
+                       "SCAN_A_FINAL_WRITE" if ticks <= 586 else
+                       "SCAN_A_EXIT_WRITE")
         scan_a_write = _manual_envelope("SCAN_A_WRITE", "SCAN_A_ACTIVE",
                                         scan_a_started=1, scan_a_tck_emitted=ticks)
         scan_a_read_expected = ticks in (585, 586)
+        read_state = "SCAN_A_BULK_READ" if ticks == 585 else "SCAN_A_FINAL_READ"
         scan_a_read = _manual_envelope("SCAN_A_READ", "SCAN_A_ACTIVE",
                                        scan_a_started=1, scan_a_tck_emitted=ticks)
+        scan_a_write["operation_state"] = write_state
+        scan_a_read["operation_state"] = read_state
         scan_boundaries &= validate(scan_a_write)
         scan_boundaries &= (validate(scan_a_read) == scan_a_read_expected)
-    for ticks in (0, 1, 585, 586):
+    for ticks in (0, 1, 580, 581, 585, 586):
+        write_state = ("SCAN_B_NAV_WRITE" if ticks <= 4 else
+                       "SCAN_B_BULK_WRITE" if ticks <= 580 else
+                       "SCAN_B_FINAL_WRITE" if ticks <= 581 else
+                       "SCAN_B_EXIT_WRITE")
         scan_b_write = _manual_envelope("SCAN_B_WRITE", "SCAN_B_ACTIVE",
                                         scan_a_started=1, scan_a_tck_emitted=591,
                                         scan_b_started=1, scan_b_tck_emitted=ticks)
@@ -283,6 +299,9 @@ def targeted_checks(cli, transport) -> dict[str, bool]:
         scan_b_read = _manual_envelope("SCAN_B_READ", "SCAN_B_ACTIVE",
                                        scan_a_started=1, scan_a_tck_emitted=591,
                                        scan_b_started=1, scan_b_tck_emitted=ticks)
+        scan_b_write["operation_state"] = write_state
+        scan_b_read["operation_state"] = (
+            "SCAN_B_BULK_READ" if ticks == 580 else "SCAN_B_FINAL_READ")
         scan_boundaries &= validate(scan_b_write)
         scan_boundaries &= (validate(scan_b_read) == scan_b_read_expected)
 
@@ -291,9 +310,9 @@ def targeted_checks(cli, transport) -> dict[str, bool]:
         ("DEVICE_SELECTED", 0, 0, 0, 0, 0),
         ("DEVICE_OPENED", 1, 0, 0, 0, 0),
         ("MPSSE_READY", 1, 0, 0, 0, 0),
-        ("SCAN_A_ACTIVE", 1, 1, 169, 0, 0),
+        ("SCAN_A_BULK_WRITE", 1, 1, 169, 0, 0),
         ("SCAN_A_COMPLETE", 1, 1, 591, 0, 0),
-        ("SCAN_B_ACTIVE", 1, 1, 591, 1, 17),
+        ("SCAN_B_BULK_WRITE", 1, 1, 591, 1, 17),
         ("SCAN_B_COMPLETE", 1, 1, 591, 1, 586),
     )
     for prior, opened, a_started, a_ticks, b_started, b_ticks in close_rows:
@@ -311,6 +330,25 @@ def targeted_checks(cli, transport) -> dict[str, bool]:
         close_from_state="DEVICE_SELECTED")
     close_history &= not validate(fabricated)
 
+    local_validation = _manual_envelope(
+        "LOCAL_VALIDATION", "TRANSPORT_CLOSED", target_candidates=1,
+        device_opened=1, scan_a_started=1, scan_a_tck_emitted=591,
+        scan_b_started=1, scan_b_tck_emitted=586, transport_closed=1,
+        close_from_state="SCAN_B_COMPLETE")
+    local_signing = _manual_envelope(
+        "LOCAL_SIGNING", "LOCAL_VALIDATED", target_candidates=1,
+        device_opened=1, scan_a_started=1, scan_a_tck_emitted=591,
+        scan_b_started=1, scan_b_tck_emitted=586, transport_closed=1,
+        close_from_state="SCAN_B_COMPLETE")
+    signing_too_early = _manual_envelope(
+        "LOCAL_SIGNING", "TRANSPORT_CLOSED", target_candidates=1,
+        device_opened=1, scan_a_started=1, scan_a_tck_emitted=591,
+        scan_b_started=1, scan_b_tck_emitted=586, transport_closed=1,
+        close_from_state="SCAN_B_COMPLETE")
+    local_validation_signing = (
+        validate(local_validation) and validate(local_signing) and
+        not validate(signing_too_early))
+
     forbidden = ("shift_ir", "shift_dr", "generic_mpsse", "sign_remote",
                  "program_fpga", "jprogram", "jstart")
     no_generic_mutation_surface = not any(hasattr(transport, name) for name in forbidden)
@@ -320,6 +358,7 @@ def targeted_checks(cli, transport) -> dict[str, bool]:
         "device_open_state": bool(open_state),
         "partial_scan_boundaries": bool(scan_boundaries),
         "transport_close_history": bool(close_history),
+        "local_validation_signing_state": bool(local_validation_signing),
         "no_generic_or_programming_surface": no_generic_mutation_surface,
     }
 
