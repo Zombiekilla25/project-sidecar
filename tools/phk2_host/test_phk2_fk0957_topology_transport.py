@@ -656,6 +656,27 @@ class TopologyTransportTests(unittest.TestCase):
             trace.advance("SCAN_A_ACTIVE")
             trace.advance("MPSSE_READY")
 
+    def test_open_failure_cleanup_preserves_unopened_device_state(self):
+        permit = self.permit()
+        backend = self.backend(failure="open")
+        with self.assertRaises(transport.Refusal) as caught:
+            transport._run_with_backend(permit, backend)
+        envelope = json.loads(caught.exception.canonical_envelope())
+        self.assertEqual((envelope["phase"], envelope["code"]),
+                         ("DEVICE_OPEN", "DEVICE_OPEN_FAILED"))
+        self.assertEqual(envelope["permit_consumed"], 1)
+        self.assertEqual(envelope["target_candidates"], 1)
+        self.assertEqual(envelope["device_opened"], 0)
+        self.assertEqual(envelope["operation_state"], "TRANSPORT_CLOSED")
+        self.assertEqual(envelope["close_from_state"], "DEVICE_SELECTED")
+        self.assertEqual(envelope["transport_closed"], 1)
+        self.assertEqual((envelope["scan_a_started"], envelope["scan_a_tck_emitted"],
+                          envelope["scan_b_started"], envelope["scan_b_tck_emitted"]),
+                         (0, 0, 0, 0))
+        self.assertEqual((backend.open_count, backend.close_count), (0, 1))
+        from phk2_fk0957_topology_live_cli import _bounded_envelope
+        self.assertTrue(_bounded_envelope(envelope))
+
     def test_one_shot_workflow_orders_validate_before_local_sign_and_never_retries(self):
         events = []
         permit = object()
