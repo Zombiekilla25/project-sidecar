@@ -14,17 +14,21 @@ def run(candidate: Path) -> dict:
     sys.path.insert(0,str(candidate/'tools/phk2_host'))
     import phk2_fk0957_remote_topology_endpoint as ep
     import phk2_fk0957_topology_transport as tr
+    import test_phk2_fk0957_topology_transport as transport_fixtures
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
     release=Ed25519PrivateKey.generate(); handoff_key=Ed25519PrivateKey.generate()
     issuers={'release':release.public_key().public_bytes(serialization.Encoding.Raw,serialization.PublicFormat.Raw),
              'handoff':handoff_key.public_key().public_bytes(serialization.Encoding.Raw,serialization.PublicFormat.Raw)}
-    now=datetime.now(timezone.utc).replace(microsecond=0); operation='1'*32; auth_id='2'*64; nonce='3'*64
-    descriptor=b'dummy descriptor bytes; endpoint validator only binds hash; physical issuer is separately checked by transport'
-    dsha=hashlib.sha256(descriptor).hexdigest(); head=subprocess.check_output(['/usr/bin/git','-C',str(candidate),'rev-parse','HEAD'],text=True).strip()
-    prof=ep._profile_hash(); sources={p:hashlib.sha256((candidate/p).read_bytes()).hexdigest() for p in (
-        'tools/phk2_host/phk2_fk0957_remote_topology_endpoint.py','tools/phk2_host/phk2_fk0957_topology_transport.py',
-        'tools/phk2_host/phk2_fk0957_topology_discovery.py','tools/phk2_host/phk2_fk0957_idcode_gate.py')}
+    # Use the candidate's descriptor fixture constructor for valid signed
+    # descriptor bytes; authorization, handoff, manifest, and attacks below
+    # are independently constructed by this reference harness.
+    fixture=transport_fixtures.TopologyTransportTests(); fixture.setUp()
+    now=datetime.now(timezone.utc).replace(microsecond=0); operation='1'*32; auth_id='2'*64
+    descriptor=fixture.raw; dsha=fixture.digest; permit=fixture.permit(); nonce=permit.nonce
+    head='a'*40  # fixture.setUp pins clean Git state to this synthetic head
+    prof=ep._profile_hash(); sources={p:hashlib.sha256((candidate/p).read_bytes()).hexdigest()
+                                      for p in ep.RELEASE_SOURCE_PATHS}
     manifest={'schema':'fk0957-runtime-source-manifest-v1','version':1,'production_head':head,
       'worktree_clean':True,'source_hashes':sources,'native_runtime_hashes':{p.name:p.sha256 for p in tr.LIBRARY_PINS},
       'transaction_profile_sha256':prof,'issued_at':now.isoformat()}
@@ -135,8 +139,7 @@ def run(candidate: Path) -> dict:
       with mock.patch.object(ep,'TRUST_CONFIG_SHA256','a'*64), \
            mock.patch.object(ep,'_load_trust_config',return_value=issuers), \
            mock.patch.object(ep,'CONSUMED_AUTHORIZATION_DIR',ledger), \
-           mock.patch.object(tr,'issue_fk0957_topology_permit',return_value=SimpleNamespace(
-               nonce=nonce,trusted_signer_fingerprint='b'*64)), \
+           mock.patch.object(tr,'issue_fk0957_topology_permit',return_value=permit), \
            mock.patch.object(tr,'run_fk0957_topology_discovery',return_value=fake_result) as physical, \
            mock.patch.object(tr,'validate_transport_observation',return_value=parsed):
         first_status='REFUSED'; second_status='REFUSED'

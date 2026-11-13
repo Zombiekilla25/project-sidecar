@@ -125,15 +125,36 @@ def authorization(root: Path) -> dict:
         copied_result=None
         try: tr.run_fk0957_topology_discovery(copied)
         except BaseException as e: copied_result=type(e).__name__
-        # Reuse authentic test permit: public path consumes once and rejects second time.
+        # The attach helper is importable and accepts caller-invented digests;
+        # exercise whether it can authorize the public opener without endpoint
+        # signature verification.
+        forged_binding_permit=test.permit(); opened.clear(); forged_binding_result=None
+        with mock.patch.object(tr,'transport_source_sha256',return_value='a'*64), mock.patch.object(tr,'_production_git_state',return_value=('a'*40,True)), mock.patch.object(tr,'_NativeLibFtdi',side_effect=factory):
+            try:
+                tr._authorize_remote_permit(forged_binding_permit,
+                    authorization_sha256='1'*64,handoff_sha256='2'*64,
+                    manifest_sha256='3'*64,
+                    descriptor_sha256=forged_binding_permit.descriptor_evidence_sha256)
+                forged_binding_result=tr.run_fk0957_topology_discovery(forged_binding_permit)
+            except BaseException as e:
+                forged_binding_result=e
+        forged_binding_opens=sum(b.open_count for b in opened)
+        # Reuse authentic test permit: model the endpoint attaching a binding,
+        # then verify the public operation still consumes it only once.
         permit=test.permit(); opened.clear(); public_replay=[]
         with mock.patch.object(tr,'transport_source_sha256',return_value='a'*64), mock.patch.object(tr,'_production_git_state',return_value=('a'*40,True)), mock.patch.object(tr,'_NativeLibFtdi',side_effect=factory):
+            tr._authorize_remote_permit(permit,authorization_sha256='4'*64,
+                handoff_sha256='5'*64,manifest_sha256='6'*64,
+                descriptor_sha256=permit.descriptor_evidence_sha256)
             for _ in range(2):
                 try: tr.run_fk0957_topology_discovery(permit)
                 except BaseException as e: public_replay.append(type(e).__name__)
         opened_by_replay=sum(b.open_count for b in opened)
         import concurrent.futures
         permit=test.permit(); opened.clear(); barrier=threading.Barrier(2)
+        tr._authorize_remote_permit(permit,authorization_sha256='7'*64,
+            handoff_sha256='8'*64,manifest_sha256='9'*64,
+            descriptor_sha256=permit.descriptor_evidence_sha256)
         def parallel_call():
             barrier.wait()
             try: return tr.run_fk0957_topology_discovery(permit)
@@ -144,7 +165,11 @@ def authorization(root: Path) -> dict:
         parallel_opens=sum(b.open_count for b in opened)
         wrong_head_permit=test.permit(); opened.clear()
         with mock.patch.object(tr,'transport_source_sha256',return_value='b'*64), mock.patch.object(tr,'_production_git_state',return_value=('f'*40,True)), mock.patch.object(tr,'_NativeLibFtdi',side_effect=factory):
-            wrong_head_result=tr.run_fk0957_topology_discovery(wrong_head_permit)
+            tr._authorize_remote_permit(wrong_head_permit,authorization_sha256='a'*64,
+                handoff_sha256='b'*64,manifest_sha256='c'*64,
+                descriptor_sha256=wrong_head_permit.descriptor_evidence_sha256)
+            try: wrong_head_result=tr.run_fk0957_topology_discovery(wrong_head_permit)
+            except BaseException as e: wrong_head_result=e
         transport_source=(host/'phk2_fk0957_topology_transport.py').read_text()
         discovery_source=(host/'phk2_fk0957_topology_discovery.py').read_text()
         source_text=transport_source+discovery_source
@@ -154,12 +179,14 @@ def authorization(root: Path) -> dict:
             'wrong_target_and_expired_permits':invalid_permits,
             'internal_unregistered_permit_calls':2,'internal_unregistered_permit_opens':internal_opens,
             'internal_unregistered_results_sealed':first._proof in tr._SEALED_RESULTS and second._proof in tr._SEALED_RESULTS,
+            'fabricated_binding_helper_accepts_unverified_digests':not isinstance(forged_binding_result,BaseException),
+            'fabricated_binding_helper_fake_opens':forged_binding_opens,
             'internal_permit_registered':reg,'internal_permit_consumed':consumed,
             'pickled_copy_refused':copied_result is not None,
             'authentic_public_replay_errors':public_replay,'authentic_public_replay_opens':opened_by_replay,
             'parallel_results':[type(x).__name__ if not isinstance(x,str) else x for x in parallel_results],
             'parallel_simulated_opens':parallel_opens,
-            'wrong_clean_head_transport_accepted':wrong_head_result.production_git_head=='f'*40,
+            'wrong_clean_head_transport_accepted':getattr(wrong_head_result,'production_git_head',None)=='f'*40,
             'operation_id_binding': 'operation_id' in source_text,
             'expected_head_pin': 'EXPECTED_PRODUCTION_HEAD' in source_text,
             'release_manifest_binding': 'release_manifest' in source_text or 'manifest_sha256' in source_text,
