@@ -51,16 +51,14 @@ def startup(root: Path) -> dict:
         shim=("import os,sys; from pathlib import Path; "
               f"sys.path.insert(0,{str(host)!r}); "
               "sys.path.append('/usr/lib/python3/dist-packages'); "
-              "import phk2_fk0957_topology_live_cli as c; "
-              "import phk2_fk0957_topology_signing as s; "
-              "import phk2_fk0957_topology_transport as t; "
-              "c._read_descriptor=lambda _p:b'fixture'; "
+              "import phk2_fk0957_topology_rgb_cli as c; "
               f"marker={str(marker)!r}; "
-              "s.perform_fk0957_topology_discovery_once=lambda *a: "
+              "c._read_request=lambda _p:b'fixture'; "
+              "c.rgb.acquire_validate_sign_once=lambda *a: "
               "(Path(marker).write_text('acquisition-boundary'), "
-              "(_ for _ in ()).throw(t.Refusal('bounded fixture refusal')))[1]; "
+              "(_ for _ in ()).throw(c.rgb.Refusal('bounded fixture refusal')))[1]; "
               "import fk0957_safe_bootstrap as b; "
-              f"raise SystemExit(b.main(['--descriptor-evidence','fixture.json','--output',{str(t/'unused.json')!r}]))")
+              f"raise SystemExit(b.main(['--authorization-request','fixture.json','--output',{str(t/'unused.json')!r}]))")
         cp=run([sys.executable,'-I','-S','-c',shim],clean)
         out['direct_bootstrap_reaches_acquisition_boundary']={'exit':cp.returncode,
             'sentinel_reached':marker.exists(),'evidence_written':(t/'unused.json').exists()}
@@ -201,6 +199,42 @@ def governance(root: Path) -> dict:
     }
 
 
+def synthetic_signing_attack(root: Path) -> dict:
+    """Call the production signer directly with a deliberately incomplete record."""
+    sys.path.insert(0,str(root/'tools/phk2_host'))
+    import phk2_fk0957_topology_signing as signing
+    import phk2_fk0957_idcode_gate as gate
+    import phk2_fk0957_remote_orchestrator as canonical
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    key=Ed25519PrivateKey.generate(); public=key.public_key()
+    der=public.public_bytes(serialization.Encoding.DER,serialization.PublicFormat.SubjectPublicKeyInfo)
+    fingerprint=hashlib.sha256(der).hexdigest()
+    pem=key.private_bytes(serialization.Encoding.PEM,serialization.PrivateFormat.PKCS8,serialization.NoEncryption())
+    record={'schema':'fk0957-unsigned-topology-acquisition-v1','status':'ACQUIRED',
+      'write_count':0,'reset_count':0,'program_count':0,'jtag_operation_count':1,
+      'idcode_qualification_pass':False,'card_id':'FK0957','adapter_serial':'153300000957A',
+      'usb_descriptor_serial':'153300000957','scan_a_tck_count':591,'scan_b_tck_count':586,
+      'total_tck_count':1177,'trusted_signer_fingerprint':fingerprint,
+      'invented_claim':'fixture; deliberately lacks all acquisition/provenance/raw evidence'}
+    provenance={'ssh_destination':'rmann@192.168.1.173','ssh_host_key_algorithm':'ssh-ed25519',
+      'ssh_host_key_sha256':'SHA256:'+'A'*43,'pinned_known_hosts_sha256':'0'*64,
+      'local_agent_available_to_ssh_client':True,'remote_agent_forwarding':False,
+      'remote_process_state':'REMOTE_PROCESS_CONFIRMED_EXITED'}
+    with mock.patch.object(signing,'_read_local_private_key',return_value=pem), \
+         mock.patch.object(gate,'TRUSTED_SIGNER_FINGERPRINT_SHA256',fingerprint), \
+         mock.patch.object(gate,'_trusted_signer',return_value=public):
+        signed=signing._sign_validated_remote_record(record,provenance)
+    payload=signed['payload']; encoded=canonical.canonical(payload)
+    public.verify(bytes.fromhex(signed['signature_hex']),encoded)
+    required=('descriptor_evidence_sha256','permit_nonce','operation_id','authorization_id',
+      'handoff_sha256','manifest_sha256','transport_source_sha256','scan_a_raw_tdo_hex',
+      'scan_b_raw_tdo_hex','scan_a_transaction_sha256','scan_b_transaction_sha256')
+    return {'synthetic_minimal_record_signed':True,'signature_verifies':True,
+      'missing_validation_fields':[field for field in required if field not in record],
+      'test_key_only':True,'evidence_file_written':False}
+
+
 def handoff_attacks(root: Path) -> dict:
     """Try ownership failures at the live CLI with acquisition replaced by a sentinel."""
     sys.path.insert(0,str(root/'tools/phk2_host'))
@@ -251,6 +285,7 @@ def main():
     if head!=a.expected_head: raise SystemExit('candidate SHA mismatch')
     report={'candidate_sha':head,'startup':startup(root),'authorization':authorization(root),
             'handoff':handoff_attacks(root),'provenance':provenance_attacks(root),
+            'synthetic_signing':synthetic_signing_attack(root),
             'governance':governance(root),'hardware_access':False,'ssh':False,'usb_jtag':False}
     Path(a.output).write_text(json.dumps(report,sort_keys=True,indent=2)+'\n')
     print(json.dumps(report,sort_keys=True))

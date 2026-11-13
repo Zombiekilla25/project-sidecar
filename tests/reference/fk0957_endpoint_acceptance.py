@@ -135,7 +135,8 @@ def run(candidate: Path) -> dict:
       with mock.patch.object(ep,'TRUST_CONFIG_SHA256','a'*64), \
            mock.patch.object(ep,'_load_trust_config',return_value=issuers), \
            mock.patch.object(ep,'CONSUMED_AUTHORIZATION_DIR',ledger), \
-           mock.patch.object(tr,'issue_fk0957_topology_permit',return_value=object()), \
+           mock.patch.object(tr,'issue_fk0957_topology_permit',return_value=SimpleNamespace(
+               nonce=nonce,trusted_signer_fingerprint='b'*64)), \
            mock.patch.object(tr,'run_fk0957_topology_discovery',return_value=fake_result) as physical, \
            mock.patch.object(tr,'validate_transport_observation',return_value=parsed):
         first_status='REFUSED'; second_status='REFUSED'
