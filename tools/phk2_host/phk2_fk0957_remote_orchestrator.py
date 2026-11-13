@@ -286,18 +286,46 @@ def _validated_local_ssh_auth_sock() -> tuple[str, tuple[int, int]]:
     path = Path(raw)
     if not path.is_absolute() or ".." in path.parts:
         raise Refusal("local SSH agent socket path is unsafe")
+    directory_flags = (os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) |
+                       getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0))
+    directory_fd = os.open("/", directory_flags)
+    private_parent = False
+    parent_identity = None
+    try:
+        for component in path.parts[1:-1]:
+            next_fd = os.open(component, directory_flags, dir_fd=directory_fd)
+            os.close(directory_fd)
+            directory_fd = next_fd
+            info = os.fstat(directory_fd)
+            root_sticky = (info.st_uid == 0 and bool(info.st_mode & stat.S_ISVTX))
+            if (not stat.S_ISDIR(info.st_mode) or info.st_uid not in (0, os.geteuid()) or
+                    (info.st_mode & 0o022 and not root_sticky)):
+                raise Refusal("local SSH agent path contains an unsafe parent directory")
+            # A private user-owned ancestor prevents other users from reaching
+            # the socket. Some keyring daemons create 0775 sockets inside such
+            # 0700 directories; socket mode bits alone do not expose that
+            # endpoint beyond the owning user's namespace.
+            if info.st_uid == os.geteuid() and not (info.st_mode & 0o077):
+                private_parent = True
+            parent_identity = (info.st_dev, info.st_ino)
+    except OSError as exc:
+        raise Refusal("local SSH agent parent path cannot be validated") from exc
+    finally:
+        os.close(directory_fd)
     parent_fd, name = _open_path_parent(path)
     try:
         parent = os.fstat(parent_fd)
         if (not stat.S_ISDIR(parent.st_mode) or
+                (parent.st_dev, parent.st_ino) != parent_identity or
                 (parent.st_uid == os.geteuid() and parent.st_mode & 0o022) or
                 (parent.st_uid != os.geteuid() and
                  not (parent.st_uid == 0 and parent.st_mode & stat.S_ISVTX))):
             raise Refusal("local SSH agent socket parent is not protected")
         before = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
-        if (not stat.S_ISSOCK(before.st_mode) or before.st_uid != os.geteuid() or
-                before.st_mode & 0o077):
-            raise Refusal("local SSH_AUTH_SOCK is not an owner-only Unix socket")
+        if not stat.S_ISSOCK(before.st_mode) or before.st_uid != os.geteuid():
+            raise Refusal("local SSH_AUTH_SOCK is not an operator-owned Unix socket")
+        if before.st_mode & 0o077 and not private_parent:
+            raise Refusal("group/other-accessible agent socket lacks a private parent directory")
         after = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
         identity = (before.st_dev, before.st_ino)
         if identity != (after.st_dev, after.st_ino):

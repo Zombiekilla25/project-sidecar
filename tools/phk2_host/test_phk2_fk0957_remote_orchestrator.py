@@ -339,6 +339,86 @@ class RemoteOrchestratorTests(unittest.TestCase):
                 with self.assertRaises(remote.Refusal):
                     remote._validated_local_ssh_auth_sock()
 
+    def test_group_accessible_agent_socket_is_trusted_only_inside_private_parent(self):
+        # The desktop keyring socket is 0775, but its user-owned 0700 parent
+        # prevents other principals from reaching it.
+        self.agent_path.chmod(0o775)
+        self.assertEqual(remote._validated_local_ssh_auth_sock()[0], str(self.agent_path))
+        self.agent_path.chmod(0o600)
+        fd, public_name = tempfile.mkstemp(prefix="agent-public-")
+        os.close(fd)
+        Path(public_name).unlink()
+        try:
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            try:
+                # /tmp is intentionally a shared sticky directory, with no
+                # private user-owned ancestor between other users and socket.
+                path = Path(public_name)
+                sock.bind(str(path))
+                path.chmod(0o775)
+                with mock.patch.dict(os.environ, {"SSH_AUTH_SOCK": str(path)}):
+                    with self.assertRaises(remote.Refusal):
+                        remote._validated_local_ssh_auth_sock()
+            finally:
+                sock.close()
+                path.unlink(missing_ok=True)
+        finally:
+            Path(public_name).unlink(missing_ok=True)
+
+    def test_agent_socket_wrong_owner_and_symlink_refuse(self):
+        original_stat = os.stat
+        def wrong_owner(path, *args, **kwargs):
+            result = original_stat(path, *args, **kwargs)
+            if path == self.agent_path.name and kwargs.get("dir_fd") is not None:
+                return mock.Mock(st_mode=result.st_mode, st_uid=os.geteuid() + 1,
+                                 st_dev=result.st_dev, st_ino=result.st_ino)
+            return result
+        with mock.patch.object(remote.os, "stat", side_effect=wrong_owner):
+            with self.assertRaises(remote.Refusal):
+                remote._validated_local_ssh_auth_sock()
+        link = Path(self.pin_dir.name) / "agent-link"
+        link.symlink_to(self.agent_path)
+        with mock.patch.dict(os.environ, {"SSH_AUTH_SOCK": str(link)}):
+            with self.assertRaises(remote.Refusal):
+                remote._validated_local_ssh_auth_sock()
+
+    def test_agent_socket_replacement_missing_and_stale_refuse(self):
+        real_stat = os.stat
+        calls = 0
+        def replaced(path, *args, **kwargs):
+            nonlocal calls
+            value = real_stat(path, *args, **kwargs)
+            if path == self.agent_path.name and kwargs.get("dir_fd") is not None:
+                calls += 1
+                if calls == 2:
+                    return mock.Mock(st_mode=value.st_mode, st_uid=value.st_uid,
+                                     st_dev=value.st_dev, st_ino=value.st_ino + 1)
+            return value
+        with mock.patch.object(remote.os, "stat", side_effect=replaced):
+            with self.assertRaises(remote.Refusal):
+                remote._validated_local_ssh_auth_sock()
+        self.agent_path.unlink()
+        with self.assertRaises(remote.Refusal):
+            remote._validated_local_ssh_auth_sock()
+
+    def test_agent_socket_wrong_type_and_nonresponsive_socket_refuse(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "regular-file"
+            path.write_text("not a socket")
+            path.chmod(0o600)
+            with mock.patch.dict(os.environ, {"SSH_AUTH_SOCK": str(path)}):
+                with self.assertRaises(remote.Refusal):
+                    remote._validated_local_ssh_auth_sock()
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "stale.sock"
+            stale = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            stale.bind(str(path))
+            stale.close()
+            path.chmod(0o600)
+            with mock.patch.dict(os.environ, {"SSH_AUTH_SOCK": str(path)}):
+                with self.assertRaises(remote.Refusal):
+                    remote._probe_local_ssh_agent(str(path))
+
     def test_unresponsive_or_empty_local_agent_refuses_before_ssh_runner(self):
         with tempfile.TemporaryDirectory() as d:
             key_path = Path(d) / "key.pem"
