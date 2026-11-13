@@ -111,6 +111,35 @@ def run(candidate: Path) -> dict:
             }
         finally:
             fixture.doCleanups()
+        absent_pid = receipt_fixtures.RemoteReceiptStoreTests()
+        absent_pid.setUp()
+        try:
+            absent_pid.store.create(absent_pid.payload)
+            absent_pid.store.transition(absent_pid.operation_id, "CLAIMED",
+                                        process=None, exit_code=None)
+            invented_process = {
+                "pid": 99999999, "start_identity": "123",
+                "uid": __import__("os").getuid(), "executable": "/usr/bin/python3",
+                "executable_sha256": "5" * 64, "argv_sha256": "6" * 64,
+                "cwd": "/", "operation_id_argument": absent_pid.operation_id,
+            }
+            with mock.patch.object(receipts, "process_start_identity", return_value="123"):
+                absent_pid.store.transition(absent_pid.operation_id, "RUNNING",
+                                            process=invented_process, exit_code=None)
+                absent_pid.store.transition(absent_pid.operation_id, "EXITED_SUCCESS",
+                                            process=invented_process, exit_code=0)
+            pid_absent = not __import__("os").path.exists("/proc/99999999")
+            with mock.patch.object(receipts, "process_start_identity", return_value=None):
+                status = absent_pid.store.status(
+                    operation_id=absent_pid.operation_id, query_nonce="c" * 64,
+                    launch_closed=True)["status"]
+            receipt_writer_attacks["fabricated_terminal_with_absent_pid"] = {
+                "pid_absent": pid_absent,
+                "status": status,
+                "restorable": protocol.restore_allowed(status),
+            }
+        finally:
+            absent_pid.doCleanups()
         race = receipt_fixtures.RemoteReceiptStoreTests()
         race.setUp()
         try:
