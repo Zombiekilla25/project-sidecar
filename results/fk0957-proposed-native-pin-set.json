@@ -1,5 +1,5 @@
 {
-  "candidate_head": "9227d0df07b2538a18b577e4ab055c252539e4be",
+  "candidate_head": "57ff20b93a93b186c7b3dc7467772f663c587cd4",
   "package_provenance": {
     "apt_upgrade_record": [
       "Start-Date: 2026-11-13  06:10:11\nCommandline: /usr/bin/unattended-upgrade\nUpgrade: libc6:amd64 (2.39-0ubuntu8.9, 2.39-0ubuntu8.12), libc6:i386 (2.39-0ubuntu8.9, 2.39-0ubuntu8.12), locales:amd64 (2.39-0ubuntu8.9, 2.39-0ubuntu8.12), libc-dev-bin:amd64 (2.39-0ubuntu8.9, 2.39-0ubuntu8.12), libc-bin:amd64 (2.39-0ubuntu8.9, 2.39-0ubuntu8.12), libc-devtools:amd64 (2.39-0ubuntu8.9, 2.39-0ubuntu8.12), libc6-dbg:amd64 (2.39-0ubuntu8.9, 2.39-0ubuntu8.12), libc6-dev:amd64 (2.39-0ubuntu8.9, 2.39-0ubuntu8.12)\nEnd-Date: 2026-11-13  06:10:33"

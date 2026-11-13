@@ -8,6 +8,7 @@ import json
 import random
 import subprocess
 import sys
+from unittest import mock
 from pathlib import Path
 
 
@@ -72,6 +73,74 @@ def run(candidate: Path) -> dict:
         except BaseException as exc:
             utility_exceptions[label] = type(exc).__name__
 
+    receipt_writer_attacks = {"implemented": False}
+    if (candidate / "tools/phk2_host/fk0957_remote_receipts.py").is_file():
+        import fk0957_remote_receipts as receipts
+        import test_fk0957_remote_receipts as receipt_fixtures
+        fixture = receipt_fixtures.RemoteReceiptStoreTests()
+        fixture.setUp()
+        try:
+            fixture.store.create(fixture.payload)
+            fixture.store.transition(fixture.operation_id, "CLAIMED", process=None, exit_code=None)
+            fake_process = {
+                "pid": __import__("os").getpid(), "start_identity": "123",
+                "uid": __import__("os").getuid(), "executable": "/usr/bin/python3",
+                "executable_sha256": "5" * 64, "argv_sha256": "6" * 64,
+                "cwd": "/", "operation_id_argument": fixture.operation_id,
+            }
+            with mock.patch.object(receipts, "process_start_identity", return_value="123"):
+                fixture.store.transition(fixture.operation_id, "RUNNING",
+                                         process=fake_process, exit_code=None)
+                fixture.store.transition(fixture.operation_id, "EXITED_SUCCESS",
+                                         process=fake_process, exit_code=0)
+            # The PID is this still-live audit process. Simulate /proc stat
+            # becoming unreadable (process_start_identity conflates all errors
+            # with absence) while status caller asserts launch_closed.
+            with mock.patch.object(receipts, "process_start_identity", return_value=None):
+                observed = fixture.store.status(operation_id=fixture.operation_id,
+                                                query_nonce="c" * 64,
+                                                launch_closed=True)["status"]
+            receipt_writer_attacks = {
+                "implemented": True,
+                "live_pid_still_exists": __import__("os").path.exists(
+                    f"/proc/{__import__('os').getpid()}"),
+                "inaccessible_proc_stat_status": observed,
+                "inaccessible_proc_stat_restorable": protocol.restore_allowed(observed),
+            }
+        finally:
+            fixture.doCleanups()
+        race = receipt_fixtures.RemoteReceiptStoreTests()
+        race.setUp()
+        try:
+            race.store.create(race.payload)
+            original_replace = receipts.os.replace
+            injected = []
+
+            def replace_after_destination_substitution(src, dst, **kwargs):
+                row, _ = race.store.read(race.operation_id)
+                row["release_manifest_sha256"] = "9" * 64
+                replacement = protocol.canonical(row)
+                fd = __import__("os").open(dst, __import__("os").O_WRONLY |
+                    __import__("os").O_TRUNC | getattr(__import__("os"), "O_NOFOLLOW", 0),
+                    dir_fd=kwargs["dst_dir_fd"])
+                try:
+                    __import__("os").write(fd, replacement)
+                finally:
+                    __import__("os").close(fd)
+                injected.append(True)
+                return original_replace(src, dst, **kwargs)
+
+            with mock.patch.object(receipts.os, "replace",
+                                   side_effect=replace_after_destination_substitution):
+                race.store.transition(race.operation_id, "CLAIMED", process=None, exit_code=None)
+            final_row, _ = race.store.read(race.operation_id)
+            receipt_writer_attacks["destination_replacement_injected"] = bool(injected)
+            receipt_writer_attacks["destination_replacement_detected"] = False
+            receipt_writer_attacks["replacement_overwritten_by_transition"] = (
+                final_row["release_manifest_sha256"] != "9" * 64 and final_row["state"] == "CLAIMED")
+        finally:
+            race.doCleanups()
+
     # Deterministic type/value fuzzing for challenge-bound status. Every case
     # starts from a valid canonical NOT_STARTED status; the mutator changes at
     # least one field to a value outside that field's valid baseline value.
@@ -122,6 +191,7 @@ def run(candidate: Path) -> dict:
         "nested_receipt_type_cases": nested_cases,
         "nested_receipt_non_unknown_results": nested_bad,
         "utility_malformed_input_results": utility_exceptions,
+        "receipt_writer_attacks": receipt_writer_attacks,
         "deterministic_fuzz_seed": "0x09572026",
         "deterministic_fuzz_cases": fuzz_count,
         "deterministic_fuzz_outcomes": safe_outcomes,
