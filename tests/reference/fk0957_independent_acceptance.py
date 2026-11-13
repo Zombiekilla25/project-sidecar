@@ -456,19 +456,26 @@ def unconsumed_permit_internal_entry_attack(repo: Path) -> dict[str, Any]:
     with mock.patch.object(transport, "transport_source_sha256", return_value="a" * 64), \
             mock.patch.object(transport, "_production_git_state", return_value=("a" * 40, True)), \
             mock.patch.object(transport, "_NativeLibFtdi", side_effect=factory):
-        results = [transport._run_consumed_permit(fabricated),
-                   transport._run_consumed_permit(fabricated)]
+        results = []
+        for _ in range(2):
+            try:
+                results.append(transport._run_consumed_permit(fabricated))
+            except transport.Refusal as exc:
+                results.append(exc)
     with topology._PERMIT_LOCK:
         registered = fabricated._token in topology._ACTIVE
         consumed = fabricated._token in topology._CONSUMED
     return {
         "same_fabricated_permit_calls": len(results),
+        "direct_internal_without_signed_request_refused": all(
+            isinstance(item, transport.Refusal) for item in results),
         "permit_registered": registered,
         "permit_consumed": consumed,
         "simulated_device_opens": sum(item.open_count for item in backends),
         "simulated_transport_closes": sum(item.close_count for item in backends),
         "sealed_observations_returned": all(
-            item._proof in transport._SEALED_RESULTS for item in results),
+            not isinstance(item, transport.Refusal) and item._proof in transport._SEALED_RESULTS
+            for item in results),
     }
 
 
