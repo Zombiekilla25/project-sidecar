@@ -174,8 +174,14 @@ Run it with the production repository path. Against `3226bfc1474d6afa873fce7327d
   launcher, or manifest/configuration. There is no dirty-tree or expected-HEAD
   enforcement.
 - The current runtime-library pin check returned a bounded `Refusal` before any
-  device operation. The installed native runtime therefore does not currently
-  satisfy the reviewed pin preflight; its exact binary must be requalified.
+  device operation. Independent ELF/package inspection found libftdi
+  `1.5-6build5` and libusb `2:1.0.27-1` match the reviewed hashes/build IDs.
+  Installed libc is `2.39-0ubuntu8.12`, SHA256
+  `755a371e86cc9f564ab54f66140747700fb0a103f698f659f2060f707897e09a`, build
+  ID `8cebda42d140fc2b09639f8b13a5d5f2e617ef09`; both differ from the pinned
+  libc SHA/build ID. This causes the focused transport suite to fail 11 of 21
+  tests in the current environment. The correct action is deliberate pin
+  requalification, not silently approving these bytes.
 - Documentation still recommends `PYTHONPATH=tools/phk2_host` and retains a
   stale claim that transport hash is null until a production adapter exists.
 - The handoff JSON's four recorded executable-source hashes still match the

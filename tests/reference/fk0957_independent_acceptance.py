@@ -318,11 +318,47 @@ def main() -> int:
 def _native_pin_status(repo: Path) -> dict[str, Any]:
     sys.path.insert(0, str(repo / "tools/phk2_host"))
     import phk2_fk0957_topology_transport as transport
+    details = {}
+    for name in ("libc", "libftdi", "libusb"):
+        pin = next(row for row in transport.LIBRARY_PINS if row.name == name)
+        path = pin.path
+        actual: dict[str, Any] = {"pinned_path": str(path), "expected_sha256": pin.sha256,
+                                  "expected_build_id": pin.build_id,
+                                  "expected_size": pin.size}
+        try:
+            stat = path.stat()
+            raw = path.read_bytes()
+            actual.update({"exists": True, "realpath": str(path.resolve(strict=True)),
+                           "sha256": hashlib.sha256(raw).hexdigest(), "size": stat.st_size,
+                           "mode": oct(stat.st_mode & 0o777), "uid": stat.st_uid,
+                           "gid": stat.st_gid, "inode": stat.st_ino, "links": stat.st_nlink})
+            notes = subprocess.run(["readelf", "-n", str(path)], capture_output=True,
+                                   text=True, check=False).stdout
+            match = re.search(r"Build ID:\s*([0-9a-fA-F]+)", notes)
+            actual["build_id"] = match.group(1).lower() if match else None
+            dynamic = subprocess.run(["readelf", "-d", str(path)], capture_output=True,
+                                     text=True, check=False).stdout
+            soname = re.search(r"Library soname: \[([^]]+)\]", dynamic)
+            actual["soname"] = soname.group(1) if soname else None
+            owner = subprocess.run(["dpkg-query", "-S", str(path)], capture_output=True,
+                                   text=True, check=False).stdout.strip()
+            actual["package_owner"] = owner
+            if owner and ": " in owner:
+                package = owner.split(": ", 1)[0]
+                version = subprocess.run(["dpkg-query", "-W", "-f=${Version}", package],
+                                         capture_output=True, text=True, check=False).stdout.strip()
+                actual["package_version"] = version or None
+            actual["pin_matches_bytes_build_size"] = (
+                actual["sha256"] == pin.sha256 and actual["build_id"] == pin.build_id and
+                stat.st_size == pin.size)
+        except OSError as exc:
+            actual.update({"exists": False, "read_error_class": type(exc).__name__})
+        details[name] = actual
     try:
         transport._require_native_files()
     except Exception as exc:
-        return {"pass": False, "exception_class": type(exc).__name__}
-    return {"pass": True, "exception_class": None}
+        return {"pass": False, "exception_class": type(exc).__name__, "libraries": details}
+    return {"pass": True, "exception_class": None, "libraries": details}
 
 
 if __name__ == "__main__":
