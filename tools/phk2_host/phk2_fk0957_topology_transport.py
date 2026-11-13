@@ -555,9 +555,14 @@ def _read_sysfs(path: Path, field: str) -> str:
     if len(raw) > 256 or b"\x00" in raw:
         raise Refusal("sysfs descriptor is malformed or oversized")
     try:
-        value = raw.decode("utf-8").strip()
+        decoded = raw.decode("utf-8")
     except UnicodeDecodeError as exc:
         raise Refusal("sysfs descriptor is not UTF-8") from exc
+    # sysfs terminates text attributes with one LF. Preserve every other
+    # serial byte so whitespace, prefixes, and suffixes cannot normalize into
+    # the authorized serial.
+    value = decoded[:-1] if field == "serial" and decoded.endswith("\n") else (
+        decoded if field == "serial" else decoded.strip())
     if not value:
         raise Refusal("required sysfs descriptor is empty")
     return value
@@ -589,6 +594,23 @@ def _identity_from_sysfs(path_text: str, descriptor: _UsbDeviceDescriptor) -> to
                                 f"{FTDI_VID:04x}", f"{FTDI_PID:04x}", "Xilinx", "SQRL FK", "A"):
         raise Refusal("sysfs identity does not match the authorized FK0957 descriptor")
     return identity
+
+
+def _serial_for_candidate(path_text: str, descriptor: _UsbDeviceDescriptor) -> str | None:
+    """Read only enough metadata to filter an enumerated VID/PID peer by exact serial."""
+    if descriptor.idVendor != FTDI_VID or descriptor.idProduct != FTDI_PID:
+        return None
+    sysfs = SYSFS_USB_ROOT / path_text
+    try:
+        vendor = _read_sysfs(sysfs, "idVendor").lower()
+        product = _read_sysfs(sysfs, "idProduct").lower()
+        if vendor != f"{FTDI_VID:04x}" or product != f"{FTDI_PID:04x}":
+            return None
+        return _read_sysfs(sysfs, "serial")
+    except Refusal:
+        # An unidentifiable peer is ineligible. If the actual target cannot be
+        # identified, exact-match cardinality becomes zero and selection refuses.
+        return None
 
 
 class _NativeLibFtdi:
@@ -666,49 +688,65 @@ class _NativeLibFtdi:
             trace.phase = "DEVICE_ENUMERATION"
         count = self._ftdi.ftdi_usb_find_all(self._ctx, ctypes.byref(self._list), FTDI_VID, FTDI_PID)
         if trace is not None:
-            trace.target_candidates = max(0, min(int(count), 256)) if count >= 0 else "unknown"
-            if count == 0:
-                trace.code_override = "NO_TARGET_CANDIDATE"
-            elif count > 1:
-                trace.code_override = "MULTIPLE_TARGET_CANDIDATES"
+            trace.target_candidates = 0 if count >= 0 else "unknown"
+            trace.code_override = None
         if count < 0:
             if trace is not None:
                 trace.return_code = int(count)
             raise Refusal("libftdi descriptor enumeration failed")
-        if count == 0:
-            raise Refusal("no approved FTDI candidate found")
-        # A second 0403:6010 device is a fail-closed ambiguity. Do not read its
-        # strings and do not open it; enumeration is descriptor-only.
-        if count != 1:
-            raise Refusal("multiple FTDI devices present; refusing peer/second-device ambiguity")
-        if not self._list:
+        if count and not self._list:
             raise Refusal("libftdi enumeration count/list disagreement")
-        node = self._list.contents
-        if node.next:
+        candidates: list[topology.Candidate] = []
+        node = self._list
+        seen = 0
+        while node and seen < count:
+            current = node.contents
+            dev = current.dev
+            node = current.next
+            seen += 1
+            if not dev:
+                continue
+            descriptor = _UsbDeviceDescriptor()
+            if self._usb.libusb_get_device_descriptor(dev, ctypes.byref(descriptor)) != 0:
+                continue
+            if descriptor.idVendor != FTDI_VID or descriptor.idProduct != FTDI_PID:
+                continue
+            bus = int(self._usb.libusb_get_bus_number(dev))
+            ports = (ctypes.c_uint8 * 8)()
+            port_count = self._usb.libusb_get_port_numbers(dev, ports, 8)
+            if port_count <= 0 or port_count > 8:
+                continue
+            usb_path = _format_usb_path(bus, tuple(int(ports[i]) for i in range(port_count)))
+            if trace is not None:
+                trace.phase = "DEVICE_SELECTION"
+            serial = _serial_for_candidate(usb_path, descriptor)
+            if serial != USB_DESCRIPTOR_SERIAL:
+                continue
+            if trace is not None:
+                trace.target_candidates = min(int(trace.target_candidates) + 1, 256)
+            # Count the exact USB-serial identity before applying the remaining
+            # signed descriptor fields, so duplicate serials fail closed even
+            # when they appear at different USB paths.
+            identity = _identity_from_sysfs(usb_path, descriptor)
+            candidates.append(topology.Candidate(identity, dev))
+        if seen != count or node:
             raise Refusal("libftdi enumeration count/list disagreement")
-        dev = node.dev
-        descriptor = _UsbDeviceDescriptor()
-        if not dev or self._usb.libusb_get_device_descriptor(dev, ctypes.byref(descriptor)) != 0:
-            raise Refusal("selected libusb descriptor unavailable")
-        bus = int(self._usb.libusb_get_bus_number(dev))
-        ports = (ctypes.c_uint8 * 8)()
-        port_count = self._usb.libusb_get_port_numbers(dev, ports, 8)
-        if port_count <= 0 or port_count > 8:
-            raise Refusal("selected libusb topology path unavailable")
-        usb_path = _format_usb_path(bus, tuple(int(ports[i]) for i in range(port_count)))
         if trace is not None:
-            trace.phase = "DEVICE_SELECTION"
-        identity = _identity_from_sysfs(usb_path, descriptor)
-        candidate = topology.Candidate(identity, object())
-        self._candidate = candidate
-        self._selected_dev = dev
-        return (candidate,)
+            trace.target_candidates = min(len(candidates), 256)
+            if not candidates:
+                trace.code_override = "NO_TARGET_CANDIDATE"
+            elif len(candidates) > 1:
+                trace.code_override = "MULTIPLE_TARGET_CANDIDATES"
+        self._eligible_candidates = tuple(candidates)
+        return self._eligible_candidates
 
     def open_exact(self, candidate: topology.Candidate) -> None:
         trace = getattr(self, "_trace", None)
         if trace is not None:
             trace.phase = "DEVICE_OPEN"
-        if candidate is not self._candidate or candidate.handle_token is None or not self._selected_dev:
+        eligible = getattr(self, "_eligible_candidates", ())
+        if (not any(candidate is row for row in eligible) or
+                candidate.handle_token is None):
             raise Refusal("attempt to substitute a non-selected FTDI candidate")
         if candidate.identity.interface != FTDI_INTERFACE_NAME:
             raise Refusal("selected FTDI channel differs from fixed interface A")
@@ -719,7 +757,7 @@ class _NativeLibFtdi:
             if trace is not None:
                 trace.return_code = int(rc)
             raise Refusal("libftdi interface A selection failed")
-        rc = self._ftdi.ftdi_usb_open_dev(self._ctx, self._selected_dev)
+        rc = self._ftdi.ftdi_usb_open_dev(self._ctx, candidate.handle_token)
         if rc != 0:
             if trace is not None:
                 trace.return_code = int(rc)
