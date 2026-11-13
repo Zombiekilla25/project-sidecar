@@ -59,6 +59,7 @@ class RGBTopologyOrchestratorTests(unittest.TestCase):
         self.assertNotIn(b"remote-secret", output)
         self.assertTrue(provenance["local_agent_available_to_ssh_client"])
         self.assertFalse(provenance["remote_agent_forwarding"])
+        self.assertEqual(provenance["remote_process_state"], "REMOTE_PROCESS_CONFIRMED_EXITED")
         probe.assert_called_once(); revalidate.assert_called_once()
 
     def test_timeout_is_unknown_and_never_retried(self):
@@ -72,9 +73,27 @@ class RGBTopologyOrchestratorTests(unittest.TestCase):
              mock.patch.object(ssh_policy, "_probe_local_ssh_agent"), \
              mock.patch.object(ssh_policy, "_revalidate_local_ssh_auth_sock"), \
              mock.patch.object(ssh_policy, "_validate_private_pin"):
-            with self.assertRaisesRegex(rgb.Refusal, "remote state unknown"):
+            with self.assertRaisesRegex(rgb.Refusal, "remote state unknown") as caught:
                 rgb._pinned_ssh(b"request", runner=runner)
+        self.assertEqual(caught.exception.remote_state, "REMOTE_STATE_UNKNOWN")
         self.assertEqual(len(calls), 1)
+
+    def test_endpoint_refusal_exit_confirms_process_exit_without_exposing_stderr(self):
+        refusal = endpoint.canonical({"schema": "fk0957-remote-acquisition-v1",
+                                      "status": "REFUSED", "phase": "DEVICE_OPEN",
+                                      "code": "DEVICE_OPEN_FAILED"})
+        host = {"algorithm": "ssh-ed25519", "fingerprint": "SHA256:" + "A" * 43}
+        def runner(*_args, **_kwargs):
+            return SimpleNamespace(returncode=2, stdout=refusal, stderr=b"secret /path")
+        with mock.patch.object(ssh_policy, "_read_pinned_source", return_value=(b"pin\n", host, (1, 2))), \
+             mock.patch.object(ssh_policy, "_validated_local_ssh_auth_sock", return_value=("/agent", (3, 4))), \
+             mock.patch.object(ssh_policy, "_probe_local_ssh_agent"), \
+             mock.patch.object(ssh_policy, "_revalidate_local_ssh_auth_sock"), \
+             mock.patch.object(ssh_policy, "_validate_private_pin"):
+            with self.assertRaisesRegex(rgb.Refusal, "DEVICE_OPEN_FAILED") as caught:
+                rgb._pinned_ssh(b"request", runner=runner)
+        self.assertEqual(caught.exception.remote_state, "REMOTE_PROCESS_CONFIRMED_EXITED")
+        self.assertNotIn("secret", str(caught.exception))
 
     def test_rejected_or_malformed_remote_output_never_reaches_signing(self):
         context = {"operation_id": "1" * 32}

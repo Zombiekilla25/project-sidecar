@@ -79,8 +79,13 @@ def _verify_signed_remote_result(document: object) -> dict:
     if hashlib.sha256(unsigned_bytes).hexdigest() != payload["unsigned_acquisition_sha256"]:
         raise ValueError("unsigned acquisition digest rejected")
     provenance = payload["ssh_provenance"]
-    if (type(provenance) is not dict or provenance.get("remote_agent_forwarding") is not False or
+    if (type(provenance) is not dict or set(provenance) != {
+            "ssh_destination", "ssh_host_key_algorithm", "ssh_host_key_sha256",
+            "pinned_known_hosts_sha256", "local_agent_available_to_ssh_client",
+            "remote_agent_forwarding", "remote_process_state"} or
+            provenance.get("remote_agent_forwarding") is not False or
             provenance.get("local_agent_available_to_ssh_client") is not True or
+            provenance.get("remote_process_state") != "REMOTE_PROCESS_CONFIRMED_EXITED" or
             provenance.get("ssh_destination") != "rmann@192.168.1.173"):
         raise ValueError("SSH provenance rejected")
     return unsigned

@@ -44,7 +44,9 @@ UNSIGNED_FIELDS = {
 
 
 class Refusal(ValueError):
-    pass
+    def __init__(self, message: str, *, remote_state: str = "REMOTE_STATE_UNKNOWN"):
+        super().__init__(message)
+        self.remote_state = remote_state
 
 
 def _parse_response(raw: bytes) -> dict[str, Any]:
@@ -148,9 +150,11 @@ def _pinned_ssh(request_raw: bytes, *, runner=None) -> tuple[bytes, dict[str, An
             result = runner(cmd, input=request_raw, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                             check=False, timeout=SSH_TIMEOUT_SECONDS, env=safe_env)
         except subprocess.TimeoutExpired:
-            raise Refusal("remote state unknown after SSH timeout; do not restore ownership") from None
+            raise Refusal("remote state unknown after SSH timeout; do not restore ownership",
+                          remote_state="REMOTE_STATE_UNKNOWN") from None
         except OSError:
-            raise Refusal("SSH process failed before a verified remote result") from None
+            raise Refusal("SSH process did not start; remote acquisition was not invoked",
+                          remote_state="REMOTE_PROCESS_CONFIRMED_EXITED") from None
     stdout = getattr(result, "stdout", b"")
     if isinstance(stdout, str):
         stdout = stdout.encode("utf-8", "replace")
@@ -164,8 +168,9 @@ def _pinned_ssh(request_raw: bytes, *, runner=None) -> tuple[bytes, dict[str, An
             _parse_response(stdout)
         except Refusal as exc:
             if str(exc).startswith("remote refusal "):
-                raise
-        raise Refusal("SSH or remote acquisition failed; remote process cleanup must be confirmed separately")
+                raise Refusal(str(exc), remote_state="REMOTE_PROCESS_CONFIRMED_EXITED") from None
+        raise Refusal("SSH or remote acquisition failed; remote process cleanup must be confirmed separately",
+                      remote_state="REMOTE_STATE_UNKNOWN")
     provenance = {
         "ssh_destination": ssh_policy._AUTHORIZED_SSH_DESTINATION,
         "ssh_host_key_algorithm": host_identity["algorithm"],
@@ -173,6 +178,7 @@ def _pinned_ssh(request_raw: bytes, *, runner=None) -> tuple[bytes, dict[str, An
         "pinned_known_hosts_sha256": known_hosts_sha,
         "local_agent_available_to_ssh_client": True,
         "remote_agent_forwarding": False,
+        "remote_process_state": "REMOTE_PROCESS_CONFIRMED_EXITED",
     }
     return stdout, provenance
 

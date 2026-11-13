@@ -68,7 +68,7 @@ def _sign_validated_remote_record(record: dict[str, Any],
     required_provenance = {
         "ssh_destination", "ssh_host_key_algorithm", "ssh_host_key_sha256",
         "pinned_known_hosts_sha256", "local_agent_available_to_ssh_client",
-        "remote_agent_forwarding",
+        "remote_agent_forwarding", "remote_process_state",
     }
     if (type(record) is not dict or
             record.get("schema") != "fk0957-unsigned-topology-acquisition-v1" or
@@ -86,6 +86,7 @@ def _sign_validated_remote_record(record: dict[str, Any],
             ssh_provenance.get("ssh_destination") != "rmann@192.168.1.173" or
             ssh_provenance.get("local_agent_available_to_ssh_client") is not True or
             ssh_provenance.get("remote_agent_forwarding") is not False or
+            ssh_provenance.get("remote_process_state") != "REMOTE_PROCESS_CONFIRMED_EXITED" or
             type(ssh_provenance.get("ssh_host_key_algorithm")) is not str or
             type(ssh_provenance.get("ssh_host_key_sha256")) is not str or
             not re.fullmatch(r"SHA256:[A-Za-z0-9+/]{43}", ssh_provenance["ssh_host_key_sha256"]) or
