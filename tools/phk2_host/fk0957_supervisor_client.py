@@ -62,7 +62,8 @@ def run_once(request_raw: bytes) -> tuple[bytes, int]:
                        "transaction_profile_sha256", "target", "one_shot", "registered_ns",
                        "state", "process", "exit_code", "reaped_ns", "result_b64"}
     process_fields = {"pid", "start_identity", "parent_pid", "operation_id",
-                      "authorization_id", "executable", "executable_sha256", "argv_sha256"}
+                      "authorization_id", "launcher", "launcher_sha256", "executable",
+                      "executable_sha256", "argv_sha256"}
     process = response.get("process")
     if (set(response) != expected_fields or response.get("operation_id") != operation_id or
             response.get("authorization_id") != request.get("release_authorization", {}).get("payload", {}).get("authorization_id") or
@@ -80,8 +81,10 @@ def run_once(request_raw: bytes) -> tuple[bytes, int]:
             not re.fullmatch(r"[1-9][0-9]{0,19}", str(process.get("start_identity", ""))) or
             process.get("operation_id") != operation_id or
             process.get("authorization_id") != response.get("authorization_id") or
-            process.get("executable") != "/usr/local/bin/fk0957-safe-launcher" or
-            not HEX64.fullmatch(str(process.get("executable_sha256", ""))) or
+            process.get("launcher") != supervisor_protocol.LAUNCHER or
+            not HEX64.fullmatch(str(process.get("launcher_sha256", ""))) or
+            process.get("executable") != supervisor_protocol.PYTHON_EXECUTABLE or
+            process.get("executable_sha256") != supervisor_protocol.PYTHON_EXECUTABLE_SHA256 or
             not HEX64.fullmatch(str(process.get("argv_sha256", ""))) or
             response.get("state") not in {
             "EXITED_SUCCESS", "EXITED_REFUSAL", "EXITED_FAILURE"}):

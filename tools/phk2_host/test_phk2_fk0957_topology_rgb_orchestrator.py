@@ -18,6 +18,7 @@ import phk2_fk0957_topology_signing as signing
 import phk2_fk0957_topology_transport as transport
 import phk2_fk0957_idcode_gate as identity_gate
 import phk2_fk0957_remote_topology_endpoint as endpoint
+import fk0957_supervisor as supervisor_protocol
 
 
 def response(pattern):
@@ -136,8 +137,10 @@ class RGBTopologyOrchestratorTests(unittest.TestCase):
             "state": "EXITED_SUCCESS", "exit_code": 0, "reaped_ns": 123,
             "process": {"operation_id": operation, "authorization_id": auth_id,
                         "pid": 100, "parent_pid": 50, "start_identity": "12345",
-                        "executable_sha256": "1" * 64, "argv_sha256": "2" * 64,
-                        "executable": "/usr/local/bin/fk0957-safe-launcher"},
+                        "launcher": supervisor_protocol.LAUNCHER, "launcher_sha256": "1" * 64,
+                        "executable_sha256": supervisor_protocol.PYTHON_EXECUTABLE_SHA256,
+                        "argv_sha256": "2" * 64,
+                        "executable": supervisor_protocol.PYTHON_EXECUTABLE},
             "result_b64": __import__("base64").b64encode(result_record).decode(),
         })
         calls = []

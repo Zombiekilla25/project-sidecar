@@ -19,6 +19,7 @@ import phk2_fk0957_topology_discovery as topology
 import phk2_fk0957_topology_signing as signing
 import phk2_fk0957_topology_transport as transport
 import phk2_fk0957_remote_topology_endpoint as endpoint
+import fk0957_supervisor as supervisor_protocol
 
 KNOWN_HOSTS_PATH = Path("/home/rmann/.local/share/sidecar/ssh/fk0957-testbench-known_hosts")
 REMOTE_ENDPOINT_COMMAND = "/usr/local/bin/fk0957-safe-launcher --supervisor-client run"
@@ -216,8 +217,10 @@ def _pinned_ssh(request_raw: bytes, *, runner=None) -> tuple[bytes, dict[str, An
                         type(child_identity.get("pid")) is not int or child_identity["pid"] <= 1 or
                         type(child_identity.get("parent_pid")) is not int or child_identity["parent_pid"] <= 1 or
                         not re.fullmatch(r"[1-9][0-9]{0,19}", str(child_identity.get("start_identity", ""))) or
-                        child_identity.get("executable") != "/usr/local/bin/fk0957-safe-launcher" or
-                        not re.fullmatch(r"[0-9a-f]{64}", str(child_identity.get("executable_sha256", ""))) or
+                        child_identity.get("launcher") != supervisor_protocol.LAUNCHER or
+                        not re.fullmatch(r"[0-9a-f]{64}", str(child_identity.get("launcher_sha256", ""))) or
+                        child_identity.get("executable") != supervisor_protocol.PYTHON_EXECUTABLE or
+                        child_identity.get("executable_sha256") != supervisor_protocol.PYTHON_EXECUTABLE_SHA256 or
                         not re.fullmatch(r"[0-9a-f]{64}", str(child_identity.get("argv_sha256", "")))):
                     raise ValueError("child identity binding invalid")
                 if (type(status.get("registered_ns")) is not int or status["registered_ns"] <= 0 or

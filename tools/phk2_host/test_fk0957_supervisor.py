@@ -4,6 +4,7 @@ import json
 import os
 import socket
 import base64
+import hashlib
 import tempfile
 import unittest
 from unittest import mock
@@ -14,7 +15,43 @@ import phk2_fk0957_remote_topology_endpoint as endpoint
 
 
 class SupervisorProtocolTests(unittest.TestCase):
+    def test_restart_converts_unowned_inflight_state_to_unknown_only(self):
+        running = {"schema": supervisor.RESPONSE_SCHEMA,
+                   "operation_id": "a" * 32, "state": "RUNNING"}
+        recovered = supervisor.recover_after_supervisor_restart(
+            running, active_in_this_process=False)
+        self.assertEqual(recovered["state"], "UNKNOWN")
+        self.assertEqual(recovered["reason"], "SUPERVISOR_RESTART_UNCERTAIN")
+        self.assertIs(supervisor.recover_after_supervisor_restart(
+            running, active_in_this_process=True), running)
+        terminal = {"state": "EXITED_SUCCESS"}
+        self.assertIs(supervisor.recover_after_supervisor_restart(
+            terminal, active_in_this_process=False), terminal)
+
+    def test_exact_child_identity_is_post_exec_pinned_python_not_launcher_argv(self):
+        executable_bytes = b"reviewed-python-executable"
+        executable_sha = hashlib.sha256(executable_bytes).hexdigest()
+        rest = ["S", str(os.getpid()), *(["0"] * 17), "12345"]
+        raw_stat = f"321 (python3.12) " + " ".join(rest)
+        argv = b"\0".join((supervisor.PYTHON_EXECUTABLE.encode(), b"-I", b"-S",
+                             b"/proc/self/fd/7", supervisor.ENDPOINT_MODE.encode())) + b"\0"
+        with mock.patch.object(supervisor, "PYTHON_EXECUTABLE_SHA256", executable_sha):
+            result = supervisor._identity_from_snapshot(
+                321, "a" * 32, "b" * 64, raw_stat,
+                supervisor.PYTHON_EXECUTABLE, executable_bytes, argv, "c" * 64)
+            self.assertEqual(result["launcher"], supervisor.LAUNCHER)
+            self.assertEqual(result["executable"], supervisor.PYTHON_EXECUTABLE)
+            self.assertEqual(result["executable_sha256"], executable_sha)
+            wrong_argv = b"\0".join((supervisor.LAUNCHER.encode(),
+                                      supervisor.ENDPOINT_MODE.encode())) + b"\0"
+            with self.assertRaises(OSError):
+                supervisor._identity_from_snapshot(
+                    321, "a" * 32, "b" * 64, raw_stat,
+                    supervisor.PYTHON_EXECUTABLE, executable_bytes, wrong_argv, "c" * 64)
+
     def test_ipc_schema_has_no_caller_asserted_process_state(self):
+        self.assertEqual(tuple(__import__("inspect").signature(supervisor.serve_one).parameters),
+                         ("client",))
         request = {"schema": supervisor.REQUEST_SCHEMA, "command": "run",
                    "operation_id": "a" * 32, "request_b64": "e30="}
         self.assertEqual(set(request), supervisor.RUN_KEYS)
@@ -70,9 +107,11 @@ class SupervisorProtocolTests(unittest.TestCase):
     def test_unapproved_ipc_principal_is_rejected_before_read(self):
         left, right = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
         try:
-            with self.assertRaises(PermissionError):
-                supervisor.serve_one(left, allowed_uid=os.getuid() + 10_000,
-                                     state_fd=-1)
+            with mock.patch.object(supervisor.os, "geteuid", return_value=0), \
+                    mock.patch.object(supervisor, "_service_accounts",
+                                      return_value=(os.getuid() + 10_000, 20_000, 30_000)):
+                with self.assertRaises(PermissionError):
+                    supervisor.serve_one(left)
         finally:
             left.close()
             right.close()
@@ -111,8 +150,10 @@ class SupervisorProtocolTests(unittest.TestCase):
             "state": "EXITED_SUCCESS", "exit_code": 0, "reaped_ns": 200,
             "process": {"pid": 100, "start_identity": "12345", "parent_pid": 50,
                         "operation_id": "a" * 32, "authorization_id": "b" * 64,
-                        "executable": "/usr/local/bin/fk0957-safe-launcher",
-                        "executable_sha256": "1" * 64, "argv_sha256": "2" * 64},
+                        "launcher": supervisor.LAUNCHER, "launcher_sha256": "1" * 64,
+                        "executable": supervisor.PYTHON_EXECUTABLE,
+                        "executable_sha256": supervisor.PYTHON_EXECUTABLE_SHA256,
+                        "argv_sha256": "2" * 64},
             "result_b64": base64.b64encode(b'{"ok":true}\n').decode(),
         }
         with mock.patch.object(client, "request_supervisor", return_value=response):

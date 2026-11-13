@@ -35,6 +35,8 @@ import phk2_fk0957_remote_topology_endpoint as endpoint
 SOCKET_PATH = "/run/sidecar/fk0957-supervisor.sock"
 STATE_ROOT = "/var/lib/sidecar/fk0957/supervisor"
 LAUNCHER = "/usr/local/bin/fk0957-safe-launcher"
+PYTHON_EXECUTABLE = "/usr/bin/python3.12"
+PYTHON_EXECUTABLE_SHA256 = "e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f"
 ENDPOINT_MODE = "--supervisor-remote-endpoint"
 MAX_MESSAGE = 600 * 1024
 MAX_OUTPUT = 600 * 1024
@@ -45,17 +47,30 @@ REQUEST_SCHEMA = "fk0957-supervisor-ipc-v1"
 RESPONSE_SCHEMA = "fk0957-supervisor-status-v1"
 TERMINAL = {"EXITED_SUCCESS", "EXITED_REFUSAL", "EXITED_FAILURE"}
 ALLOWED_TRANSITIONS = {
-    "REGISTERED": {"LAUNCHING"},
+    "REGISTERED": {"LAUNCHING", "UNKNOWN"},
     "LAUNCHING": {"RUNNING", "UNKNOWN"},
     "RUNNING": TERMINAL | {"UNKNOWN"},
 }
 _RUN_LOCK = threading.Lock()
+_ACTIVE_LOCK = threading.Lock()
+_ACTIVE_OPERATIONS: set[str] = set()
 
 
 def transition_allowed(prior: str | None, current: Any) -> bool:
     if prior is None:
         return current == "REGISTERED"
     return prior in ALLOWED_TRANSITIONS and current in ALLOWED_TRANSITIONS[prior]
+
+
+def recover_after_supervisor_restart(last: dict[str, Any], *, active_in_this_process: bool) -> dict[str, Any]:
+    """Never inherit Popen/reap authority across daemon process lifetimes."""
+    if (last.get("state") in {"REGISTERED", "LAUNCHING", "RUNNING"} and
+            not active_in_this_process):
+        return {"schema": RESPONSE_SCHEMA,
+                "operation_id": last.get("operation_id"),
+                "state": "UNKNOWN",
+                "reason": "SUPERVISOR_RESTART_UNCERTAIN"}
+    return last
 
 
 def canonical(value: Any) -> bytes:
@@ -281,39 +296,103 @@ def _read_status(root_fd: int, operation_id: str) -> bytes:
             "REGISTERED", "LAUNCHING", "RUNNING", "EXITED_SUCCESS",
             "EXITED_REFUSAL", "EXITED_FAILURE", "UNKNOWN"}:
         raise ValueError("journal state invalid")
+    with _ACTIVE_LOCK:
+        active_here = operation_id in _ACTIVE_OPERATIONS
+    recovered = recover_after_supervisor_restart(last, active_in_this_process=active_here)
+    if recovered is not last:
+        # Preserve old rows and append UNKNOWN; never infer exit from PID absence.
+        _append_state(root_fd, operation_id, recovered, first=False)
+        return canonical(recovered)
     return canonical(last)
 
 
-def _child_identity(pid: int, operation_id: str, authorization_id: str) -> dict[str, Any]:
-    """Bind supervisor's Popen child PID to start time, parent and executable bytes."""
-    with open(f"/proc/{pid}/stat", "r", encoding="ascii") as handle:
-        raw_stat = handle.read(8192)
+def _verified_launcher_sha256() -> str:
+    fd = os.open(LAUNCHER, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        info = os.fstat(fd)
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_nlink != 1 or
+                info.st_mode & 0o022 or info.st_size <= 0 or info.st_size > 64 * 1024 * 1024):
+            raise OSError("protected launcher identity invalid")
+        digest = hashlib.sha256()
+        while True:
+            part = os.read(fd, 1024 * 1024)
+            if not part:
+                break
+            digest.update(part)
+        after = os.fstat(fd)
+        if ((info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns) !=
+                (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)):
+            raise OSError("protected launcher changed during hash")
+        return digest.hexdigest()
+    finally:
+        os.close(fd)
+
+
+def _identity_from_snapshot(pid: int, operation_id: str, authorization_id: str,
+                            raw_stat: str, executable: str, executable_bytes: bytes,
+                            argv_raw: bytes, launcher_sha256: str) -> dict[str, Any]:
+    """Validate the post-exec Python image for the exact launcher Popen child."""
     close = raw_stat.rfind(")")
     fields = raw_stat[close + 2:].split()
-    if len(fields) < 20 or fields[19].isdecimal() is False or int(fields[19]) <= 0:
+    if len(fields) < 20 or not fields[19].isdecimal() or int(fields[19]) <= 0:
         raise OSError("child start identity unavailable")
-    # In fields beginning with state (proc field 3), ppid is index 1.
     if int(fields[1]) != os.getpid():
         raise OSError("child parent identity mismatch")
-    executable = os.path.realpath(f"/proc/{pid}/exe")
-    executable_bytes = Path(executable).read_bytes()
-    argv_raw = Path(f"/proc/{pid}/cmdline").read_bytes()
     argv = argv_raw.rstrip(b"\0").split(b"\0")
-    if not argv or argv[0].decode("utf-8", "strict") != LAUNCHER or \
-            ENDPOINT_MODE.encode("ascii") not in argv:
+    if (executable != PYTHON_EXECUTABLE or
+            hashlib.sha256(executable_bytes).hexdigest() != PYTHON_EXECUTABLE_SHA256 or
+            len(argv) != 5 or argv[0] != PYTHON_EXECUTABLE.encode("ascii") or
+            argv[1:3] != [b"-I", b"-S"] or
+            re.fullmatch(rb"/proc/self/fd/[0-9]+", argv[3]) is None or
+            argv[4] != ENDPOINT_MODE.encode("ascii")):
         raise OSError("child executable/arguments mismatch")
     return {"pid": pid, "start_identity": fields[19], "parent_pid": os.getpid(),
             "operation_id": operation_id, "authorization_id": authorization_id,
+            "launcher": LAUNCHER, "launcher_sha256": launcher_sha256,
             "executable": executable,
             "executable_sha256": hashlib.sha256(executable_bytes).hexdigest(),
             "argv_sha256": hashlib.sha256(argv_raw).hexdigest()}
 
 
-def serve_one(client: socket.socket, *, allowed_uid: int,
-              launcher: str = LAUNCHER, state_fd: int | None = None) -> bytes:
-    """Handle one authenticated local IPC request, supervising and reaping child."""
+def _child_identity(pid: int, operation_id: str, authorization_id: str,
+                    launcher_sha256: str) -> dict[str, Any]:
+    """Wait for and bind the exact launcher child after its fixed Python exec."""
+    deadline = time.monotonic() + 5.0
+    last_error = "child exec identity unavailable"
+    while time.monotonic() < deadline:
+        try:
+            with open(f"/proc/{pid}/stat", "r", encoding="ascii") as handle:
+                raw_stat = handle.read(8192)
+            executable = os.path.realpath(f"/proc/{pid}/exe")
+            executable_bytes = Path(executable).read_bytes()
+            argv_raw = Path(f"/proc/{pid}/cmdline").read_bytes()
+            return _identity_from_snapshot(pid, operation_id, authorization_id,
+                                           raw_stat, executable, executable_bytes,
+                                           argv_raw, launcher_sha256)
+        except (OSError, UnicodeError) as exc:
+            last_error = type(exc).__name__
+            time.sleep(0.01)
+    raise OSError(last_error)
+
+
+def serve_one(client: socket.socket) -> bytes:
+    """Production IPC entry; derive principal and state from protected system state."""
+    if os.geteuid() != 0:
+        raise PermissionError("protected supervisor service identity required")
+    allowed_uid, _runner_uid, _device_gid = _service_accounts()
     if _peer_uid(client) != allowed_uid:
         raise PermissionError("IPC principal rejected")
+    root_fd = _ensure_root_state()
+    try:
+        return _serve_one_authenticated(client, root_fd)
+    finally:
+        os.close(root_fd)
+
+
+def _serve_one_authenticated(client: socket.socket, root_fd: int) -> bytes:
+    """Internal handler receives only the supervisor's opened protected state fd."""
+    if os.geteuid() != 0:
+        raise PermissionError("protected supervisor service identity required")
     raw = bytearray()
     while len(raw) <= MAX_MESSAGE:
         part = client.recv(min(65536, MAX_MESSAGE + 1 - len(raw)))
@@ -323,8 +402,7 @@ def serve_one(client: socket.socket, *, allowed_uid: int,
             break
         raw.extend(part)
     request = parse_message(bytes(raw))
-    root_fd = _ensure_root_state() if state_fd is None else state_fd
-    owns_fd = state_fd is None
+    owns_fd = False
     if request.get("schema") != REQUEST_SCHEMA:
         if owns_fd:
             os.close(root_fd)
@@ -354,7 +432,10 @@ def serve_one(client: socket.socket, *, allowed_uid: int,
     now = time.time_ns()
     child = None
     terminal_written = False
+    with _ACTIVE_LOCK:
+        _ACTIVE_OPERATIONS.add(operation_id)
     try:
+        launcher_sha256 = _verified_launcher_sha256()
         base = {"schema": RESPONSE_SCHEMA, "operation_id": operation_id,
                 "authorization_id": auth_id,
                 "authorization_sha256": context["authorization_sha256"],
@@ -371,7 +452,7 @@ def serve_one(client: socket.socket, *, allowed_uid: int,
         endpoint._consume_authorization(auth_id, auth_bytes)
         # The trusted static launcher selects only the endpoint mode. It
         # receives the signed request on stdin; no argv carries key material.
-        command = [launcher, ENDPOINT_MODE]
+        command = [LAUNCHER, ENDPOINT_MODE]
         env = {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"}
         parent_capability, child_capability = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
         child_capability.set_inheritable(True)
@@ -392,7 +473,7 @@ def serve_one(client: socket.socket, *, allowed_uid: int,
                                  group=pwd.getpwnam("sidecar-fk0957-runner").pw_gid,
                                  extra_groups=[grp.getgrnam("fk0957-device").gr_gid])
         child_capability.close()
-        process = _child_identity(child.pid, operation_id, auth_id)
+        process = _child_identity(child.pid, operation_id, auth_id, launcher_sha256)
         _append_state(root_fd, operation_id,
                       {**base, "state": "RUNNING", "process": process}, first=False)
         output, _ = child.communicate(endpoint_request, timeout=900)
@@ -488,6 +569,8 @@ def serve_one(client: socket.socket, *, allowed_uid: int,
                     pass
         if owns_fd:
             os.close(root_fd)
+        with _ACTIVE_LOCK:
+            _ACTIVE_OPERATIONS.discard(operation_id)
         _RUN_LOCK.release()
 
 
@@ -517,10 +600,11 @@ def main() -> int:
         server.listen(8)
         server.settimeout(1.0)
         state_fd = _ensure_root_state()
+        os.close(state_fd)
     except BaseException:
         return 126
     try:
-        allowed_uid, _runner_uid, _device_gid = _service_accounts()
+        _service_accounts()
     except (KeyError, PermissionError):
         return 126
     try:
@@ -530,17 +614,16 @@ def main() -> int:
                     client, _ = server.accept()
                 except TimeoutError:
                     continue
-                pool.submit(_serve_client, client, allowed_uid, state_fd)
+                pool.submit(_serve_client, client)
     finally:
-        os.close(state_fd)
         server.close()
     return 0
 
 
-def _serve_client(client: socket.socket, allowed_uid: int, state_fd: int) -> None:
+def _serve_client(client: socket.socket) -> None:
     with client:
         try:
-            result = serve_one(client, allowed_uid=allowed_uid, state_fd=state_fd)
+            result = serve_one(client)
             client.sendall(result)
         except BaseException:
             try:
