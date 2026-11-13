@@ -45,7 +45,7 @@ _TEST_SOURCE_SHA256 = "a" * 64
 
 
 @contextmanager
-def fake_release_request(permit):
+def fake_release_request(permit, reconstructed_permit=None):
     """Test-only signed-request validator substitute at the trust boundary."""
     context = {
         "descriptor_sha256": permit.descriptor_evidence_sha256,
@@ -55,7 +55,8 @@ def fake_release_request(permit):
     with mock.patch.object(endpoint, "_load_trust_config", return_value={"release": b"x" * 32,
                                                                            "handoff": b"y" * 32}), \
          mock.patch.object(endpoint, "_validate_request", return_value=(context, b"auth", "2" * 64)), \
-         mock.patch.object(endpoint, "_consume_authorization"):
+         mock.patch.object(endpoint, "_consume_authorization"), \
+         mock.patch.object(topology, "issue_permit", return_value=reconstructed_permit or permit):
         yield b"offline signed request fixture"
 
 
@@ -320,10 +321,12 @@ class TopologyTransportTests(unittest.TestCase):
         self.assertEqual(tuple(inspect.signature(transport.run_fk0957_topology_discovery).parameters),
                          ("authorized_permit",))
         self.assertEqual(tuple(inspect.signature(transport._run_consumed_permit).parameters),
-                         ("permit", "source_sha256_before", "trace", "request_raw"))
+                         ("permit", "trace", "request_raw"))
         with mock.patch.object(transport, "_NativeLibFtdi") as backend:
             with self.assertRaises(transport.Refusal):
                 transport._run_consumed_permit(self.permit())
+            with self.assertRaises(TypeError):
+                transport._run_consumed_permit(self.permit(), source_sha256_before="a" * 64)
         backend.assert_not_called()
 
     def test_public_api_is_one_permit_and_no_generic_scan_surface(self):
@@ -750,6 +753,19 @@ class TopologyTransportTests(unittest.TestCase):
             with self.assertRaises(transport.Refusal):
                 transport.run_fk0957_topology_discovery(permit)
         backend.assert_not_called()
+
+    def test_mutated_process_local_permit_identity_is_reconstructed_from_signed_descriptor(self):
+        trusted_permit = self.permit()
+        forged_permit = replace(
+            trusted_permit,
+            identity=replace(trusted_permit.identity, card_id="FK0000"))
+        backend = self.backend()
+        with fake_release_request(forged_permit, reconstructed_permit=trusted_permit) as request_raw:
+            transport._authorize_remote_permit(forged_permit, request_raw=request_raw)
+            with mock.patch.object(transport, "_NativeLibFtdi", return_value=backend):
+                result = transport.run_fk0957_topology_discovery(forged_permit)
+        self.assertEqual(result.card_id, "FK0957")
+        self.assertEqual(backend.open_count, 1)
 
     def test_operation_state_transitions_are_monotonic(self):
         trace = transport._AttemptTrace()

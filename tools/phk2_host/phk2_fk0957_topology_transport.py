@@ -1021,7 +1021,6 @@ def _execute_scan(backend: Any, commands: tuple[topology.Command, ...], scan: st
 
 
 def _run_consumed_permit(permit: topology.DiscoveryPermit,
-                          source_sha256_before: str | None = None,
                           trace: _AttemptTrace | None = None,
                           request_raw: bytes | None = None) -> TransportObservation:
     if not isinstance(permit, topology.DiscoveryPermit) or type(request_raw) is not bytes:
@@ -1037,12 +1036,20 @@ def _run_consumed_permit(permit: topology.DiscoveryPermit,
         raise
     except Exception:
         raise Refusal("remote release authorization validation failed") from None
+    # Reconstruct the permit from descriptor evidence revalidated above. Never
+    # trust mutable process-local permit registries or a caller-created
+    # DiscoveryPermit object as proof of descriptor identity.
+    permit = issue_fk0957_topology_permit(
+        context["descriptor"], context["descriptor_sha256"])
     topology._consume(permit)
     if trace is not None:
         trace.permit_consumed = 1
         trace.advance("PERMIT_VALIDATED")
         trace.phase = "LIBRARY_PROVENANCE"
-    source_sha = source_sha256_before or transport_source_sha256()
+    # Always derive source identity here, immediately before native backend
+    # construction. No caller-supplied digest can defer a mismatch until after
+    # device access.
+    source_sha = transport_source_sha256()
     backend = _NativeLibFtdi(trace)
     opened = False
     closed = False
