@@ -162,34 +162,40 @@ class TopologyTransportTests(unittest.TestCase):
     def backend(self, **kwargs):
         return FakeBackend(**kwargs)
 
-    def native_backend(self, count=1):
+    def native_backend(self, count=1, *, ports=None, vidpids=None):
         backend = object.__new__(transport._NativeLibFtdi)
         backend._ctx = ctypes.c_void_p(0x77)
         backend._opened = False
         backend._closed = False
-        first = transport._FtdiDeviceList()
-        first.dev = ctypes.c_void_p(0x1234)
-        second = transport._FtdiDeviceList()
-        second.dev = ctypes.c_void_p(0x5678)
-        first.next = ctypes.pointer(second) if count > 1 else transport._FtdiDeviceListPtr()
-        self.native_nodes = (first, second)
+        nodes = [transport._FtdiDeviceList() for _ in range(count)]
+        devices = [0x1234 + index for index in range(count)]
+        for index, node in enumerate(nodes):
+            node.dev = ctypes.c_void_p(devices[index])
+            node.next = ctypes.pointer(nodes[index + 1]) if index + 1 < count else transport._FtdiDeviceListPtr()
+        self.native_nodes = tuple(nodes)
+        port_rows = ports or [(9, 3 + index) for index in range(count)]
+        id_rows = vidpids or [(transport.FTDI_VID, transport.FTDI_PID)] * count
+        by_dev = dict(zip(devices, zip(port_rows, id_rows)))
         backend._list = transport._FtdiDeviceListPtr()
         backend._selected_dev = None
         backend._candidate = None
+        backend._eligible_candidates = ()
 
         def find_all(ctx, output, vid, pid):
-            ctypes.cast(output, ctypes.POINTER(transport._FtdiDeviceListPtr))[0] = ctypes.pointer(first)
+            ctypes.cast(output, ctypes.POINTER(transport._FtdiDeviceListPtr))[0] = (
+                ctypes.pointer(nodes[0]) if nodes else transport._FtdiDeviceListPtr())
             return count
 
         def get_descriptor(dev, output):
             descriptor = ctypes.cast(output, ctypes.POINTER(transport._UsbDeviceDescriptor)).contents
-            descriptor.idVendor = transport.FTDI_VID
-            descriptor.idProduct = transport.FTDI_PID
+            _ports, (descriptor.idVendor, descriptor.idProduct) = by_dev[int(dev)]
             return 0
 
         def get_ports(dev, output, maximum):
-            output[0], output[1] = 9, 3
-            return 2
+            port_row, _ids = by_dev[int(dev)]
+            for index, value in enumerate(port_row):
+                output[index] = value
+            return len(port_row)
 
         backend._ftdi = SimpleNamespace(
             ftdi_usb_find_all=mock.Mock(side_effect=find_all),
@@ -203,6 +209,33 @@ class TopologyTransportTests(unittest.TestCase):
             libusb_get_port_numbers=mock.Mock(side_effect=get_ports),
         )
         return backend
+
+    def native_rows_for_serials(self, serials, *, ports=None, vidpids=None, permit=None,
+                                interfaces=None):
+        permit = permit or self.permit()
+        ports = ports or [(9, 3 + index) for index in range(len(serials))]
+        serial_by_path = {"1-" + ".".join(map(str, port)): serial
+                          for port, serial in zip(ports, serials)}
+        native = self.native_backend(len(serials), ports=ports, vidpids=vidpids)
+
+        def identity_for(path, _descriptor):
+            serial = serial_by_path[path]
+            if path == permit.identity.usb_path and serial == "153300000957":
+                identity = permit.identity
+            else:
+                identity = topology.DescriptorIdentity(
+                    "FK0957", "153300000957A", serial, path, "0403", "6010",
+                    "Xilinx", "SQRL FK", "A")
+            if interfaces and path in interfaces:
+                identity = topology.DescriptorIdentity(**{
+                    **identity.__dict__, "interface": interfaces[path]})
+            return identity
+
+        with mock.patch.object(transport, "_serial_for_candidate",
+                               side_effect=lambda path, _descriptor: serial_by_path.get(path)), \
+             mock.patch.object(transport, "_identity_from_sysfs", side_effect=identity_for):
+            rows = native.enumerate_candidates()
+        return permit, native, rows
 
     def run_fake(self, backend=None):
         b = backend or self.backend()
@@ -247,8 +280,12 @@ class TopologyTransportTests(unittest.TestCase):
     def test_native_enumerator_resolves_sysfs_identity_before_exact_pointer_open(self):
         native = self.native_backend(1)
         expected_identity = self.backend().candidate.identity
-        with mock.patch.object(transport, "_identity_from_sysfs", return_value=expected_identity) as sysfs:
+        with mock.patch.object(transport, "_serial_for_candidate",
+                               return_value="153300000957") as serial, \
+             mock.patch.object(transport, "_identity_from_sysfs",
+                               return_value=expected_identity) as sysfs:
             rows = native.enumerate_candidates()
+        serial.assert_called_once_with("1-9.3", mock.ANY)
         sysfs.assert_called_once_with("1-9.3", mock.ANY)
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0].identity, expected_identity)
@@ -262,11 +299,99 @@ class TopologyTransportTests(unittest.TestCase):
     def test_native_enumerator_zero_or_multiple_candidates_never_opens(self):
         for count in (0, 2):
             native = self.native_backend(count)
-            with self.subTest(count=count), mock.patch.object(transport, "_identity_from_sysfs") as sysfs:
-                with self.assertRaises(transport.Refusal):
-                    native.enumerate_candidates()
-                sysfs.assert_not_called()
+            with self.subTest(count=count):
+                with mock.patch.object(transport, "_serial_for_candidate",
+                                       return_value="153300000957") as serial, \
+                     mock.patch.object(transport, "_identity_from_sysfs",
+                                       return_value=self.backend().candidate.identity) as sysfs:
+                    rows = native.enumerate_candidates()
+                self.assertEqual(len(rows), count)
+                if count != 1:
+                    with self.assertRaises((transport.Refusal, topology.Refusal)):
+                        topology.validate_candidates(self.permit(), rows)
+                if count == 0:
+                    serial.assert_not_called()
+                    sysfs.assert_not_called()
                 native._ftdi.ftdi_usb_open_dev.assert_not_called()
+
+    def test_native_enumeration_filters_peer_serial_before_multiplicity(self):
+        target = "153300000957"
+        peer = "153300000958"
+        scenarios = (
+            ((target,), ((9, 3),), ((transport.FTDI_VID, transport.FTDI_PID),), True),
+            ((target, peer), ((9, 3), (9, 4)), None, True),
+            ((peer, target), ((9, 4), (9, 3)), None, True),
+            ((peer, "153300000959", target), ((9, 4), (9, 5), (9, 3)), None, True),
+            ((peer,), ((9, 4),), None, False),
+            ((target, target), ((9, 3), (9, 6)), None, False),
+            ((target,), ((9, 3),), ((transport.FTDI_VID, transport.FTDI_PID + 1),), False),
+            (("x" + target, target + "A", target + "0"),
+             ((9, 4), (9, 5), (9, 6)), None, False),
+            ((None, peer), ((9, 7), (9, 4)), None, False),
+        )
+        for serials, ports, vidpids, should_select in scenarios:
+            permit = self.permit()
+            _permit, native, rows = self.native_rows_for_serials(
+                serials, ports=ports, vidpids=vidpids, permit=permit)
+            with self.subTest(serials=serials, ports=ports):
+                if should_select:
+                    selected = topology.validate_candidates(permit, rows)
+                    self.assertEqual(selected.identity, permit.identity)
+                    exact_index = serials.index(target)
+                    self.assertEqual(int(selected.handle_token), 0x1234 + exact_index)
+                    native.open_exact(selected)
+                    native._ftdi.ftdi_set_interface.assert_called_once_with(
+                        native._ctx, transport.FTDI_INTERFACE_A)
+                    native._ftdi.ftdi_usb_open_dev.assert_called_once_with(
+                        native._ctx, 0x1234 + exact_index)
+                else:
+                    with self.assertRaises((transport.Refusal, topology.Refusal)):
+                        topology.validate_candidates(permit, rows)
+                    self.assertEqual(native._ftdi.ftdi_usb_open_dev.call_count, 0)
+
+    def test_exact_serial_wrong_interface_refuses_and_peer_is_ineligible_to_open(self):
+        permit = self.permit()
+        _permit, native, rows = self.native_rows_for_serials(
+            ("153300000957",), ports=((9, 3),), permit=permit,
+            interfaces={"1-9.3": "B"})
+        with self.assertRaises((transport.Refusal, topology.Refusal)):
+            topology.validate_candidates(permit, rows)
+        native._ftdi.ftdi_usb_open_dev.assert_not_called()
+
+        permit = self.permit()
+        _permit, native, rows = self.native_rows_for_serials(
+            ("153300000958", "153300000957"), ports=((9, 4), (9, 3)), permit=permit)
+        selected = topology.validate_candidates(permit, rows)
+        peer_candidate = topology.Candidate(
+            topology.DescriptorIdentity("FK0957", "153300000957A", "153300000958",
+                "1-9.4", "0403", "6010", "Xilinx", "SQRL FK", "A"), 0x1234)
+        with self.assertRaises(transport.Refusal):
+            native.open_exact(peer_candidate)
+        self.assertEqual(int(selected.handle_token), 0x1235)
+        native._ftdi.ftdi_usb_open_dev.assert_not_called()
+
+    def test_serial_sysfs_filter_preserves_exact_value_and_rejects_malformed_values(self):
+        descriptor = transport._UsbDeviceDescriptor()
+        descriptor.idVendor = transport.FTDI_VID
+        descriptor.idProduct = transport.FTDI_PID
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            sysfs = root / "1-9.3"
+            sysfs.mkdir()
+            (sysfs / "idVendor").write_text("0403\n")
+            (sysfs / "idProduct").write_text("6010\n")
+            with mock.patch.object(transport, "SYSFS_USB_ROOT", root):
+                for raw, expected in (("153300000957\n", "153300000957"),
+                                      (" 153300000957\n", " 153300000957"),
+                                      ("153300000957 \n", "153300000957 "),
+                                      ("153300000957A\n", "153300000957A"),
+                                      ("1533000009570\n", "1533000009570"),
+                                      ("\xff\n", None), ("\n", None),
+                                      ("153300000957\x00\n", None)):
+                    (sysfs / "serial").write_bytes(raw.encode("latin-1"))
+                    actual = transport._serial_for_candidate("1-9.3", descriptor)
+                    self.assertEqual(actual, expected)
+                self.assertEqual(transport._serial_for_candidate("1-9.3", descriptor), None)
 
     def test_zero_duplicate_wrong_and_peer_candidates_fail_before_open(self):
         good = self.backend().candidate
