@@ -1,0 +1,108 @@
+{
+  "candidate_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
+  "package_provenance": {
+    "apt_upgrade_record": [
+      "Start-Date: 2026-11-13  06:10:11\nCommandline: /usr/bin/unattended-upgrade\nUpgrade: libc6:amd64 (2.39-0ubuntu8.9, 2.39-0ubuntu8.12), libc6:i386 (2.39-0ubuntu8.9, 2.39-0ubuntu8.12), locales:amd64 (2.39-0ubuntu8.9, 2.39-0ubuntu8.12), libc-dev-bin:amd64 (2.39-0ubuntu8.9, 2.39-0ubuntu8.12), libc-bin:amd64 (2.39-0ubuntu8.9, 2.39-0ubuntu8.12), libc-devtools:amd64 (2.39-0ubuntu8.9, 2.39-0ubuntu8.12), libc6-dbg:amd64 (2.39-0ubuntu8.9, 2.39-0ubuntu8.12), libc6-dev:amd64 (2.39-0ubuntu8.9, 2.39-0ubuntu8.12)\nEnd-Date: 2026-11-13  06:10:33"
+    ],
+    "dpkg_file_verification_clean": true,
+    "dpkg_manifest_matches_loader_and_libc": true,
+    "exact_deb_cached": false,
+    "libc_package_record": {
+      "Filename": "pool/main/g/glibc/libc6_2.39-0ubuntu8.12_amd64.deb",
+      "Package": "libc6",
+      "SHA256": "d821b41fc59cb4978ecd53bc83e5c964ac15d305c8d2ac4c8a35aebe55010fb9",
+      "Size": "3264258",
+      "Version": "2.39-0ubuntu8.12"
+    },
+    "signed_apt_packages_index": true,
+    "signed_inrelease_checks": {
+      "security.ubuntu.com_ubuntu_dists_noble-security_InRelease": {
+        "good_signature": true,
+        "gpgv_exit": 0,
+        "keyring": "/usr/share/keyrings/ubuntu-archive-keyring.gpg"
+      },
+      "us.archive.ubuntu.com_ubuntu_dists_noble-updates_InRelease": {
+        "good_signature": true,
+        "gpgv_exit": 0,
+        "keyring": "/usr/share/keyrings/ubuntu-archive-keyring.gpg"
+      }
+    },
+    "unattended_upgrade_confirmed": true
+  },
+  "runtime": {
+    "dynamic_loader": {
+      "build_id": "231ab65dd867a89dce29cb958fd5ca50abb1aa34",
+      "device": "259:2",
+      "gid": 0,
+      "inode": 50099533,
+      "links": 1,
+      "mode": "0o755",
+      "package_owner": "libc6:amd64: /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+      "package_version": "2.39-0ubuntu8.12",
+      "path": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+      "realpath": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+      "sha256": "5fc0940888e9d2e1a00e66d6b1a559c36364ee867683652e1074fa576952cc3f",
+      "size": 236616,
+      "soname": "ld-linux-x86-64.so.2",
+      "uid": 0
+    },
+    "libc": {
+      "build_id": "8cebda42d140fc2b09639f8b13a5d5f2e617ef09",
+      "device": "259:2",
+      "gid": 0,
+      "inode": 50099536,
+      "links": 1,
+      "mode": "0o755",
+      "package_owner": "libc6:amd64: /usr/lib/x86_64-linux-gnu/libc.so.6",
+      "package_version": "2.39-0ubuntu8.12",
+      "path": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+      "realpath": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+      "sha256": "755a371e86cc9f564ab54f66140747700fb0a103f698f659f2060f707897e09a",
+      "size": 2129424,
+      "soname": "libc.so.6",
+      "uid": 0
+    },
+    "libftdi": {
+      "build_id": "5d7c81b08d369b6ea8654c825cbdff7fdce1f87c",
+      "device": "259:2",
+      "gid": 0,
+      "inode": 50081176,
+      "links": 1,
+      "mode": "0o644",
+      "package_owner": "libftdi1-2:amd64: /usr/lib/x86_64-linux-gnu/libftdi1.so.2.5.0",
+      "package_version": "1.5-6build5",
+      "path": "/usr/lib/x86_64-linux-gnu/libftdi1.so.2.5.0",
+      "realpath": "/usr/lib/x86_64-linux-gnu/libftdi1.so.2.5.0",
+      "sha256": "0e5332df54c66f14ef9107934365b47b9429df02e3ff3402436bd85e9e3e84fe",
+      "size": 64016,
+      "soname": "libftdi1.so.2",
+      "uid": 0
+    },
+    "libusb": {
+      "build_id": "47533e904f636332fab2f1ca8847ad7759ed19ec",
+      "device": "259:2",
+      "gid": 0,
+      "inode": 50081628,
+      "links": 1,
+      "mode": "0o644",
+      "package_owner": "libusb-1.0-0:amd64: /usr/lib/x86_64-linux-gnu/libusb-1.0.so.0.4.0",
+      "package_version": "2:1.0.27-1",
+      "path": "/usr/lib/x86_64-linux-gnu/libusb-1.0.so.0.4.0",
+      "realpath": "/usr/lib/x86_64-linux-gnu/libusb-1.0.so.0.4.0",
+      "sha256": "751349e3def1808981dc26bbeb746e2d6ff4ca97fc2c8bc8faaa8f46c879057f",
+      "size": 117736,
+      "soname": "libusb-1.0.so.0",
+      "uid": 0
+    }
+  },
+  "schema": "FK0957-NATIVE-RUNTIME-PROPOSED-PINS-v1",
+  "status": "PROPOSED_ONLY_NOT_INTEGRATED",
+  "tests": {
+    "candidate_pin_fk0957_suite_count": 173,
+    "candidate_pin_fk0957_suite_pass": true,
+    "device_or_usb_io_performed": false,
+    "loaded_mapping_stat_and_hash_verified": true,
+    "loader_override_env_refused_after_start": true,
+    "required_symbols_present": true
+  }
+}

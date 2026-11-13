@@ -44,10 +44,12 @@ def audit_head(repo: Path, audit: Path, sha: str, logical: str) -> dict[str, obj
     oracle_script = reference_repo / "tests/reference/fk0957_corrected_oracle_audit.py"
     acceptance = audit / "tests/reference/fk0957_independent_acceptance.py"
     campaign = audit / "tests/reference/fk0957_longrun_attack_campaign.py"
+    native = audit / "tests/reference/fk0957_native_runtime_requalification.py"
     commands = {
         "oracle": [sys.executable, str(oracle_script), logical, "--production-tree", str(tree)],
         "acceptance": [sys.executable, str(acceptance), str(tree), "--expected-head", sha],
         "campaign": [sys.executable, str(campaign), "--production-root", str(tree)],
+        "native_runtime": [sys.executable, str(native), str(tree)],
         "diff_check": ["git", "-C", str(tree), "diff", "--check"],
     }
     summaries: dict[str, object] = {}

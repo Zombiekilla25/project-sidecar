@@ -195,6 +195,39 @@ This campaign is an independent audit artifact and does not alter production
 or the corrected reference model. No SSH, permit issuance, USB, or hardware
 operation was performed.
 
+## Native runtime requalification
+
+Independent runtime requalification passed for a **proposed** pin set only.
+The libc change is explained by the recorded Ubuntu unattended upgrade from
+`2.39-0ubuntu8.9` to `2.39-0ubuntu8.12` at 2026-11-13 06:10. The reviewed pin
+commit predates that upgrade. Paths did not change. The updated noble-updates
+and noble-security InRelease signatures verify with the local Ubuntu archive
+keyring; the local `Packages` index SHA256 matches the signed InRelease; apt's
+libc package record identifies version `.12`; and `dpkg -V` plus the installed
+package MD5 manifest show no local file difference. The exact `.deb` is not
+cached, so the package archive SHA is recorded but was not independently
+recomputed from the archive.
+
+The installed candidate libc advertises all GLIBC symbol versions required by
+the pinned libftdi/libusb binaries. All adapter-required FTDI/libusb symbols
+resolved. The production FD-based loader loaded the approved native objects
+and verified their file hashes, pre/post stat identity, and mapped realpaths;
+setting `LD_LIBRARY_PATH`, `LD_PRELOAD`, or `LD_AUDIT` after process startup
+caused refusal. No FTDI context was created and no USB function was called.
+With only the libc hash/build ID updated in a disposable copied test tree,
+173 FK0957 library, CLI, transport, discovery, observer, backend, collector,
+and orchestrator tests passed.
+
+Proposed runtime pin data is in
+`results/fk0957-proposed-native-pin-set.json`; full inventory and test evidence
+is in `results/fk0957-native-runtime-requalification.json`. **No production
+pin was changed.** The current production pin preflight continues to refuse
+the installed libc, as it should until a reviewed pin update is integrated.
+The proposal does not close the separate startup-injection finding: a trusted
+isolated launcher must validate the dynamic loader before untrusted Python or
+loader environment code can run. Therefore this runtime result does not make
+the overall FK0957 path ready for live operation.
+
 `tests/reference/watch_fk0957_hardening_heads.py` watches only the local
 production HEAD. For each new SHA stable across polls it creates a new detached
 worktree and runs the corrected oracle, this acceptance campaign, the long-run
