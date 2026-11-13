@@ -61,6 +61,25 @@ MANIFEST_FIELDS = {
     "schema", "version", "production_head", "worktree_clean", "source_hashes",
     "native_runtime_hashes", "transaction_profile_sha256", "issued_at",
 }
+RELEASE_SOURCE_PATHS = {
+    "tools/phk2_host/fk0957_safe_launcher.c",
+    "tools/phk2_host/fk0957_safe_bootstrap.py",
+    "tools/phk2_host/phk2_fk0957_remote_orchestrator.py",
+    "tools/phk2_host/phk2_fk0957_remote_topology_endpoint.py",
+    "tools/phk2_host/phk2_fk0957_topology_transport.py",
+    "tools/phk2_host/phk2_fk0957_topology_discovery.py",
+    "tools/phk2_host/phk2_fk0957_idcode_gate.py",
+    "tools/phk2_host/phk2_fk0957_topology_live_cli.py",
+    "tools/phk2_host/phk2_fk0957_topology_rgb_cli.py",
+    "tools/phk2_host/phk2_fk0957_topology_rgb_orchestrator.py",
+    "tools/phk2_host/phk2_fk0957_topology_signing.py",
+}
+REMOTE_SOURCE_PATHS = {
+    "tools/phk2_host/phk2_fk0957_remote_topology_endpoint.py",
+    "tools/phk2_host/phk2_fk0957_topology_transport.py",
+    "tools/phk2_host/phk2_fk0957_topology_discovery.py",
+    "tools/phk2_host/phk2_fk0957_idcode_gate.py",
+}
 
 
 class Refusal(ValueError):
@@ -239,17 +258,39 @@ def _profile_hash() -> str:
     return hashlib.sha256(canonical(profile)).hexdigest()
 
 
+def build_unsigned_runtime_manifest(repo: Path | None = None) -> dict[str, Any]:
+    """Create the complete release-manifest payload for signing by the pinned authority."""
+    root = repo or Path(__file__).resolve().parents[2]
+    head, clean = transport._production_git_state(root)
+    if not clean:
+        raise Refusal("RUNTIME_GIT_STATE_MISMATCH")
+    hashes = {}
+    for relative in sorted(RELEASE_SOURCE_PATHS):
+        try:
+            info = (root / relative).lstat()
+            if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_nlink != 1:
+                raise Refusal("RUNTIME_SOURCE_UNSAFE")
+            hashes[relative] = hashlib.sha256((root / relative).read_bytes()).hexdigest()
+        except Refusal:
+            raise
+        except OSError:
+            raise Refusal("RUNTIME_SOURCE_UNAVAILABLE") from None
+    return {
+        "schema": "fk0957-runtime-source-manifest-v1", "version": 1,
+        "production_head": head, "worktree_clean": True, "source_hashes": hashes,
+        "native_runtime_hashes": {pin.name: pin.sha256 for pin in transport.LIBRARY_PINS},
+        "transaction_profile_sha256": _profile_hash(),
+        "issued_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
 def _verify_runtime_manifest(manifest: dict[str, Any], profile_sha: str) -> None:
     repo = Path(__file__).resolve().parents[2]
-    expected_sources = {
-        "tools/phk2_host/phk2_fk0957_remote_topology_endpoint.py",
-        "tools/phk2_host/phk2_fk0957_topology_transport.py",
-        "tools/phk2_host/phk2_fk0957_topology_discovery.py",
-        "tools/phk2_host/phk2_fk0957_idcode_gate.py",
-    }
-    if set(manifest["source_hashes"]) != expected_sources:
+    if set(manifest["source_hashes"]) != RELEASE_SOURCE_PATHS:
         raise Refusal("RUNTIME_SOURCE_SET_INVALID")
-    for relative in sorted(expected_sources):
+    local_checkout = (repo / ".git").exists()
+    check_sources = RELEASE_SOURCE_PATHS if local_checkout else REMOTE_SOURCE_PATHS
+    for relative in sorted(check_sources):
         path = repo / relative
         try:
             info = path.lstat()
@@ -262,9 +303,15 @@ def _verify_runtime_manifest(manifest: dict[str, Any], profile_sha: str) -> None
             raise Refusal("RUNTIME_SOURCE_UNAVAILABLE") from None
         if digest != manifest["source_hashes"][relative]:
             raise Refusal("RUNTIME_SOURCE_HASH_MISMATCH")
-    head, clean = transport._production_git_state(repo)
-    if not clean or head != manifest["production_head"]:
-        raise Refusal("RUNTIME_GIT_STATE_MISMATCH")
+    if local_checkout:
+        head, clean = transport._production_git_state(repo)
+        if not clean or head != manifest["production_head"]:
+            raise Refusal("RUNTIME_GIT_STATE_MISMATCH")
+    else:
+        try:
+            transport._bind_verified_remote_release_head(manifest["production_head"])
+        except transport.Refusal:
+            raise Refusal("RUNTIME_GIT_STATE_MISMATCH") from None
     expected_native = {pin.name: pin.sha256 for pin in transport.LIBRARY_PINS}
     if manifest["native_runtime_hashes"] != expected_native:
         raise Refusal("NATIVE_RUNTIME_MANIFEST_MISMATCH")
@@ -306,6 +353,10 @@ def _validate_request(raw: bytes, issuers: dict[str, bytes], *, now: datetime | 
             type(manifest["source_hashes"]) is not dict or type(manifest["native_runtime_hashes"]) is not dict or
             manifest["transaction_profile_sha256"] != profile_sha):
         raise Refusal("RUNTIME_MANIFEST_INVALID")
+    manifest_issued = _parse_time(manifest["issued_at"])
+    if (current.astimezone(timezone.utc) < manifest_issued or
+            (current.astimezone(timezone.utc) - manifest_issued).total_seconds() > 86400):
+        raise Refusal("RUNTIME_MANIFEST_STALE")
     for mapping in (manifest["source_hashes"], manifest["native_runtime_hashes"]):
         if not mapping or any(type(k) is not str or not k or not _strict_hex(v, HEX64) for k, v in mapping.items()):
             raise Refusal("RUNTIME_MANIFEST_INVALID")

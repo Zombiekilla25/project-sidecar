@@ -93,6 +93,7 @@ _SEALED_RESULTS: dict[object, str] = {}
 _SIGNED_PERMITS: set[object] = set()
 _REMOTE_AUTHORIZED_PERMITS: dict[object, tuple[str, str, str, str]] = {}
 _REMOTE_AUTH_LOCK = threading.Lock()
+_REMOTE_RELEASE_HEAD: str | None = None
 
 
 class Refusal(ValueError):
@@ -574,6 +575,8 @@ def _require_native_files() -> tuple[Path, ...]:
 def _production_git_state(repo: Path | None = None) -> tuple[str, bool]:
     """Read exact HEAD and cleanliness with Git environment/config overrides removed."""
     root = repo or Path(__file__).resolve().parents[2]
+    if _REMOTE_RELEASE_HEAD is not None and not (root / ".git").exists():
+        return _REMOTE_RELEASE_HEAD, True
     clean_env = {
         "PATH": "/usr/bin:/bin", "HOME": "/nonexistent", "LC_ALL": "C",
         "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null",
@@ -606,19 +609,35 @@ def transport_source_sha256() -> str:
         "tools/phk2_host/phk2_fk0957_topology_discovery.py",
         "tools/phk2_host/phk2_fk0957_idcode_gate.py",
     )
-    source_files = tuple((repo / item).resolve(strict=True) for item in relative_sources)
-    source_files += _require_native_files()
+    source_files = tuple((item, (repo / item).resolve(strict=True)) for item in relative_sources)
+    native_files = tuple((pin.name, path) for pin, path in zip(LIBRARY_PINS, _require_native_files()))
     digest = hashlib.sha256()
     digest.update(b"production_git_head\0" + head.encode("ascii") + b"\0clean=1\0")
-    for path in source_files:
+    for label, path in source_files + native_files:
         st = path.stat()
         if not stat.S_ISREG(st.st_mode) or st.st_size > 100 * 1024 * 1024:
             raise Refusal("transport source input is not a bounded regular file")
         raw = path.read_bytes()
-        digest.update(str(path).encode("utf-8") + b"\0")
+        digest.update(label.encode("utf-8") + b"\0")
         digest.update(len(raw).to_bytes(8, "big"))
         digest.update(raw)
     return digest.hexdigest()
+
+
+def _bind_verified_remote_release_head(head: str) -> None:
+    """Bind a checkout-free deployment to the already signature-verified release."""
+    global _REMOTE_RELEASE_HEAD
+    if (type(head) is not str or len(head) != 40 or
+            any(ch not in "0123456789abcdef" for ch in head)):
+        raise Refusal("remote release HEAD is invalid")
+    if (Path(__file__).resolve().parents[2] / ".git").exists():
+        actual, clean = _production_git_state()
+        if not clean or actual != head:
+            raise Refusal("remote release Git state mismatch")
+        return
+    if _REMOTE_RELEASE_HEAD is not None and _REMOTE_RELEASE_HEAD != head:
+        raise Refusal("remote release context changed during process")
+    _REMOTE_RELEASE_HEAD = head
 
 
 def _read_sysfs(path: Path, field: str) -> str:

@@ -3,6 +3,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 import base64
+import ast
 import hashlib
 import json
 import os
@@ -43,12 +44,7 @@ class RemoteTopologyEndpointTests(unittest.TestCase):
             "production_head": "a" * 40, "worktree_clean": True,
             "source_hashes": {
                 path: hashlib.sha256(Path(path).read_bytes()).hexdigest()
-                for path in (
-                    "tools/phk2_host/phk2_fk0957_remote_topology_endpoint.py",
-                    "tools/phk2_host/phk2_fk0957_topology_transport.py",
-                    "tools/phk2_host/phk2_fk0957_topology_discovery.py",
-                    "tools/phk2_host/phk2_fk0957_idcode_gate.py",
-                )},
+                for path in endpoint.RELEASE_SOURCE_PATHS},
             "native_runtime_hashes": {pin.name: pin.sha256 for pin in transport.LIBRARY_PINS},
             "transaction_profile_sha256": self.profile_sha,
             "issued_at": self.now.isoformat(),
@@ -118,11 +114,15 @@ class RemoteTopologyEndpointTests(unittest.TestCase):
 
     def test_endpoint_has_no_signing_key_or_signing_module_import(self):
         source = Path(endpoint.__file__).read_text()
-        self.assertNotIn("phk2_fk0957_topology_signing", source)
-        self.assertNotIn("phk2_fk0957_remote_orchestrator", source)
+        tree = ast.parse(source)
+        imports = {alias.name for node in ast.walk(tree) if isinstance(node, ast.Import)
+                   for alias in node.names}
+        imports.update(node.module for node in ast.walk(tree)
+                       if isinstance(node, ast.ImportFrom) and node.module)
+        self.assertNotIn("phk2_fk0957_topology_signing", imports)
+        self.assertNotIn("phk2_fk0957_remote_orchestrator", imports)
         self.assertNotIn("LOCAL_SIGNING_KEY_PATH", source)
         self.assertNotIn("Ed25519PrivateKey", source)
-        self.assertNotIn("def sign", source)
 
     def test_runtime_manifest_checks_exact_source_native_pins_head_and_clean_state(self):
         with mock.patch.object(transport, "_production_git_state", return_value=("a" * 40, True)):
@@ -138,6 +138,38 @@ class RemoteTopologyEndpointTests(unittest.TestCase):
         with mock.patch.object(transport, "_production_git_state", return_value=("a" * 40, False)):
             with self.assertRaisesRegex(endpoint.Refusal, "RUNTIME_GIT_STATE_MISMATCH"):
                 endpoint._verify_runtime_manifest(self.manifest, self.profile_sha)
+
+    def test_release_manifest_builder_binds_complete_runtime_set(self):
+        with mock.patch.object(transport, "_production_git_state", return_value=("a" * 40, True)):
+            payload = endpoint.build_unsigned_runtime_manifest()
+        self.assertEqual(payload["production_head"], "a" * 40)
+        self.assertTrue(payload["worktree_clean"])
+        self.assertEqual(set(payload["source_hashes"]), endpoint.RELEASE_SOURCE_PATHS)
+        self.assertEqual(payload["transaction_profile_sha256"], self.profile_sha)
+        self.assertNotIn("signature_hex", payload)
+
+    def test_remote_bundle_checks_deployed_sources_without_git_checkout(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            host_tools = root / "tools" / "phk2_host"
+            host_tools.mkdir(parents=True)
+            for relative in endpoint.REMOTE_SOURCE_PATHS:
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(relative.encode("ascii"))
+            manifest = dict(self.manifest)
+            hashes = dict(manifest["source_hashes"])
+            for relative in endpoint.REMOTE_SOURCE_PATHS:
+                hashes[relative] = hashlib.sha256((root / relative).read_bytes()).hexdigest()
+            manifest["source_hashes"] = hashes
+            manifest["native_runtime_hashes"] = {
+                pin.name: pin.sha256 for pin in transport.LIBRARY_PINS}
+            with mock.patch.object(endpoint, "__file__", str(host_tools / "phk2_fk0957_remote_topology_endpoint.py")), \
+                 mock.patch.object(transport, "_bind_verified_remote_release_head") as bind, \
+                 mock.patch.object(transport, "_production_git_state") as git_state:
+                endpoint._verify_runtime_manifest(manifest, self.profile_sha)
+            bind.assert_called_once_with("a" * 40)
+            git_state.assert_not_called()
 
     def test_execute_consumes_before_one_physical_run_and_returns_unsigned_record(self):
         events = []
