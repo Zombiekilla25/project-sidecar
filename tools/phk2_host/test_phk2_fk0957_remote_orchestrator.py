@@ -9,6 +9,8 @@ import json
 import shlex
 import socket
 import os
+import struct
+import threading
 from pathlib import Path
 import subprocess
 import sys
@@ -82,12 +84,44 @@ class RemoteOrchestratorTests(unittest.TestCase):
         finally:
             os.umask(old_mask)
         self.agent_path.chmod(0o600)
+        self.agent_socket.listen(8)
+        self.agent_socket.settimeout(0.1)
+        self.agent_response = b"\x0c\x00\x00\x00\x01" + (
+            struct.pack(">I", len(b"test public key blob")) + b"test public key blob" +
+            struct.pack(">I", len(b"test identity")) + b"test identity")
+        self.agent_stop = threading.Event()
+        self.agent_thread = threading.Thread(target=self._serve_agent, daemon=True)
+        self.agent_thread.start()
         self.agent_env = mock.patch.dict(os.environ, {"SSH_AUTH_SOCK": str(self.agent_path)})
         self.agent_env.start()
 
+    def _serve_agent(self):
+        while not self.agent_stop.is_set():
+            try:
+                client, _ = self.agent_socket.accept()
+            except TimeoutError:
+                continue
+            except OSError:
+                return
+            with client:
+                client.settimeout(1)
+                request = bytearray()
+                try:
+                    while len(request) < 5:
+                        block = client.recv(5 - len(request))
+                        if not block:
+                            break
+                        request.extend(block)
+                    if bytes(request) == b"\x00\x00\x00\x01\x0b":
+                        client.sendall(struct.pack(">I", len(self.agent_response)) + self.agent_response)
+                except OSError:
+                    pass
+
     def tearDown(self):
         self.agent_env.stop()
+        self.agent_stop.set()
         self.agent_socket.close()
+        self.agent_thread.join(timeout=1)
         self.pin_dir.cleanup()
 
     def make_bundle(self, nonce="1" * 64, runner_bytes=None):
@@ -287,6 +321,9 @@ class RemoteOrchestratorTests(unittest.TestCase):
             self.assertEqual(set(kwargs["env"]), {"PATH", "HOME", "LC_ALL", "LANG", "SSH_AUTH_SOCK"})
             self.assertEqual(kwargs["env"]["SSH_AUTH_SOCK"], str(self.agent_path))
             self.assertIn("ForwardAgent=no", cmd)
+            self.assertIn("ClearAllForwardings=yes", cmd)
+            self.assertNotIn(str(self.agent_path), repr(cmd))
+            self.assertNotIn(str(self.agent_path).encode(), kwargs["input"])
             self.assertNotIn(b"SECRET_KEY_FILE", kwargs["input"])
             self.assertNotIn("SECRET_KEY_FILE", repr(cmd) + repr(kwargs))
 
@@ -301,6 +338,18 @@ class RemoteOrchestratorTests(unittest.TestCase):
             with mock.patch.dict(os.environ, {"SSH_AUTH_SOCK": str(not_socket)}):
                 with self.assertRaises(remote.Refusal):
                     remote._validated_local_ssh_auth_sock()
+
+    def test_unresponsive_or_empty_local_agent_refuses_before_ssh_runner(self):
+        with tempfile.TemporaryDirectory() as d:
+            key_path = Path(d) / "key.pem"
+            key_path.write_text("not read before the agent probe")
+            fake = FakeSSH(wire(unsigned()))
+            self.agent_response = b"\x0c\x00\x00\x00\x00"
+            with self.assertRaises(remote.Refusal):
+                remote.acquire_and_sign(key_path, known_hosts_path=self.known_hosts_path,
+                                        runner=fake, expected_hostname="testbox",
+                                        remote_repo="/remote")
+            self.assertEqual(fake.calls, [])
 
     def test_remote_repository_metacharacters_are_shell_quoted(self):
         from cryptography.hazmat.primitives import serialization

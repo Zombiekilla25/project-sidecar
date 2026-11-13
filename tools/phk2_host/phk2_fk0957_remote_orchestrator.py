@@ -317,6 +317,51 @@ def _revalidate_local_ssh_auth_sock(path: str, identity: tuple[int, int]) -> Non
         raise Refusal("local SSH_AUTH_SOCK identity changed before SSH invocation")
 
 
+def _probe_local_ssh_agent(path: str) -> None:
+    """Require a responsive local agent with at least one bounded identity."""
+    def receive_exact(channel: socket.socket, size: int) -> bytes:
+        result = bytearray()
+        while len(result) < size:
+            chunk = channel.recv(size - len(result))
+            if not chunk:
+                raise Refusal("local SSH agent response was truncated")
+            result.extend(chunk)
+        return bytes(result)
+
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as channel:
+            channel.settimeout(2.0)
+            channel.connect(path)
+            # SSH2_AGENTC_REQUEST_IDENTITIES; this requests public identities
+            # only and never signs data or exposes a private key.
+            channel.sendall(b"\x00\x00\x00\x01\x0b")
+            length = int.from_bytes(receive_exact(channel, 4), "big")
+            if not 5 <= length <= 65536:
+                raise Refusal("local SSH agent response length is invalid")
+            response = receive_exact(channel, length)
+    except Refusal:
+        raise
+    except (OSError, TimeoutError) as exc:
+        raise Refusal("local SSH agent is not responsive") from exc
+    if response[0] != 12:
+        raise Refusal("local SSH agent returned an unexpected response")
+    count = int.from_bytes(response[1:5], "big")
+    if not 1 <= count <= 64:
+        raise Refusal("local SSH agent has no usable identities")
+    offset = 5
+    for _ in range(count):
+        for _field in range(2):
+            if offset + 4 > len(response):
+                raise Refusal("local SSH agent identity response is malformed")
+            size = int.from_bytes(response[offset:offset + 4], "big")
+            offset += 4
+            if size == 0 or offset + size > len(response):
+                raise Refusal("local SSH agent identity response is malformed")
+            offset += size
+    if offset != len(response):
+        raise Refusal("local SSH agent identity response has trailing data")
+
+
 def _read_signing_key(path: Path) -> bytes:
     """Read a private key only from a regular, single-link, non-symlink file."""
     parent_fd, name = _open_path_parent(path)
@@ -718,6 +763,7 @@ def acquire_and_sign(key_path: Path, *, known_hosts_path: Path, runner: Callable
     known_hosts_bytes, host_identity, source_identity = _read_pinned_source(known_hosts_path)
     pinned_hash = sha(known_hosts_bytes)
     agent_path, agent_identity = _validated_local_ssh_auth_sock()
+    _probe_local_ssh_agent(agent_path)
     safe_env = {"PATH": "/usr/bin:/bin", "HOME": "/nonexistent",
                 "LC_ALL": "C", "LANG": "C", "SSH_AUTH_SOCK": agent_path}
     with tempfile.TemporaryDirectory(prefix="fk0957-known-hosts-", dir="/tmp") as pin_dir_name:
