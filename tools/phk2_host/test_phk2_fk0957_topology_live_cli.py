@@ -111,7 +111,20 @@ def refusal_progress(phase):
     values = dict(target_candidates="unknown", device_opened=0,
                   scan_a_started=0, scan_a_tck_emitted=0,
                   scan_b_started=0, scan_b_tck_emitted=0,
-                  transport_closed=0, permit_consumed=1)
+                  transport_closed=0, permit_consumed=1,
+                  operation_state="PRELIVE", close_from_state=None)
+    states = {
+        "PRELIVE_VALIDATION": "PRELIVE", "PERMIT_VALIDATION": "PRELIVE",
+        "LIBRARY_PROVENANCE": "PERMIT_VALIDATED", "FTDI_CONTEXT_CREATE": "RUNTIME_READY",
+        "REMOTE_BOOTSTRAP": "RUNTIME_READY", "DEVICE_ENUMERATION": "ENUMERATING",
+        "DEVICE_SELECTION": "ENUMERATING", "DEVICE_OPEN": "DEVICE_SELECTED",
+        "MPSSE_INIT": "DEVICE_OPENED", "SCAN_A_WRITE": "SCAN_A_ACTIVE",
+        "SCAN_A_READ": "SCAN_A_ACTIVE", "SCAN_B_WRITE": "SCAN_B_ACTIVE",
+        "SCAN_B_READ": "SCAN_B_ACTIVE", "TRANSPORT_CLOSE": "TRANSPORT_CLOSING",
+        "LOCAL_VALIDATION": "TRANSPORT_CLOSED", "LOCAL_SIGNING": "LOCAL_VALIDATED",
+        "INTERNAL_REFUSAL": "PRELIVE",
+    }
+    values["operation_state"] = states[phase]
     if phase in {"DEVICE_SELECTION", "DEVICE_OPEN", "MPSSE_INIT", "SCAN_A_WRITE",
                  "SCAN_A_READ", "SCAN_B_WRITE", "SCAN_B_READ", "TRANSPORT_CLOSE",
                  "LOCAL_VALIDATION", "LOCAL_SIGNING"}:
@@ -127,9 +140,11 @@ def refusal_progress(phase):
         values["scan_a_tck_emitted"] = 591
         values["scan_b_started"] = 1
     if phase == "TRANSPORT_CLOSE":
-        values.update(scan_b_tck_emitted=586, transport_closed=0)
+        values.update(scan_b_tck_emitted=586, transport_closed=0,
+                      close_from_state="SCAN_B_COMPLETE")
     if phase in {"LOCAL_VALIDATION", "LOCAL_SIGNING"}:
-        values.update(scan_b_tck_emitted=586, transport_closed=1)
+        values.update(scan_b_tck_emitted=586, transport_closed=1,
+                      close_from_state="SCAN_B_COMPLETE")
     return values
 
 
@@ -215,7 +230,7 @@ class LiveCliTests(unittest.TestCase):
                 self.assertEqual(rc, 2)
         refused = json.loads(output)
         self.assertEqual((refused["status"], refused["phase"], refused["code"]),
-                         ("REFUSED", "LOCAL_VALIDATION", "LOCAL_VALIDATION_FAILED"))
+                         ("REFUSED", "INTERNAL_REFUSAL", "INTERNAL_REFUSAL"))
         self.assertFalse(self.output.exists())
         self.assertEqual({path.name for path in self.root.iterdir()}, {"descriptor.json"})
 
@@ -337,6 +352,15 @@ class LiveCliTests(unittest.TestCase):
         self.assertEqual(value["code"], "INTERNAL_REFUSAL")
         self.assertFalse(self.output.exists())
 
+    def test_prelive_output_write_failure_has_no_traceback_or_exception_text(self):
+        stderr = _BinaryStdout()
+        with mock.patch.object(sys, "stdout", _FailingStdout()), \
+             mock.patch.object(sys, "stderr", stderr):
+            rc = cli.main(["--invalid-operator-option"])
+        self.assertEqual(rc, 2)
+        self.assertEqual(stderr.buffer.getvalue(), b"")
+        self.assertFalse(self.output.exists())
+
     def test_missing_descriptor_is_bounded_prelive_refusal(self):
         with captured_main(["--descriptor-evidence", str(self.root / "absent"),
                             "--output", str(self.output)]) as (rc, output):
@@ -382,6 +406,7 @@ class LiveCliTests(unittest.TestCase):
             ("PRELIVE_VALIDATION", dict(scan_a_started=1)),
             ("DEVICE_ENUMERATION", dict(device_opened=1)),
             ("DEVICE_OPEN", dict(scan_a_started=1)),
+            ("DEVICE_OPEN", dict(permit_consumed=0)),
             ("SCAN_A_WRITE", dict(scan_b_started=1)),
             ("SCAN_A_READ", dict(scan_b_started=1)),
             ("SCAN_B_WRITE", dict(scan_a_tck_emitted=590, scan_b_started=1)),
@@ -389,13 +414,11 @@ class LiveCliTests(unittest.TestCase):
             ("LOCAL_SIGNING", dict(transport_closed=0)),
             ("SCAN_A_WRITE", dict(scan_a_tck_emitted=592)),
             ("SCAN_B_READ", dict(scan_b_tck_emitted=587)),
-            ("SCAN_A_WRITE", dict(scan_a_tck_emitted=591)),
-            ("SCAN_A_READ", dict(scan_a_tck_emitted=591)),
-            ("SCAN_B_WRITE", dict(scan_b_tck_emitted=586)),
-            ("SCAN_B_READ", dict(scan_b_tck_emitted=586)),
             ("TRANSPORT_CLOSE", dict(scan_b_tck_emitted=585)),
             ("TRANSPORT_CLOSE", dict(scan_b_started=0, scan_b_tck_emitted=0)),
             ("TRANSPORT_CLOSE", dict(transport_closed=1)),
+            ("TRANSPORT_CLOSE", dict(close_from_state="MPSSE_READY",
+                                      scan_a_started=1, scan_a_tck_emitted=591)),
             ("DEVICE_SELECTION", dict(target_candidates=0)),
             ("DEVICE_OPEN", dict(target_candidates=2)),
             ("TRANSPORT_CLOSE", dict(scan_b_tck_emitted=585)),
@@ -422,10 +445,6 @@ class LiveCliTests(unittest.TestCase):
             ("LOCAL_SIGNING", dict(transport_closed=0)),
             ("SCAN_A_WRITE", dict(scan_a_tck_emitted=592)),
             ("SCAN_B_READ", dict(scan_b_tck_emitted=587)),
-            ("SCAN_A_WRITE", dict(scan_a_tck_emitted=591)),
-            ("SCAN_A_READ", dict(scan_a_tck_emitted=591)),
-            ("SCAN_B_WRITE", dict(scan_b_tck_emitted=586)),
-            ("SCAN_B_READ", dict(scan_b_tck_emitted=586)),
         )
         for phase, changes in cases:
             values = refusal_progress(phase)
@@ -456,6 +475,46 @@ class LiveCliTests(unittest.TestCase):
                 phase, transport._DEFAULT_REFUSAL_CODE.get(phase, "INTERNAL_REFUSAL"),
                 None, **values)
             with self.subTest(phase=phase):
+                self.assertTrue(cli._bounded_envelope(envelope.as_dict()))
+
+    def test_legitimate_partial_write_boundaries_and_large_candidate_count(self):
+        for phase, counter, values in (
+                ("SCAN_A_WRITE", "scan_a_tck_emitted", (0, 1, 590, 591)),
+                ("SCAN_A_READ", "scan_a_tck_emitted", (0, 1, 590, 591)),
+                ("SCAN_B_WRITE", "scan_b_tck_emitted", (0, 1, 585, 586)),
+                ("SCAN_B_READ", "scan_b_tck_emitted", (0, 1, 585, 586))):
+            for count in values:
+                fields = refusal_progress(phase)
+                fields[counter] = count
+                envelope = transport.RefusalEnvelope(
+                    phase, transport._DEFAULT_REFUSAL_CODE[phase], None, **fields)
+                with self.subTest(phase=phase, tcks=count):
+                    self.assertTrue(cli._bounded_envelope(envelope.as_dict()))
+        fields = refusal_progress("DEVICE_SELECTION")
+        fields["target_candidates"] = 300
+        too_many = transport.RefusalEnvelope(
+            "DEVICE_SELECTION", "MULTIPLE_TARGET_CANDIDATES", None, **fields)
+        self.assertFalse(cli._bounded_envelope(too_many.as_dict()))
+
+    def test_transport_close_preserves_each_legal_prior_state(self):
+        scenarios = (
+            ("DEVICE_SELECTED", 0, 0, 0, 0, 0),
+            ("DEVICE_OPENED", 1, 0, 0, 0, 0),
+            ("MPSSE_READY", 1, 0, 0, 0, 0),
+            ("SCAN_A_ACTIVE", 1, 1, 23, 0, 0),
+            ("SCAN_A_COMPLETE", 1, 1, 591, 0, 0),
+            ("SCAN_B_ACTIVE", 1, 1, 591, 1, 17),
+            ("SCAN_B_COMPLETE", 1, 1, 591, 1, 586),
+        )
+        for prior, opened, a_started, a_tcks, b_started, b_tcks in scenarios:
+            fields = dict(target_candidates=1, device_opened=opened,
+                          scan_a_started=a_started, scan_a_tck_emitted=a_tcks,
+                          scan_b_started=b_started, scan_b_tck_emitted=b_tcks,
+                          transport_closed=0, permit_consumed=1,
+                          operation_state="TRANSPORT_CLOSING", close_from_state=prior)
+            envelope = transport.RefusalEnvelope(
+                "TRANSPORT_CLOSE", "TRANSPORT_CLOSE_FAILED", None, **fields)
+            with self.subTest(prior=prior):
                 self.assertTrue(cli._bounded_envelope(envelope.as_dict()))
 
 

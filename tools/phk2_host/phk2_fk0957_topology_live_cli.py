@@ -25,7 +25,7 @@ _ENVELOPE_KEYS = frozenset({
     "status", "phase", "code", "evidence_path", "signature_verified",
     "return_code", "target_candidates", "device_opened", "scan_a_started",
     "scan_a_tck_emitted", "scan_b_started", "scan_b_tck_emitted",
-    "transport_closed", "permit_consumed",
+    "transport_closed", "permit_consumed", "operation_state", "close_from_state",
 })
 _PHASE_CODES = {
     "PRELIVE_VALIDATION": {"TRANSACTION_PIN_MISMATCH"},
@@ -98,7 +98,7 @@ def _bounded_envelope(value: Any) -> bool:
     if rc is not None and (type(rc) is not int or not -255 <= rc <= 255):
         return False
     candidates = value.get("target_candidates")
-    if candidates != "unknown" and (type(candidates) is not int or not 0 <= candidates <= 1177):
+    if candidates != "unknown" and (type(candidates) is not int or not 0 <= candidates <= 256):
         return False
     opened = value.get("device_opened")
     consumed = value.get("permit_consumed")
@@ -116,61 +116,99 @@ def _bounded_envelope(value: Any) -> bool:
     a_started, b_started = value["scan_a_started"], value["scan_b_started"]
     a_tcks, b_tcks = value["scan_a_tck_emitted"], value["scan_b_tck_emitted"]
     closed = value["transport_closed"]
-
-    # First enforce facts that must hold for every phase, then constrain the
-    # maximum progress each named phase is allowed to report.
-    if (b_started and (not a_started or a_tcks != 591) or
-            not a_started and a_tcks != 0 or
-            not b_started and b_tcks != 0 or
-            opened == 0 and (a_started or b_started)):
+    state = value.get("operation_state")
+    close_from = value.get("close_from_state")
+    ranks = transport._OPERATION_STATE_RANK
+    if state not in ranks:
         return False
-    if phase in {"LIBRARY_PROVENANCE", "FTDI_CONTEXT_CREATE", "REMOTE_BOOTSTRAP",
-                 "DEVICE_ENUMERATION", "DEVICE_SELECTION", "DEVICE_OPEN", "MPSSE_INIT",
-                 "SCAN_A_WRITE", "SCAN_A_READ", "SCAN_B_WRITE", "SCAN_B_READ",
-                 "TRANSPORT_CLOSE", "LOCAL_VALIDATION", "LOCAL_SIGNING"} and consumed != 1:
-        return False
-    if phase in {"PRELIVE_VALIDATION", "PERMIT_VALIDATION", "LIBRARY_PROVENANCE",
-                 "FTDI_CONTEXT_CREATE", "REMOTE_BOOTSTRAP", "DEVICE_ENUMERATION",
-                 "DEVICE_SELECTION", "DEVICE_OPEN"}:
-        if opened != 0 or a_started or b_started or a_tcks != 0 or b_tcks != 0:
+    if state in {"TRANSPORT_CLOSING", "TRANSPORT_CLOSED"}:
+        if close_from not in ranks or ranks[close_from] >= ranks["TRANSPORT_CLOSING"]:
             return False
+        if closed != (1 if state == "TRANSPORT_CLOSED" else 0):
+            return False
+        progress_state = close_from
+    elif state in {"LOCAL_VALIDATED", "SIGNED_STAGED"}:
+        if close_from != "SCAN_B_COMPLETE" or closed != 1:
+            return False
+        progress_state = state
+    elif close_from is not None or closed != 0:
+        return False
+    else:
+        progress_state = state
+    if state in {"LOCAL_VALIDATED", "SIGNED_STAGED"} and close_from != "SCAN_B_COMPLETE":
+        return False
+    if ranks[progress_state] >= ranks["PERMIT_VALIDATED"] and consumed != 1:
+        return False
+    if ranks[progress_state] >= ranks["DEVICE_SELECTED"]:
+        if candidates != 1:
+            return False
+    elif candidates != "unknown" and (type(candidates) is not int or candidates < 0):
+        return False
     if phase == "DEVICE_SELECTION":
         if (type(candidates) is not int or
                 value["code"] == "NO_TARGET_CANDIDATE" and candidates != 0 or
                 value["code"] == "MULTIPLE_TARGET_CANDIDATES" and candidates < 2 or
                 value["code"] == "CANDIDATE_IDENTITY_MISMATCH" and candidates != 1):
             return False
-    if phase in {"DEVICE_OPEN", "MPSSE_INIT", "SCAN_A_WRITE", "SCAN_A_READ",
-                 "SCAN_B_WRITE", "SCAN_B_READ", "TRANSPORT_CLOSE",
-                 "LOCAL_VALIDATION", "LOCAL_SIGNING"} and candidates != 1:
+
+    rank = ranks[progress_state]
+    has_open = rank >= ranks["DEVICE_OPENED"]
+    has_a = rank >= ranks["SCAN_A_ACTIVE"]
+    a_complete = rank >= ranks["SCAN_A_COMPLETE"]
+    has_b = rank >= ranks["SCAN_B_ACTIVE"]
+    b_complete = rank >= ranks["SCAN_B_COMPLETE"]
+    if opened != int(has_open) or a_started != int(has_a) or b_started != int(has_b):
         return False
-    if phase == "MPSSE_INIT":
-        if opened != 1 or a_started or b_started or a_tcks != 0 or b_tcks != 0:
+    if (not has_a and a_tcks != 0 or a_complete and a_tcks != 591 or
+            has_a and not a_complete and a_tcks > 591 or
+            not has_b and b_tcks != 0 or b_complete and b_tcks != 586 or
+            has_b and not b_complete and b_tcks > 586):
+        return False
+
+    # The refusal phase records where an error occurred. The state is the
+    # monotonic progress reached, and close_from_state preserves progress
+    # before cleanup began.
+    failure_state = progress_state
+    if phase in {"PRELIVE_VALIDATION", "PERMIT_VALIDATION"}:
+        if phase == "PERMIT_VALIDATION" and failure_state != "PRELIVE":
+            return False
+        if ranks[failure_state] > ranks["ENUMERATING"] or has_open or has_a or has_b:
+            return False
+    elif phase in {"LIBRARY_PROVENANCE", "FTDI_CONTEXT_CREATE", "REMOTE_BOOTSTRAP"}:
+        if failure_state not in {"PERMIT_VALIDATED", "RUNTIME_READY", "ENUMERATING",
+                                 "SCAN_B_COMPLETE"}:
+            return False
+    elif phase == "DEVICE_ENUMERATION":
+        if failure_state != "ENUMERATING":
+            return False
+    elif phase == "DEVICE_SELECTION":
+        if failure_state != "ENUMERATING":
+            return False
+    elif phase == "DEVICE_OPEN":
+        if failure_state != "DEVICE_SELECTED" or opened != 0:
+            return False
+    elif phase == "MPSSE_INIT":
+        if failure_state != "DEVICE_OPENED" or opened != 1:
             return False
     elif phase in {"SCAN_A_WRITE", "SCAN_A_READ"}:
-        phase_a_limit = 585 if phase == "SCAN_A_WRITE" else 586
-        if (opened != 1 or not a_started or b_started or b_tcks != 0 or
-                a_tcks > phase_a_limit):
+        if failure_state != "SCAN_A_ACTIVE" or not a_started or b_started:
             return False
     elif phase in {"SCAN_B_WRITE", "SCAN_B_READ"}:
-        phase_b_limit = 580 if phase == "SCAN_B_WRITE" else 581
-        if (opened != 1 or not a_started or not b_started or a_tcks != 591 or
-                b_tcks > phase_b_limit):
+        if failure_state != "SCAN_B_ACTIVE" or not a_complete or not b_started:
             return False
     elif phase == "TRANSPORT_CLOSE":
-        # This phase is reached only after both scan calls returned complete
-        # captures; a close refusal cannot describe a partial acquisition.
-        if (opened != 1 or not a_started or a_tcks != 591 or not b_started or
-                b_tcks != 586 or closed != 0):
+        if state != "TRANSPORT_CLOSING" or failure_state not in {
+                "DEVICE_SELECTED", "DEVICE_OPENED", "MPSSE_READY", "SCAN_A_ACTIVE",
+                "SCAN_A_COMPLETE", "SCAN_B_ACTIVE", "SCAN_B_COMPLETE"}:
             return False
-    elif phase in {"LOCAL_VALIDATION", "LOCAL_SIGNING"}:
-        if (opened != 1 or not a_started or not b_started or a_tcks != 591 or
-                b_tcks != 586 or closed != 1):
+    elif phase == "LOCAL_VALIDATION":
+        if state != "TRANSPORT_CLOSED" or failure_state != "SCAN_B_COMPLETE":
+            return False
+    elif phase == "LOCAL_SIGNING":
+        if state not in {"LOCAL_VALIDATED", "SIGNED_STAGED"}:
             return False
     elif phase == "INTERNAL_REFUSAL":
-        # This phase carries no trusted caller-supplied progress facts.
-        if (opened != 0 or a_started or b_started or a_tcks != 0 or
-                b_tcks != 0 or closed != 0):
+        if state != "PRELIVE" or any((opened, a_started, a_tcks, b_started, b_tcks, closed)):
             return False
     return True
 
@@ -272,7 +310,7 @@ def _success_summary(payload: dict[str, Any], evidence_path: Path,
 
 
 def _publish_evidence_atomic(path: Path, data: bytes,
-                             publish_state: list[bool] | None = None) -> None:
+                             publish_state: list[str] | None = None) -> None:
     """Publish validated evidence from a private, mode-0600 staging file."""
     path = Path(path)
     parent_fd, output_name = orchestrator._open_path_parent(path)
@@ -301,6 +339,7 @@ def _publish_evidence_atomic(path: Path, data: bytes,
             file_fd = os.open(temp_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL |
                               getattr(os, "O_NOFOLLOW", 0), 0o600, dir_fd=temp_fd)
             temp_file_created = True
+            file_info = None
             try:
                 file_info = os.fstat(file_fd)
                 if (not stat.S_ISREG(file_info.st_mode) or file_info.st_nlink != 1 or
@@ -339,8 +378,25 @@ def _publish_evidence_atomic(path: Path, data: bytes,
                 temp_file_created = False
                 published = True
                 if publish_state is not None:
-                    publish_state[0] = True
+                    publish_state[0] = "EVIDENCE_PUBLISHED"
             except BaseException:
+                # Cover interruption after rename returned but before the
+                # commit state assignment. The destination inode is the
+                # receipt for the irreversible publish point.
+                if not published and file_info is not None:
+                    try:
+                        final_info = os.stat(output_name, dir_fd=parent_fd,
+                                             follow_symlinks=False)
+                    except OSError:
+                        final_info = None
+                    if (final_info is not None and
+                            (final_info.st_dev, final_info.st_ino) ==
+                            (file_info.st_dev, file_info.st_ino) and
+                            stat.S_ISREG(final_info.st_mode)):
+                        temp_file_created = False
+                        published = True
+                        if publish_state is not None:
+                            publish_state[0] = "EVIDENCE_PUBLISHED"
                 try:
                     os.close(file_fd)
                 except OSError:
@@ -392,18 +448,35 @@ def run_once(descriptor_path: Path, output_path: Path) -> tuple[bytes, int]:
         evidence_bytes = orchestrator.canonical(signed) + b"\n"
         summary = _success_summary(payload, output_path, hashlib.sha256(evidence_bytes).hexdigest())
         summary_bytes = orchestrator.canonical(summary) + b"\n"
-        publish_state = [False]
+        publish_state = ["SIGNED_STAGED"]
         _publish_evidence_atomic(output_path, evidence_bytes, publish_state)
         return summary_bytes, 0
     except BaseException:
-        if "publish_state" in locals() and publish_state[0]:
+        if "publish_state" in locals() and publish_state[0] == "EVIDENCE_PUBLISHED":
             return (b"FK0957_POST_SUCCESS_REPORTING_FAULT=YES EVIDENCE_PUBLISHED=YES\n", 3)
-        return _fallback_refusal("LOCAL_VALIDATION", "LOCAL_VALIDATION_FAILED") + b"\n", 2
+        return _fallback_refusal("INTERNAL_REFUSAL", "INTERNAL_REFUSAL") + b"\n", 2
 
 
 class _ArgumentParser(argparse.ArgumentParser):
     def error(self, message: str) -> None:  # noqa: D401 - suppress argparse internals
         raise ValueError("invalid operator arguments")
+
+
+def _emit_report(output: bytes, status: int, *, published: bool) -> int:
+    try:
+        sys.stdout.buffer.write(output)
+        sys.stdout.buffer.flush()
+        return status
+    except BaseException:
+        if published:
+            try:
+                sys.stderr.buffer.write(
+                    b"FK0957_POST_SUCCESS_REPORTING_FAULT=YES EVIDENCE_PUBLISHED=YES\n")
+                sys.stderr.buffer.flush()
+            except BaseException:
+                pass
+            return 3
+        return status
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -417,26 +490,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     except SystemExit as exc:
         return int(exc.code)
     except Exception:
-        sys.stdout.buffer.write(_fallback_refusal("PRELIVE_VALIDATION", "INTERNAL_REFUSAL") + b"\n")
-        return 2
+        return _emit_report(
+            _fallback_refusal("PRELIVE_VALIDATION", "INTERNAL_REFUSAL") + b"\n",
+            2, published=False)
     output, status = run_once(Path(args.descriptor_evidence), Path(args.output))
-    try:
-        sys.stdout.buffer.write(output)
-        sys.stdout.buffer.flush()
-    except BaseException:
-        if status in (0, 3):
-            # Evidence is already atomically published and validated. Keep
-            # that terminal success distinct from a refusal if reporting is
-            # interrupted after publication.
-            try:
-                sys.stderr.buffer.write(
-                    b"FK0957_POST_SUCCESS_REPORTING_FAULT=YES EVIDENCE_PUBLISHED=YES\n")
-                sys.stderr.buffer.flush()
-            except BaseException:
-                pass
-            return 3
-        return status
-    return status
+    return _emit_report(output, status, published=status in (0, 3))
 
 
 if __name__ == "__main__":

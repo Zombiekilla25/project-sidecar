@@ -550,7 +550,8 @@ class TopologyTransportTests(unittest.TestCase):
                 "status", "phase", "code", "evidence_path", "signature_verified",
                 "return_code", "target_candidates", "device_opened", "scan_a_started",
                 "scan_a_tck_emitted", "scan_b_started", "scan_b_tck_emitted",
-                "transport_closed", "permit_consumed",
+                "transport_closed", "permit_consumed", "operation_state",
+                "close_from_state",
             })
             self.assertEqual(envelope["status"], "REFUSED")
             self.assertEqual(envelope["evidence_path"], "none")
@@ -641,6 +642,19 @@ class TopologyTransportTests(unittest.TestCase):
                          ("LOCAL_SIGNING", "LOCAL_SIGNING_FAILED"))
         self.assertNotIn("private", signing.exception.canonical_envelope().decode())
         self.assertNotIn("signature_hex", env)
+
+    def test_operation_state_transitions_are_monotonic(self):
+        trace = transport._AttemptTrace()
+        trace.advance("PERMIT_VALIDATED")
+        trace.advance("RUNTIME_READY")
+        trace.advance("ENUMERATING")
+        self.assertEqual(trace.operation_state, "ENUMERATING")
+        with self.assertRaises(transport.Refusal):
+            trace.advance("DEVICE_SELECTED")
+            trace.advance("DEVICE_OPENED")
+            trace.advance("MPSSE_READY")
+            trace.advance("SCAN_A_ACTIVE")
+            trace.advance("MPSSE_READY")
 
     def test_one_shot_workflow_orders_validate_before_local_sign_and_never_retries(self):
         events = []
