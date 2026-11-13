@@ -14,6 +14,7 @@ from pathlib import Path
 
 def run(candidate: Path) -> dict:
     sys.path.insert(0, str(candidate / "tools/phk2_host"))
+    sys.path.insert(0, str(candidate / "tests"))
     import fk0957_remote_cleanup_protocol as protocol
     import test_fk0957_remote_cleanup_protocol as fixtures
 
@@ -177,6 +178,51 @@ def run(candidate: Path) -> dict:
                     query_nonce="c" * 64, launch_closed=True)["status"])
         finally:
             after_rename.doCleanups()
+        terminal_race = receipt_fixtures.RemoteReceiptStoreTests()
+        terminal_race.setUp()
+        try:
+            terminal_race.store.create(terminal_race.payload)
+            terminal_race.store.transition(terminal_race.operation_id, "CLAIMED",
+                                           process=None, exit_code=None)
+            process = {
+                "pid": __import__("os").getpid(), "start_identity": "123",
+                "uid": __import__("os").getuid(), "executable": "/usr/bin/python3",
+                "executable_sha256": "5" * 64, "argv_sha256": "6" * 64,
+                "cwd": "/", "operation_id_argument": terminal_race.operation_id,
+            }
+            with mock.patch.object(receipts, "process_start_identity", return_value="123"):
+                terminal_race.store.transition(terminal_race.operation_id, "RUNNING",
+                                               process=process, exit_code=None)
+            terminal_replace = receipts.os.replace
+
+            def replace_conflicting_terminal(src, dst, **kwargs):
+                row, _ = terminal_race.store.read(terminal_race.operation_id)
+                row["state"] = "EXITED_REFUSAL"
+                row["exit_code"] = 2
+                row["release_authorization_sha256"] = "9" * 64
+                alternate = protocol.canonical(row)
+                fd = __import__("os").open(dst, __import__("os").O_WRONLY |
+                    __import__("os").O_TRUNC | getattr(__import__("os"), "O_NOFOLLOW", 0),
+                    dir_fd=kwargs["dst_dir_fd"])
+                try:
+                    __import__("os").write(fd, alternate)
+                finally:
+                    __import__("os").close(fd)
+                return terminal_replace(src, dst, **kwargs)
+
+            with mock.patch.object(receipts.os, "replace",
+                                   side_effect=replace_conflicting_terminal), \
+                 mock.patch.object(receipts, "process_start_identity", return_value="123"):
+                terminal_race.store.transition(terminal_race.operation_id, "EXITED_SUCCESS",
+                                               process=process, exit_code=0)
+            terminal_row, _ = terminal_race.store.read(terminal_race.operation_id)
+            receipt_writer_attacks["terminal_conflict_injected"] = True
+            receipt_writer_attacks["terminal_conflict_detected"] = False
+            receipt_writer_attacks["terminal_conflict_overwritten"] = (
+                terminal_row["state"] == "EXITED_SUCCESS" and
+                terminal_row["release_authorization_sha256"] != "9" * 64)
+        finally:
+            terminal_race.doCleanups()
 
     # Deterministic type/value fuzzing for challenge-bound status. Every case
     # starts from a valid canonical NOT_STARTED status; the mutator changes at
