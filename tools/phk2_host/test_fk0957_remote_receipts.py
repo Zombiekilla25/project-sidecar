@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import os
 from pathlib import Path
+from io import StringIO
 import tempfile
 import unittest
 from unittest import mock
@@ -103,6 +104,66 @@ class RemoteReceiptStoreTests(unittest.TestCase):
         self.assertFalse(protocol.restore_allowed(status))
         row, _ = self.store.read(self.operation_id)
         self.assertEqual(row["state"], "RUNNING")
+
+    def test_proc_enoent_is_distinct_from_inspection_error(self):
+        self.assertIsNotNone(receipts.process_start_identity(os.getpid()))
+        with mock.patch("builtins.open", side_effect=FileNotFoundError):
+            self.assertIsNone(receipts.process_start_identity(99999999))
+        with mock.patch("builtins.open", side_effect=PermissionError):
+            with self.assertRaises(receipts.ProcessInspectionFailure):
+                receipts.process_start_identity(os.getpid())
+        with mock.patch("builtins.open", return_value=StringIO("bad proc stat\n")):
+            with self.assertRaises(receipts.ProcessInspectionFailure):
+                receipts.process_start_identity(os.getpid())
+
+    def test_live_pid_inspection_failure_cannot_authorize_restore(self):
+        self.store.create(self.payload)
+        self.store.transition(self.operation_id, "CLAIMED", process=None, exit_code=None)
+        process = {
+            "pid": os.getpid(), "start_identity": "123", "uid": os.getuid(),
+            "executable": "/usr/bin/python3", "executable_sha256": "5" * 64,
+            "argv_sha256": "6" * 64, "cwd": "/", "operation_id_argument": self.operation_id,
+        }
+        with mock.patch.object(receipts, "process_start_identity", return_value="123"):
+            self.store.transition(self.operation_id, "RUNNING", process=process, exit_code=None)
+            self.store.transition(self.operation_id, "EXITED_SUCCESS", process=process, exit_code=0)
+        self.assertTrue(Path(f"/proc/{os.getpid()}/stat").exists())
+        with mock.patch.object(receipts, "process_start_identity",
+                               side_effect=receipts.ProcessInspectionFailure("permission denied")):
+            state = self.store.status(operation_id=self.operation_id,
+                                      query_nonce="c" * 64,
+                                      launch_closed=True)["status"]
+        self.assertEqual(state, protocol.STATUS_INSPECTION_FAILED)
+        self.assertFalse(protocol.restore_allowed(state))
+        with mock.patch.object(receipts, "process_start_identity", return_value=None):
+            state = self.store.status(operation_id=self.operation_id,
+                                      query_nonce="c" * 64,
+                                      launch_closed=True)["status"]
+        self.assertEqual(state, protocol.STATUS_INSPECTION_FAILED)
+        self.assertFalse(protocol.restore_allowed(state))
+
+    def test_malformed_state_and_transition_arguments_are_bounded(self):
+        self.store.create(self.payload)
+        row, _ = self.store.read(self.operation_id)
+        row["state"] = []
+        with self.assertRaises(ValueError):
+            protocol.validate_receipt(
+                protocol.canonical(row), operation_id=self.operation_id,
+                release_authorization_id=self.payload["release_authorization_id"],
+                release_authorization_sha256=self.payload["release_authorization_sha256"],
+                release_manifest_sha256=self.payload["release_manifest_sha256"],
+                source_commit=self.payload["source_commit"],
+                release_authorization_expires_utc=self.payload["release_authorization_expires_utc"],
+                expected_receipt_id=self.payload["receipt_id"],
+                expected_host=self.payload["remote_host"], expected_user=self.payload["remote_user"],
+                expected_uid=os.getuid(), expected_executable=self.payload["expected_executable"],
+                expected_executable_sha256=self.payload["expected_executable_sha256"],
+                expected_argv_sha256="6" * 64,
+                now=datetime.now(timezone.utc))
+        self.assertFalse(protocol.receipt_transition_allowed([], "RUNNING"))
+        self.assertFalse(protocol.receipt_transition_allowed("RUNNING", []))
+        self.assertFalse(protocol.one_shot_claim_allowed([], claimed=False))
+        self.assertFalse(protocol.one_shot_claim_allowed("PREPARED", claimed=0))
 
     def test_receipt_symlink_is_rejected(self):
         self.store.create(self.payload)

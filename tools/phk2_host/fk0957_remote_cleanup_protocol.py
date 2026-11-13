@@ -13,16 +13,24 @@ import json
 import re
 from typing import Any
 
-NOT_STARTED = "NOT_STARTED"
-RUNNING_EXPECTED_PROCESS = "RUNNING_EXPECTED_PROCESS"
-EXITED_SUCCESS = "EXITED_SUCCESS"
-EXITED_REFUSAL = "EXITED_REFUSAL"
-EXITED_FAILURE = "EXITED_FAILURE"
-IDENTITY_MISMATCH = "IDENTITY_MISMATCH"
+NOT_STARTED = "CONFIRMED_NOT_STARTED"
+RUNNING_EXPECTED_PROCESS = "CONFIRMED_RUNNING"
+EXITED_SUCCESS = "CONFIRMED_EXITED_SUCCESS"
+EXITED_REFUSAL = "CONFIRMED_EXITED_REFUSAL"
+EXITED_FAILURE = "CONFIRMED_EXITED_FAILURE"
+IDENTITY_MISMATCH = "PROCESS_IDENTITY_MISMATCH"
+STATUS_INSPECTION_FAILED = "STATUS_INSPECTION_FAILED"
+TRANSPORT_FAILED = "TRANSPORT_FAILED"
 UNKNOWN = "UNKNOWN"
 STATUSES = {NOT_STARTED, RUNNING_EXPECTED_PROCESS, EXITED_SUCCESS,
-            EXITED_REFUSAL, EXITED_FAILURE, IDENTITY_MISMATCH, UNKNOWN}
+            EXITED_REFUSAL, EXITED_FAILURE, IDENTITY_MISMATCH,
+            STATUS_INSPECTION_FAILED, TRANSPORT_FAILED, UNKNOWN}
 RESTORABLE = {NOT_STARTED, EXITED_SUCCESS, EXITED_REFUSAL, EXITED_FAILURE}
+RECEIPT_STATE_FOR_STATUS = {
+    EXITED_SUCCESS: "EXITED_SUCCESS",
+    EXITED_REFUSAL: "EXITED_REFUSAL",
+    EXITED_FAILURE: "EXITED_FAILURE",
+}
 
 OP_ID = re.compile(r"[0-9a-f]{32}\Z")
 HEX64 = re.compile(r"[0-9a-f]{64}\Z")
@@ -163,6 +171,8 @@ def validate_receipt(raw: bytes, *, operation_id: str, release_authorization_id:
     if not bindings:
         raise ValueError("receipt provenance, target, identity, or freshness mismatch")
     state = row["state"]
+    if type(state) is not str:
+        raise ValueError("receipt state type invalid")
     if state in {"PREPARED", "CLAIMED"}:
         if row["process"] is not None or row["exit_code"] is not None:
             raise ValueError("PREPARED receipt contains process/exit claims")
@@ -253,23 +263,59 @@ def validate_status(raw: bytes, *, operation_id: str, query_nonce: str,
                 return IDENTITY_MISMATCH if isinstance(actual, dict) else UNKNOWN
             return RUNNING_EXPECTED_PROCESS if receipt["state"] == "RUNNING" else UNKNOWN
         if claimed in {EXITED_SUCCESS, EXITED_REFUSAL, EXITED_FAILURE}:
-            if receipt["state"] != claimed or status["process_identity"] != receipt["process"]:
+            if (receipt["state"] != RECEIPT_STATE_FOR_STATUS[claimed] or
+                    status["process_identity"] != receipt["process"]):
                 return UNKNOWN
             return claimed
         if claimed == IDENTITY_MISMATCH:
             return IDENTITY_MISMATCH
+        if claimed == STATUS_INSPECTION_FAILED:
+            return STATUS_INSPECTION_FAILED
         return UNKNOWN
     except (UnicodeError, ValueError, TypeError, KeyError, OverflowError):
         return UNKNOWN
 
 
 def restore_allowed(status: str) -> bool:
-    """Only a confirmed never-started or fully exited one-shot permits restore."""
-    return status in RESTORABLE
+    """Only a strict confirmed terminal string permits automatic restore.
+
+    Query/transport failures and malformed values are deliberately nonterminal.
+    The explicit type check also prevents unhashable hostile values from
+    escaping as an exception in a cleanup decision path.
+    """
+    return type(status) is str and status in RESTORABLE
+
+
+def classify_status_query(*, transport_return_code: Any, response_bytes: Any,
+                          validator_kwargs: dict[str, Any]) -> str:
+    """Keep SSH transport, status inspection, and process state distinct.
+
+    A nonzero SSH return (including 255), timeout represented by absent bytes,
+    malformed response, or failed validator is never evidence of process exit.
+    """
+    if type(transport_return_code) is not int or transport_return_code != 0:
+        return TRANSPORT_FAILED
+    if type(response_bytes) is not bytes or not response_bytes:
+        return STATUS_INSPECTION_FAILED
+    if type(validator_kwargs) is not dict:
+        return STATUS_INSPECTION_FAILED
+    try:
+        envelope = _parse_canonical(response_bytes, 24 * 1024)
+        state = validate_status(response_bytes, **validator_kwargs)
+    except (UnicodeError, TypeError, ValueError, KeyError, OverflowError):
+        return STATUS_INSPECTION_FAILED
+    if state == UNKNOWN:
+        # A canonical, challenge-bound UNKNOWN is a valid observation that
+        # process state is unresolved. Other UNKNOWN results mean inspection
+        # could not authenticate/validate the response.
+        return UNKNOWN if envelope.get("status") == UNKNOWN else STATUS_INSPECTION_FAILED
+    return state
 
 
 def receipt_transition_allowed(old_state: str, new_state: str) -> bool:
     """Require monotonic one-shot receipt transitions; terminal rows freeze."""
+    if type(old_state) is not str or type(new_state) is not str:
+        return False
     allowed = {
         "PREPARED": {"PREPARED", "CLAIMED"},
         "CLAIMED": {"CLAIMED", "RUNNING"},
@@ -283,7 +329,7 @@ def receipt_transition_allowed(old_state: str, new_state: str) -> bool:
 
 def one_shot_claim_allowed(state: str, *, claimed: bool) -> bool:
     """Only an unclaimed PREPARED receipt can atomically launch the process."""
-    return state == "PREPARED" and claimed is False
+    return type(state) is str and type(claimed) is bool and state == "PREPARED" and claimed is False
 
 
 def receipt_storage_safe(*, expected_uid: int, file_uid: int, file_mode: int,

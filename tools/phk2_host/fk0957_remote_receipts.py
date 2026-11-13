@@ -93,20 +93,49 @@ def _write_all(fd: int, data: bytes) -> None:
         offset += count
 
 
+class ProcessInspectionFailure(OSError):
+    """Process metadata could not be inspected; this is not proof of exit."""
+
+
 def process_start_identity(pid: int) -> str | None:
-    """Return Linux /proc starttime ticks, distinguishing PID reuse."""
+    """Return start ticks, None only for ENOENT, and raise for inspection errors."""
+    if type(pid) is not int or pid <= 1:
+        raise ProcessInspectionFailure("invalid process identifier")
     try:
-        raw = Path(f"/proc/{pid}/stat").read_text(encoding="ascii")
-        close = raw.rfind(")")
-        if close < 0:
-            return None
-        fields = raw[close + 2:].split()  # starts at field 3 (state)
-        value = fields[19]  # field 22, process start time
-        if not value.isdecimal() or int(value) <= 0:
-            return None
-        return value
-    except (OSError, IndexError, UnicodeError, ValueError):
+        with open(f"/proc/{pid}/stat", "r", encoding="ascii") as handle:
+            raw = handle.read(8192)
+    except FileNotFoundError:
         return None
+    except OSError as exc:
+        raise ProcessInspectionFailure("process metadata inspection failed") from exc
+    except UnicodeError as exc:
+        raise ProcessInspectionFailure("process metadata encoding invalid") from exc
+    close = raw.rfind(")")
+    if close < 0:
+        raise ProcessInspectionFailure("process metadata malformed")
+    fields = raw[close + 2:].split()  # starts at field 3 (state)
+    try:
+        value = fields[19]  # field 22, process start time
+    except IndexError as exc:
+        raise ProcessInspectionFailure("process metadata truncated") from exc
+    if (not value.isdecimal() or len(value) > 20 or int(value) <= 0):
+        raise ProcessInspectionFailure("process start identity malformed")
+    return value
+
+
+def process_directory_absent(pid: int) -> bool:
+    """Confirm a PID is absent; any other procfs result is inconclusive."""
+    if type(pid) is not int or pid <= 1:
+        raise ProcessInspectionFailure("invalid process identifier")
+    try:
+        info = os.stat(f"/proc/{pid}", follow_symlinks=False)
+    except FileNotFoundError:
+        return True
+    except OSError as exc:
+        raise ProcessInspectionFailure("process directory inspection failed") from exc
+    if not stat.S_ISDIR(info.st_mode):
+        raise ProcessInspectionFailure("process directory identity malformed")
+    return False
 
 
 def process_identity(operation_id: str, *, pid: int | None = None) -> dict[str, Any]:
@@ -295,23 +324,49 @@ class ReceiptStore:
         if claimed == "PREPARED" and launch_closed:
             observed_state = protocol.NOT_STARTED
         elif claimed == "RUNNING" and type(process) is dict:
-            actual_start = process_start_identity(process.get("pid", -1))
-            if actual_start is None:
-                # Missing /proc identity alone cannot prove launcher closure,
-                # prevent a delayed child, or establish the endpoint exit code.
-                observed_state = protocol.UNKNOWN
-            elif actual_start != process.get("start_identity"):
-                observed_state = protocol.IDENTITY_MISMATCH
+            try:
+                actual_start = process_start_identity(process.get("pid", -1))
+            except ProcessInspectionFailure:
+                observed_state = protocol.STATUS_INSPECTION_FAILED
             else:
-                observed_state = protocol.RUNNING_EXPECTED_PROCESS
+                if actual_start is None:
+                    # Confirm the PID directory itself is absent. A missing or
+                    # unreadable stat entry under a live /proc/<pid> is an
+                    # inspection failure, never evidence of process exit.
+                    try:
+                        absent = process_directory_absent(process.get("pid", -1))
+                    except ProcessInspectionFailure:
+                        observed_state = protocol.STATUS_INSPECTION_FAILED
+                    else:
+                        observed_state = protocol.UNKNOWN if absent else protocol.STATUS_INSPECTION_FAILED
+                elif actual_start != process.get("start_identity"):
+                    observed_state = protocol.IDENTITY_MISMATCH
+                else:
+                    observed_state = protocol.RUNNING_EXPECTED_PROCESS
         elif claimed in {"EXITED_SUCCESS", "EXITED_REFUSAL", "EXITED_FAILURE"}:
-            actual_start = process_start_identity(process.get("pid", -1)) if type(process) is dict else None
-            if actual_start is None and launch_closed:
-                observed_state = claimed
-            elif actual_start == process.get("start_identity"):
-                observed_state = protocol.RUNNING_EXPECTED_PROCESS
+            try:
+                actual_start = process_start_identity(process.get("pid", -1)) if type(process) is dict else -1
+            except ProcessInspectionFailure:
+                observed_state = protocol.STATUS_INSPECTION_FAILED
             else:
-                observed_state = protocol.IDENTITY_MISMATCH
+                if actual_start is None:
+                    try:
+                        absent = process_directory_absent(process.get("pid", -1))
+                    except ProcessInspectionFailure:
+                        observed_state = protocol.STATUS_INSPECTION_FAILED
+                    else:
+                        if absent and launch_closed:
+                            observed_state = {
+                                "EXITED_SUCCESS": protocol.EXITED_SUCCESS,
+                                "EXITED_REFUSAL": protocol.EXITED_REFUSAL,
+                                "EXITED_FAILURE": protocol.EXITED_FAILURE,
+                            }[claimed]
+                        else:
+                            observed_state = protocol.UNKNOWN if absent else protocol.STATUS_INSPECTION_FAILED
+                elif actual_start == process.get("start_identity"):
+                    observed_state = protocol.RUNNING_EXPECTED_PROCESS
+                else:
+                    observed_state = protocol.IDENTITY_MISMATCH
         result = {
             "schema": protocol.STATUS_SCHEMA, "operation_id": operation_id,
             "query_nonce": query_nonce,

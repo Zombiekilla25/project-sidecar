@@ -79,8 +79,35 @@ class RemoteCleanupContractTests(unittest.TestCase):
         for state in terminal:
             self.assertTrue(protocol.restore_allowed(state), state)
         for state in (protocol.RUNNING_EXPECTED_PROCESS, protocol.IDENTITY_MISMATCH,
-                      protocol.UNKNOWN, "arbitrary"):
+                      protocol.STATUS_INSPECTION_FAILED, protocol.TRANSPORT_FAILED,
+                      protocol.UNKNOWN, "arbitrary", [], {}, None, True):
             self.assertFalse(protocol.restore_allowed(state), state)
+
+    def test_transport_and_status_failures_never_imply_remote_exit(self):
+        response = self.status(protocol.NOT_STARTED)
+        for rc in (255, 1, -1, True, None):
+            state = protocol.classify_status_query(
+                transport_return_code=rc, response_bytes=response,
+                validator_kwargs=self.expected)
+            self.assertEqual(state, protocol.TRANSPORT_FAILED)
+            self.assertFalse(protocol.restore_allowed(state))
+        for bad_response in (None, b"", b"not-json"):
+            state = protocol.classify_status_query(
+                transport_return_code=0, response_bytes=bad_response,
+                validator_kwargs=self.expected)
+            self.assertEqual(state, protocol.STATUS_INSPECTION_FAILED)
+            self.assertFalse(protocol.restore_allowed(state))
+        state = protocol.classify_status_query(
+            transport_return_code=0, response_bytes=response,
+            validator_kwargs={**self.expected, "query_nonce": "wrong"})
+        self.assertEqual(state, protocol.STATUS_INSPECTION_FAILED)
+        self.assertFalse(protocol.restore_allowed(state))
+        canonical_unknown = self.status(protocol.UNKNOWN)
+        state = protocol.classify_status_query(
+            transport_return_code=0, response_bytes=canonical_unknown,
+            validator_kwargs=self.expected)
+        self.assertEqual(state, protocol.UNKNOWN)
+        self.assertFalse(protocol.restore_allowed(state))
 
     def test_receipt_state_transitions_are_monotonic_and_terminal(self):
         allowed = (("PREPARED", "PREPARED"), ("PREPARED", "CLAIMED"),
@@ -115,9 +142,10 @@ class RemoteCleanupContractTests(unittest.TestCase):
         running = self.receipt("RUNNING")
         self.assertEqual(self.classify(self.status(protocol.RUNNING_EXPECTED_PROCESS, running)),
                          protocol.RUNNING_EXPECTED_PROCESS)
-        for state, code in ((protocol.EXITED_SUCCESS, 0),
-                            (protocol.EXITED_REFUSAL, 2), (protocol.EXITED_FAILURE, 70)):
-            receipt = self.receipt(state, exit_code=code)
+        for state, receipt_state, code in ((protocol.EXITED_SUCCESS, "EXITED_SUCCESS", 0),
+                            (protocol.EXITED_REFUSAL, "EXITED_REFUSAL", 2),
+                            (protocol.EXITED_FAILURE, "EXITED_FAILURE", 70)):
+            receipt = self.receipt(receipt_state, exit_code=code)
             self.assertEqual(self.classify(self.status(state, receipt)), state)
 
     def test_ssh_loss_before_exec_vs_after_exec_and_surviving_child(self):
@@ -194,7 +222,8 @@ class RemoteCleanupContractTests(unittest.TestCase):
 
     def test_status_unavailable_malformed_duplicate_noncanonical_and_tampered(self):
         good = self.status(protocol.NOT_STARTED)
-        for raw in (None, b"", b"{", good.replace(b'"status":"NOT_STARTED"', b'"status":"BOGUS"'),
+        for raw in (None, b"", b"{", good.replace(
+                    b'"status":"' + protocol.NOT_STARTED.encode() + b'"', b'"status":"BOGUS"'),
                     good.replace(b'\n', b' \n'),
                     good[:-2] + b',"operation_id":"' + self.expected["operation_id"].encode() + b'"}\n',
                     self.status(protocol.NOT_STARTED, receipt_sha256="0" * 64)):
