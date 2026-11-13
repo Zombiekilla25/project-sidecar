@@ -86,7 +86,7 @@
   ],
   "hardening_candidate": {
     "branch": "hardening/fk0957-production-20261113",
-    "head": "b654330b2d65b2498a3e414d5960357c820962a6",
+    "head": "fececd2f3eafbefd06591f24d0b568b98426f43e",
     "base_production_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
     "release_ready": false,
     "hardware_access": false,
@@ -131,7 +131,18 @@
     "hardware_access": false,
     "live_acquisition_performed": false,
     "corrected_oracle_randomized_enumeration_scenarios": 400,
-    "corrected_oracle_randomized_fault_order_checks": 300
+    "corrected_oracle_randomized_fault_order_checks": 300,
+    "latest_evidence_race_soak": {
+      "seeds": 20,
+      "cases_per_seed": 8,
+      "cases": 160,
+      "result": "PASS"
+    },
+    "latest_malformed_envelope_fuzz": {
+      "cases": 20000,
+      "uncaught_exceptions": 0,
+      "result": "PASS"
+    }
   },
   "runtime_source_hashes": {
     "tools/phk2_host/phk2_fk0957_topology_transport.py": "534e00f79eb6189e2dc265eabce2ff2cfb4fdfd2e374d4b5837ac473bbddc126",
@@ -190,7 +201,7 @@
   "maintenance_controller_reference": null,
   "hardening_milestone": {
     "branch": "hardening/fk0957-production-20261113",
-    "candidate_head": "b654330b2d65b2498a3e414d5960357c820962a6",
+    "candidate_head": "fececd2f3eafbefd06591f24d0b568b98426f43e",
     "production_main_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
     "status": "WIP; not production ready",
     "wip_remote_publish_authorized": true,
