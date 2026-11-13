@@ -459,12 +459,15 @@ def _publish_evidence_atomic(path: Path, data: bytes,
                 else:
                     raise ValueError("evidence output changed before publish")
                 try:
-                    os.replace(temp_name, output_name, src_dir_fd=temp_fd, dst_dir_fd=parent_fd)
+                    # linkat-style publication is atomic and refuses an
+                    # existing destination. os.replace would overwrite a file
+                    # created after the preceding absence check.
+                    os.link(temp_name, output_name, src_dir_fd=temp_fd,
+                            dst_dir_fd=parent_fd, follow_symlinks=False)
                 except BaseException:
-                    # A signal or wrapper failure can be observed after the
-                    # atomic rename took effect. Resolve that ambiguous result
-                    # by the staged inode so we never report REFUSED while our
-                    # signed record is already visible at the final path.
+                    # A signal or wrapper error can be observed after link()
+                    # succeeded. Resolve that ambiguous result by the staged
+                    # inode; never report REFUSED for our published record.
                     try:
                         final_info = os.stat(output_name, dir_fd=parent_fd,
                                              follow_symlinks=False)
@@ -474,12 +477,18 @@ def _publish_evidence_atomic(path: Path, data: bytes,
                             (file_info.st_dev, file_info.st_ino) or
                             not stat.S_ISREG(final_info.st_mode)):
                         raise
-                temp_file_created = False
                 published = True
                 if publish_state is not None:
                     publish_state[0] = "EVIDENCE_PUBLISHED"
+                try:
+                    os.unlink(temp_name, dir_fd=temp_fd)
+                    temp_file_created = False
+                except OSError:
+                    # Publication is already committed. Cleanup is retried by
+                    # the enclosing finally block and cannot downgrade success.
+                    pass
             except BaseException:
-                # Cover interruption after rename returned but before the
+                # Cover interruption after link returned but before the
                 # commit state assignment. The destination inode is the
                 # receipt for the irreversible publish point.
                 if not published and file_info is not None:

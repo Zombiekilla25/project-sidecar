@@ -248,7 +248,7 @@ class LiveCliTests(unittest.TestCase):
              mock.patch.object(identity_gate, "_trusted_signer", return_value=signer.public_key()), \
              mock.patch.object(transport, "perform_fk0957_topology_discovery_once",
                                return_value=document), \
-             mock.patch.object(cli.os, "replace", side_effect=OSError("publish failed")):
+             mock.patch.object(cli.os, "link", side_effect=OSError("publish failed")):
             with captured_main(["--descriptor-evidence", str(self.descriptor),
                                 "--output", str(self.output)]) as (rc, output):
                 self.assertEqual(rc, 2)
@@ -285,25 +285,48 @@ class LiveCliTests(unittest.TestCase):
                 self.assertFalse(self.output.exists())
                 self.assertEqual({path.name for path in self.root.iterdir()}, {"descriptor.json"})
 
-    def test_ambiguous_post_rename_error_is_resolved_as_published_success(self):
+    def test_ambiguous_post_link_error_is_resolved_as_published_success(self):
         signer = Ed25519PrivateKey.generate()
         document, fingerprint = signed_fake_record(signer)
-        real_replace = os.replace
+        real_link = os.link
 
-        def replace_then_raise(*args, **kwargs):
-            real_replace(*args, **kwargs)
-            raise OSError("synthetic error after atomic rename")
+        def link_then_raise(*args, **kwargs):
+            real_link(*args, **kwargs)
+            raise OSError("synthetic error after atomic no-replace publish")
 
         with mock.patch.object(identity_gate, "TRUSTED_SIGNER_FINGERPRINT_SHA256", fingerprint), \
              mock.patch.object(identity_gate, "_trusted_signer", return_value=signer.public_key()), \
              mock.patch.object(transport, "perform_fk0957_topology_discovery_once",
                                return_value=document), \
-             mock.patch.object(cli.os, "replace", side_effect=replace_then_raise):
+             mock.patch.object(cli.os, "link", side_effect=link_then_raise):
             with captured_main(["--descriptor-evidence", str(self.descriptor),
                                 "--output", str(self.output)]) as (rc, output):
                 self.assertEqual(rc, 0)
         self.assertEqual(json.loads(output)["status"], "SIGNED")
         self.assertEqual(json.loads(self.output.read_bytes()), document)
+        self.assertEqual({path.name for path in self.root.iterdir()},
+                         {"descriptor.json", "topology.json"})
+
+    def test_concurrent_output_creation_is_not_replaced_at_publish(self):
+        signer = Ed25519PrivateKey.generate()
+        document, fingerprint = signed_fake_record(signer)
+        real_link = os.link
+        sentinel = b"concurrent non-evidence output"
+
+        def create_destination_then_link(*args, **kwargs):
+            self.output.write_bytes(sentinel)
+            return real_link(*args, **kwargs)
+
+        with mock.patch.object(identity_gate, "TRUSTED_SIGNER_FINGERPRINT_SHA256", fingerprint), \
+             mock.patch.object(identity_gate, "_trusted_signer", return_value=signer.public_key()), \
+             mock.patch.object(transport, "perform_fk0957_topology_discovery_once",
+                               return_value=document), \
+             mock.patch.object(cli.os, "link", side_effect=create_destination_then_link):
+            with captured_main(["--descriptor-evidence", str(self.descriptor),
+                                "--output", str(self.output)]) as (rc, output):
+                self.assertEqual(rc, 2)
+        self.assertEqual(json.loads(output)["status"], "REFUSED")
+        self.assertEqual(self.output.read_bytes(), sentinel)
         self.assertEqual({path.name for path in self.root.iterdir()},
                          {"descriptor.json", "topology.json"})
 
