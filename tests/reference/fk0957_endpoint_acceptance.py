@@ -84,13 +84,22 @@ def run(candidate: Path) -> dict:
     # Re-sign handoff and release auth with the trusted fixture keys. This models
     # a maintenance issuer attesting a different bridge/client/lane identity.
     resign_handoff_case('unknown_usbfs_owner','usbfs_ownership','UNKNOWN')
+    resign_handoff_case('competing_usbfs_owner','usbfs_ownership','COMPETING')
     resign_handoff_case('bridge_still_active','bridge_release_state','ACTIVE')
-    h=json.loads(json.dumps(hand)); h['target']['card_id']='FK0958'
-    he=signed(h,handoff_key,'FK0957_MAINTENANCE_AUTHORITY'); hh=hashlib.sha256(ep.canonical(h)).hexdigest()
-    a=dict(auth,handoff_sha256=hh,target=dict(h['target']))
-    r=dict(request,handoff=he,release_authorization=signed(a,release,'FK0957_RELEASE_AUTHORITY'))
-    try: validate(r); outcomes['wrong_card']='ACCEPTED_SIGNED_ASSERTION'
-    except ep.Refusal as e: outcomes['wrong_card']=e.code
+    for target_field, wrong_value in [('card_id','FK0958'),('adapter_serial','wrong-adapter'),
+      ('usb_descriptor_serial','wrong-usb'),('vid','ffff'),('pid','ffff'),('interface','B')]:
+      h=json.loads(json.dumps(hand)); h['target'][target_field]=wrong_value
+      he=signed(h,handoff_key,'FK0957_MAINTENANCE_AUTHORITY'); hh=hashlib.sha256(ep.canonical(h)).hexdigest()
+      a=dict(auth,handoff_sha256=hh,target=dict(h['target']))
+      r=dict(request,handoff=he,release_authorization=signed(a,release,'FK0957_RELEASE_AUTHORITY'))
+      try: validate(r); outcomes['wrong_target:'+target_field]='ACCEPTED_SIGNED_ASSERTION'
+      except ep.Refusal as e: outcomes['wrong_target:'+target_field]=e.code
+    stale=json.loads(json.dumps(hand)); stale['expires_at']=(now-timedelta(seconds=1)).isoformat()
+    stale_env=signed(stale,handoff_key,'FK0957_MAINTENANCE_AUTHORITY')
+    stale_auth=dict(auth,handoff_sha256=hashlib.sha256(ep.canonical(stale)).hexdigest())
+    stale_request=dict(request,handoff=stale_env,release_authorization=signed(stale_auth,release,'FK0957_RELEASE_AUTHORITY'))
+    try: validate(stale_request); outcomes['stale_handoff']='ACCEPT'
+    except ep.Refusal as e: outcomes['stale_handoff']=e.code
     resign_handoff_case('wrong_bridge_hash','bridge_executable_sha256','a'*64)
     resign_handoff_case('wrong_clients','expected_clients',['unexpected-client'])
     resign_handoff_case('wrong_lanes','expected_lanes',['unexpected-lane'])
