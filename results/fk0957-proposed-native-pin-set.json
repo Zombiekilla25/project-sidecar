@@ -1,5 +1,5 @@
 {
-  "candidate_head": "1768591075c231f6da798ee14e1c87eaabfec5b2",
+  "candidate_head": "9227d0df07b2538a18b577e4ab055c252539e4be",
   "package_provenance": {
     "apt_upgrade_record": [
       "Start-Date: 2026-11-13  06:10:11\nCommandline: /usr/bin/unattended-upgrade\nUpgrade: libc6:amd64 (2.39-0ubuntu8.9, 2.39-0ubuntu8.12), libc6:i386 (2.39-0ubuntu8.9, 2.39-0ubuntu8.12), locales:amd64 (2.39-0ubuntu8.9, 2.39-0ubuntu8.12), libc-dev-bin:amd64 (2.39-0ubuntu8.9, 2.39-0ubuntu8.12), libc-bin:amd64 (2.39-0ubuntu8.9, 2.39-0ubuntu8.12), libc-devtools:amd64 (2.39-0ubuntu8.9, 2.39-0ubuntu8.12), libc6-dbg:amd64 (2.39-0ubuntu8.9, 2.39-0ubuntu8.12), libc6-dev:amd64 (2.39-0ubuntu8.9, 2.39-0ubuntu8.12)\nEnd-Date: 2026-11-13  06:10:33"
@@ -98,7 +98,7 @@
   "schema": "FK0957-NATIVE-RUNTIME-PROPOSED-PINS-v1",
   "status": "PROPOSED_ONLY_NOT_INTEGRATED",
   "tests": {
-    "candidate_pin_fk0957_suite_count": 189,
+    "candidate_pin_fk0957_suite_count": 190,
     "candidate_pin_fk0957_suite_pass": true,
     "device_or_usb_io_performed": false,
     "loaded_mapping_stat_and_hash_verified": true,
