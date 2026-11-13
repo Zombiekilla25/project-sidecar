@@ -92,6 +92,8 @@ _RESULT_LOCK = threading.Lock()
 _SEALED_RESULTS: dict[object, str] = {}
 _SIGNED_PERMITS: set[object] = set()
 _REMOTE_AUTHORIZED_PERMITS: dict[object, bytes] = {}
+_REMOTE_AUTHORIZED_IDS: dict[str, object] = {}
+_REMOTE_CONSUMED_AUTHORIZATIONS: set[str] = set()
 _REMOTE_AUTH_LOCK = threading.Lock()
 _REMOTE_RELEASE_HEAD: str | None = None
 
@@ -1182,6 +1184,20 @@ def run_fk0957_topology_discovery(authorized_permit: topology.DiscoveryPermit) -
             raise Refusal("topology operation requires a verified release permit")
         with _REMOTE_AUTH_LOCK:
             request_raw = _REMOTE_AUTHORIZED_PERMITS.pop(authorized_permit._token, None)
+            auth_id = authorized_permit.authorization_id
+            if (request_raw is None or type(auth_id) is not str or
+                    _REMOTE_AUTHORIZED_IDS.get(auth_id) is not authorized_permit._token or
+                    auth_id in _REMOTE_CONSUMED_AUTHORIZATIONS):
+                raise Refusal("topology operation requires its original unused authorization")
+            with topology._PERMIT_LOCK:
+                active = topology._ACTIVE.get(authorized_permit._token)
+                binding = (authorized_permit.descriptor_evidence_sha256, authorized_permit.identity,
+                           authorized_permit.nonce, authorized_permit.issued_at,
+                           authorized_permit.expires_at, authorized_permit.trusted_signer_fingerprint,
+                           authorized_permit.authorization_id)
+                if active != binding or authorized_permit._token in topology._CONSUMED:
+                    raise Refusal("topology permit identity changed before authorization consume")
+            _REMOTE_CONSUMED_AUTHORIZATIONS.add(auth_id)
         if request_raw is None:
             raise Refusal("topology operation requires authenticated release authorization")
         return _run_consumed_permit(authorized_permit, trace=trace, request_raw=request_raw)
@@ -1251,9 +1267,12 @@ def _authorize_remote_permit(permit: topology.DiscoveryPermit, *, request_raw: b
     except Exception:
         raise Refusal("remote release authorization validation failed") from None
     with _REMOTE_AUTH_LOCK:
-        if permit._token in _REMOTE_AUTHORIZED_PERMITS:
-            raise Refusal("remote release authorization context was already attached")
+        if (permit._token in _REMOTE_AUTHORIZED_PERMITS or
+                context["authorization_id"] in _REMOTE_AUTHORIZED_IDS or
+                context["authorization_id"] in _REMOTE_CONSUMED_AUTHORIZATIONS):
+            raise Refusal("release authorization identity was already attached or consumed")
         _REMOTE_AUTHORIZED_PERMITS[permit._token] = request_raw
+        _REMOTE_AUTHORIZED_IDS[context["authorization_id"]] = permit._token
 
 
 def _validate_transport_observation(permit: topology.DiscoveryPermit,

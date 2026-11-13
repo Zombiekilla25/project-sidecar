@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 import ctypes
 from dataclasses import replace
@@ -8,6 +9,7 @@ import hashlib
 import inspect
 import json
 import os
+import secrets
 import subprocess
 from pathlib import Path
 import sys
@@ -58,7 +60,7 @@ def fake_release_request(permit, reconstructed_permit=None, context_nonce=None,
     }
     with mock.patch.object(endpoint, "_load_trust_config", return_value={"release": b"x" * 32,
                                                                            "handoff": b"y" * 32}), \
-         mock.patch.object(endpoint, "_validate_request", return_value=(context, b"auth", "2" * 64)), \
+         mock.patch.object(endpoint, "_validate_request", return_value=(context, b"auth", context["authorization_id"])), \
          mock.patch.object(endpoint, "_consume_authorization"), \
          mock.patch.object(endpoint, "supervisor_capability_valid", return_value=True), \
          mock.patch.object(topology, "issue_permit", return_value=reconstructed_permit or permit):
@@ -168,6 +170,10 @@ class TopologyTransportTests(unittest.TestCase):
             __file__).with_name("phk2_fk0957_topology_live_cli.py").read_text())
 
     def setUp(self):
+        with transport._REMOTE_AUTH_LOCK:
+            transport._REMOTE_AUTHORIZED_PERMITS.clear()
+            transport._REMOTE_AUTHORIZED_IDS.clear()
+            transport._REMOTE_CONSUMED_AUTHORIZATIONS.clear()
         # Native libraries are deliberately not opened in this suite. The
         # source provenance digest is pinned to the synthetic fake runtime.
         self._source_hash_patch = mock.patch.object(
@@ -212,7 +218,8 @@ class TopologyTransportTests(unittest.TestCase):
         self.digest = hashlib.sha256(self.raw).hexdigest()
 
     def permit(self):
-        return topology.issue_permit(self.raw, self.digest, authorization_id="2" * 64)
+        return topology.issue_permit(self.raw, self.digest,
+                                     authorization_id=secrets.token_hex(32))
 
     def backend(self, **kwargs):
         return FakeBackend(**kwargs)
@@ -775,6 +782,7 @@ class TopologyTransportTests(unittest.TestCase):
             backend.assert_not_called()
         self.assertNotIn(permit._token, transport._REMOTE_AUTHORIZED_PERMITS)
         self.assertNotIn(permit._token, topology._CONSUMED)
+        self.assertNotIn(permit.authorization_id, transport._REMOTE_CONSUMED_AUTHORIZATIONS)
 
     def test_raw_digest_injection_cannot_authorize_remote_transport(self):
         permit = self.permit()
@@ -822,6 +830,64 @@ class TopologyTransportTests(unittest.TestCase):
         backend_factory.assert_not_called()
         self.assertNotIn(permit._token, transport._REMOTE_AUTHORIZED_PERMITS)
         self.assertNotIn(permit._token, topology._CONSUMED)
+        self.assertNotIn(permit.authorization_id, transport._REMOTE_CONSUMED_AUTHORIZATIONS)
+
+    def test_one_authorization_cannot_attach_a_second_permit_token_or_replay(self):
+        permit = self.permit()
+        alternate = topology.issue_permit(
+            self.raw, self.digest, nonce=permit.nonce,
+            authorization_id=permit.authorization_id)
+        with fake_release_request(permit) as request_raw:
+            transport._authorize_remote_permit(permit, request_raw=request_raw)
+            with self.assertRaises(transport.Refusal):
+                transport._authorize_remote_permit(alternate, request_raw=request_raw)
+            backend = self.backend()
+            with mock.patch.object(transport, "_NativeLibFtdi", return_value=backend):
+                result = transport.run_fk0957_topology_discovery(permit)
+                with self.assertRaises(transport.Refusal):
+                    transport.run_fk0957_topology_discovery(permit)
+        self.assertEqual(backend.open_count, 1)
+        self.assertEqual(result.authorization_id, permit.authorization_id)
+
+    def test_parallel_second_permit_for_same_authorization_is_refused(self):
+        permit = self.permit()
+        alternate = topology.issue_permit(
+            self.raw, self.digest, nonce=permit.nonce,
+            authorization_id=permit.authorization_id)
+        with fake_release_request(permit) as request_raw:
+            def attach(candidate):
+                try:
+                    transport._authorize_remote_permit(candidate, request_raw=request_raw)
+                    return candidate
+                except transport.Refusal:
+                    return None
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                outcomes = list(pool.map(attach, (permit, alternate)))
+            accepted = [candidate for candidate in outcomes if candidate is not None]
+            self.assertEqual(len(accepted), 1)
+            backend = self.backend()
+            with mock.patch.object(transport, "_NativeLibFtdi", return_value=backend):
+                result = transport.run_fk0957_topology_discovery(accepted[0])
+        self.assertEqual(backend.open_count, 1)
+        self.assertEqual(result.authorization_id, permit.authorization_id)
+
+    def test_parallel_invocation_of_same_authorized_permit_runs_backend_once(self):
+        permit = self.permit()
+        with fake_release_request(permit) as request_raw:
+            transport._authorize_remote_permit(permit, request_raw=request_raw)
+            backend = self.backend()
+            with mock.patch.object(transport, "_NativeLibFtdi", return_value=backend):
+                with ThreadPoolExecutor(max_workers=2) as pool:
+                    futures = [pool.submit(transport.run_fk0957_topology_discovery, permit)
+                               for _ in range(2)]
+                    outcomes = []
+                    for future in futures:
+                        try:
+                            outcomes.append(future.result())
+                        except transport.Refusal:
+                            outcomes.append(None)
+        self.assertEqual(sum(result is not None for result in outcomes), 1)
+        self.assertEqual(backend.open_count, 1)
 
     def test_operation_state_transitions_are_monotonic(self):
         trace = transport._AttemptTrace()
