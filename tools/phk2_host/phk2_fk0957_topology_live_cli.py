@@ -124,12 +124,27 @@ def _bounded_envelope(value: Any) -> bool:
             not b_started and b_tcks != 0 or
             opened == 0 and (a_started or b_started)):
         return False
+    if phase in {"LIBRARY_PROVENANCE", "FTDI_CONTEXT_CREATE", "REMOTE_BOOTSTRAP",
+                 "DEVICE_ENUMERATION", "DEVICE_SELECTION", "DEVICE_OPEN", "MPSSE_INIT",
+                 "SCAN_A_WRITE", "SCAN_A_READ", "SCAN_B_WRITE", "SCAN_B_READ",
+                 "TRANSPORT_CLOSE", "LOCAL_VALIDATION", "LOCAL_SIGNING"} and consumed != 1:
+        return False
     if phase in {"PRELIVE_VALIDATION", "PERMIT_VALIDATION", "LIBRARY_PROVENANCE",
                  "FTDI_CONTEXT_CREATE", "REMOTE_BOOTSTRAP", "DEVICE_ENUMERATION",
                  "DEVICE_SELECTION", "DEVICE_OPEN"}:
         if opened != 0 or a_started or b_started or a_tcks != 0 or b_tcks != 0:
             return False
-    elif phase == "MPSSE_INIT":
+    if phase == "DEVICE_SELECTION":
+        if (type(candidates) is not int or
+                value["code"] == "NO_TARGET_CANDIDATE" and candidates != 0 or
+                value["code"] == "MULTIPLE_TARGET_CANDIDATES" and candidates < 2 or
+                value["code"] == "CANDIDATE_IDENTITY_MISMATCH" and candidates != 1):
+            return False
+    if phase in {"DEVICE_OPEN", "MPSSE_INIT", "SCAN_A_WRITE", "SCAN_A_READ",
+                 "SCAN_B_WRITE", "SCAN_B_READ", "TRANSPORT_CLOSE",
+                 "LOCAL_VALIDATION", "LOCAL_SIGNING"} and candidates != 1:
+        return False
+    if phase == "MPSSE_INIT":
         if opened != 1 or a_started or b_started or a_tcks != 0 or b_tcks != 0:
             return False
     elif phase in {"SCAN_A_WRITE", "SCAN_A_READ"}:
@@ -141,6 +156,12 @@ def _bounded_envelope(value: Any) -> bool:
         phase_b_limit = 580 if phase == "SCAN_B_WRITE" else 581
         if (opened != 1 or not a_started or not b_started or a_tcks != 591 or
                 b_tcks > phase_b_limit):
+            return False
+    elif phase == "TRANSPORT_CLOSE":
+        # This phase is reached only after both scan calls returned complete
+        # captures; a close refusal cannot describe a partial acquisition.
+        if (opened != 1 or not a_started or a_tcks != 591 or not b_started or
+                b_tcks != 586 or closed != 0):
             return False
     elif phase in {"LOCAL_VALIDATION", "LOCAL_SIGNING"}:
         if (opened != 1 or not a_started or not b_started or a_tcks != 591 or
@@ -250,7 +271,8 @@ def _success_summary(payload: dict[str, Any], evidence_path: Path,
     }
 
 
-def _publish_evidence_atomic(path: Path, data: bytes) -> None:
+def _publish_evidence_atomic(path: Path, data: bytes,
+                             publish_state: list[bool] | None = None) -> None:
     """Publish validated evidence from a private, mode-0600 staging file."""
     path = Path(path)
     parent_fd, output_name = orchestrator._open_path_parent(path)
@@ -316,6 +338,8 @@ def _publish_evidence_atomic(path: Path, data: bytes) -> None:
                         raise
                 temp_file_created = False
                 published = True
+                if publish_state is not None:
+                    publish_state[0] = True
             except BaseException:
                 try:
                     os.close(file_fd)
@@ -368,9 +392,12 @@ def run_once(descriptor_path: Path, output_path: Path) -> tuple[bytes, int]:
         evidence_bytes = orchestrator.canonical(signed) + b"\n"
         summary = _success_summary(payload, output_path, hashlib.sha256(evidence_bytes).hexdigest())
         summary_bytes = orchestrator.canonical(summary) + b"\n"
-        _publish_evidence_atomic(output_path, evidence_bytes)
+        publish_state = [False]
+        _publish_evidence_atomic(output_path, evidence_bytes, publish_state)
         return summary_bytes, 0
     except BaseException:
+        if "publish_state" in locals() and publish_state[0]:
+            return (b"FK0957_POST_SUCCESS_REPORTING_FAULT=YES EVIDENCE_PUBLISHED=YES\n", 3)
         return _fallback_refusal("LOCAL_VALIDATION", "LOCAL_VALIDATION_FAILED") + b"\n", 2
 
 
@@ -393,8 +420,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         sys.stdout.buffer.write(_fallback_refusal("PRELIVE_VALIDATION", "INTERNAL_REFUSAL") + b"\n")
         return 2
     output, status = run_once(Path(args.descriptor_evidence), Path(args.output))
-    sys.stdout.buffer.write(output)
-    sys.stdout.buffer.flush()
+    try:
+        sys.stdout.buffer.write(output)
+        sys.stdout.buffer.flush()
+    except BaseException:
+        if status in (0, 3):
+            # Evidence is already atomically published and validated. Keep
+            # that terminal success distinct from a refusal if reporting is
+            # interrupted after publication.
+            try:
+                sys.stderr.buffer.write(
+                    b"FK0957_POST_SUCCESS_REPORTING_FAULT=YES EVIDENCE_PUBLISHED=YES\n")
+                sys.stderr.buffer.flush()
+            except BaseException:
+                pass
+            return 3
+        return status
     return status
 
 

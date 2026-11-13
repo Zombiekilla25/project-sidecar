@@ -247,6 +247,7 @@ def _trace_from_sealed_result(trace: _AttemptTrace, result: Any) -> None:
         expected = _SEALED_RESULTS.get(result._proof)
     if expected is None or expected != hashlib.sha256(_observation_payload(result)).hexdigest():
         return
+    trace.target_candidates = result.matched_device_count
     trace.device_opened = 1
     trace.scan_a_started = 1
     trace.scan_b_started = 1

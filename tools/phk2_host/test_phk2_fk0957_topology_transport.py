@@ -563,6 +563,16 @@ class TopologyTransportTests(unittest.TestCase):
             self.assertNotIn("secret", refusal.canonical_envelope().decode())
             self.assertEqual(backend.open_count, 0)
 
+        permit = self.permit()
+        result = transport._run_with_backend(permit, self.backend())
+        trace = transport._AttemptTrace()
+        transport._trace_from_sealed_result(trace, result)
+        self.assertEqual(trace.target_candidates, 1)
+        self.assertEqual((trace.device_opened, trace.scan_a_started,
+                          trace.scan_a_tck_emitted, trace.scan_b_started,
+                          trace.scan_b_tck_emitted, trace.transport_closed),
+                         (1, 1, 591, 1, 586, 1))
+
         phases = (
             ("open", "DEVICE_OPEN", "DEVICE_OPEN_FAILED"),
             ("initialize", "MPSSE_INIT", "MPSSE_INIT_FAILED"),

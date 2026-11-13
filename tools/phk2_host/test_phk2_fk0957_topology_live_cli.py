@@ -26,6 +26,39 @@ class _BinaryStdout:
         self.buffer = io.BytesIO()
 
 
+class _FailingWriteStream:
+    def __init__(self, fd):
+        self.fd = fd
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_exc):
+        os.close(self.fd)
+
+    def write(self, _data):
+        raise OSError("synthetic staging write failure")
+
+    def flush(self):
+        return None
+
+    def fileno(self):
+        return self.fd
+
+
+class _FailingBinaryOutput:
+    def write(self, _data):
+        raise OSError("synthetic final report failure")
+
+    def flush(self):
+        return None
+
+
+class _FailingStdout:
+    def __init__(self):
+        self.buffer = _FailingBinaryOutput()
+
+
 @contextmanager
 def captured_main(argv):
     stdout = _BinaryStdout()
@@ -79,15 +112,22 @@ def refusal_progress(phase):
                   scan_a_started=0, scan_a_tck_emitted=0,
                   scan_b_started=0, scan_b_tck_emitted=0,
                   transport_closed=0, permit_consumed=1)
+    if phase in {"DEVICE_SELECTION", "DEVICE_OPEN", "MPSSE_INIT", "SCAN_A_WRITE",
+                 "SCAN_A_READ", "SCAN_B_WRITE", "SCAN_B_READ", "TRANSPORT_CLOSE",
+                 "LOCAL_VALIDATION", "LOCAL_SIGNING"}:
+        values["target_candidates"] = 1
     if phase in {"MPSSE_INIT", "SCAN_A_WRITE", "SCAN_A_READ", "SCAN_B_WRITE",
                  "SCAN_B_READ", "TRANSPORT_CLOSE", "LOCAL_VALIDATION", "LOCAL_SIGNING"}:
         values["device_opened"] = 1
     if phase in {"SCAN_A_WRITE", "SCAN_A_READ", "SCAN_B_WRITE", "SCAN_B_READ",
                  "TRANSPORT_CLOSE", "LOCAL_VALIDATION", "LOCAL_SIGNING"}:
         values["scan_a_started"] = 1
-    if phase in {"SCAN_B_WRITE", "SCAN_B_READ", "LOCAL_VALIDATION", "LOCAL_SIGNING"}:
+    if phase in {"SCAN_B_WRITE", "SCAN_B_READ", "TRANSPORT_CLOSE",
+                 "LOCAL_VALIDATION", "LOCAL_SIGNING"}:
         values["scan_a_tck_emitted"] = 591
         values["scan_b_started"] = 1
+    if phase == "TRANSPORT_CLOSE":
+        values.update(scan_b_tck_emitted=586, transport_closed=0)
     if phase in {"LOCAL_VALIDATION", "LOCAL_SIGNING"}:
         values.update(scan_b_tck_emitted=586, transport_closed=1)
     return values
@@ -194,6 +234,35 @@ class LiveCliTests(unittest.TestCase):
         self.assertFalse(self.output.exists())
         self.assertEqual({path.name for path in self.root.iterdir()}, {"descriptor.json"})
 
+    def test_failure_before_and_during_temp_write_leaves_no_staging_artifact(self):
+        signer = Ed25519PrivateKey.generate()
+        document, fingerprint = signed_fake_record(signer)
+        real_open = os.open
+
+        def fail_staging_open(path, *args, **kwargs):
+            if path == "record.tmp":
+                raise OSError("synthetic failure before temp write")
+            return real_open(path, *args, **kwargs)
+
+        for failing_operation in ("open", "write"):
+            with self.subTest(operation=failing_operation), \
+                 mock.patch.object(identity_gate, "TRUSTED_SIGNER_FINGERPRINT_SHA256", fingerprint), \
+                 mock.patch.object(identity_gate, "_trusted_signer", return_value=signer.public_key()), \
+                 mock.patch.object(transport, "perform_fk0957_topology_discovery_once",
+                                   return_value=document):
+                if failing_operation == "open":
+                    patcher = mock.patch.object(cli.os, "open", side_effect=fail_staging_open)
+                else:
+                    patcher = mock.patch.object(cli.os, "fdopen", side_effect=lambda fd, *_a, **_k:
+                                                _FailingWriteStream(fd))
+                with patcher:
+                    with captured_main(["--descriptor-evidence", str(self.descriptor),
+                                        "--output", str(self.output)]) as (rc, output):
+                        self.assertEqual(rc, 2)
+                self.assertEqual(json.loads(output)["status"], "REFUSED")
+                self.assertFalse(self.output.exists())
+                self.assertEqual({path.name for path in self.root.iterdir()}, {"descriptor.json"})
+
     def test_ambiguous_post_rename_error_is_resolved_as_published_success(self):
         signer = Ed25519PrivateKey.generate()
         document, fingerprint = signed_fake_record(signer)
@@ -215,6 +284,48 @@ class LiveCliTests(unittest.TestCase):
         self.assertEqual(json.loads(self.output.read_bytes()), document)
         self.assertEqual({path.name for path in self.root.iterdir()},
                          {"descriptor.json", "topology.json"})
+
+    def test_final_stdout_failure_after_publish_is_not_downgraded_to_refusal(self):
+        signer = Ed25519PrivateKey.generate()
+        document, fingerprint = signed_fake_record(signer)
+        stdout = _FailingStdout()
+        stderr = _BinaryStdout()
+        with mock.patch.object(identity_gate, "TRUSTED_SIGNER_FINGERPRINT_SHA256", fingerprint), \
+             mock.patch.object(identity_gate, "_trusted_signer", return_value=signer.public_key()), \
+             mock.patch.object(transport, "perform_fk0957_topology_discovery_once",
+                               return_value=document), \
+             mock.patch.object(sys, "stdout", stdout), \
+             mock.patch.object(sys, "stderr", stderr):
+            rc = cli.main(["--descriptor-evidence", str(self.descriptor),
+                           "--output", str(self.output)])
+        self.assertEqual(rc, 3)
+        self.assertTrue(self.output.exists())
+        self.assertEqual(json.loads(self.output.read_bytes()), document)
+        self.assertEqual(stderr.buffer.getvalue(),
+                         b"FK0957_POST_SUCCESS_REPORTING_FAULT=YES EVIDENCE_PUBLISHED=YES\n")
+        self.assertNotIn(b"REFUSED", stderr.buffer.getvalue())
+
+    def test_failure_immediately_after_publish_is_classified_post_success(self):
+        signer = Ed25519PrivateKey.generate()
+        document, fingerprint = signed_fake_record(signer)
+        real_publish = cli._publish_evidence_atomic
+
+        def publish_then_raise(path, data, state):
+            real_publish(path, data, state)
+            raise OSError("synthetic interruption immediately after publish")
+
+        with mock.patch.object(identity_gate, "TRUSTED_SIGNER_FINGERPRINT_SHA256", fingerprint), \
+             mock.patch.object(identity_gate, "_trusted_signer", return_value=signer.public_key()), \
+             mock.patch.object(transport, "perform_fk0957_topology_discovery_once",
+                               return_value=document), \
+             mock.patch.object(cli, "_publish_evidence_atomic", side_effect=publish_then_raise):
+            with captured_main(["--descriptor-evidence", str(self.descriptor),
+                                "--output", str(self.output)]) as (rc, output):
+                self.assertEqual(rc, 3)
+        self.assertEqual(output,
+                         b"FK0957_POST_SUCCESS_REPORTING_FAULT=YES EVIDENCE_PUBLISHED=YES\n")
+        self.assertNotIn(b"REFUSED", output)
+        self.assertEqual(json.loads(self.output.read_bytes()), document)
 
     def test_argument_surface_rejects_transport_controls(self):
         with captured_main(["--descriptor-evidence", str(self.descriptor),
@@ -282,6 +393,12 @@ class LiveCliTests(unittest.TestCase):
             ("SCAN_A_READ", dict(scan_a_tck_emitted=591)),
             ("SCAN_B_WRITE", dict(scan_b_tck_emitted=586)),
             ("SCAN_B_READ", dict(scan_b_tck_emitted=586)),
+            ("TRANSPORT_CLOSE", dict(scan_b_tck_emitted=585)),
+            ("TRANSPORT_CLOSE", dict(scan_b_started=0, scan_b_tck_emitted=0)),
+            ("TRANSPORT_CLOSE", dict(transport_closed=1)),
+            ("DEVICE_SELECTION", dict(target_candidates=0)),
+            ("DEVICE_OPEN", dict(target_candidates=2)),
+            ("TRANSPORT_CLOSE", dict(scan_b_tck_emitted=585)),
         )
         for phase, changes in cases:
             values = refusal_progress(phase)
