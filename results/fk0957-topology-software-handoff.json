@@ -1,7 +1,7 @@
 {
   "schema": "FK0957-TOPOLOGY-SOFTWARE-HANDOFF-v1",
   "qualification_scope": "offline software integration and regression only",
-  "production_code_head": "4d9a222db332b35f605a06a0f05dc2cdc331c940",
+  "production_code_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
   "reference_model_commit": "ea2104c55a1d4dafe6da91c6d5ac28447ec336c1",
   "independent_review": {
     "result": "READY_FOR_PRODUCTION_INTEGRATION=YES",
@@ -69,7 +69,7 @@
   "live_permit_issued": false,
   "live_acquisition_performed": false,
   "hardware_access": false,
-  "handoff_generated_from_head": "4d9a222db332b35f605a06a0f05dc2cdc331c940",
+  "handoff_generated_from_head": "2122b32f4346d175adbdad67b70b8f2679a26f33",
   "independent_audit_references": [
     {
       "commit": "ea2104c55a1d4dafe6da91c6d5ac28447ec336c1",
@@ -83,5 +83,95 @@
       "commit": "4d9a222db332b35f605a06a0f05dc2cdc331c940",
       "scope": "no-overwrite atomic evidence publication correction"
     }
-  ]
+  ],
+  "hardening_candidate": {
+    "branch": "hardening/fk0957-production-20261113",
+    "head": "2122b32f4346d175adbdad67b70b8f2679a26f33",
+    "base_production_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
+    "release_ready": false,
+    "hardware_access": false,
+    "live_acquisition_performed": false,
+    "unresolved_gates": [
+      "remote unsigned topology acquisition and RGB-only signing split",
+      "signed fresh bridge ownership handoff bound to operation permit",
+      "admin-controlled launcher deployment",
+      "signed release manifest authorizing exact source and clean Git state",
+      "installed libc differs from the immutable approved native library pin"
+    ]
+  },
+  "hardening_qualification": {
+    "corrected_state_oracle_commit": "ea2104c55a1d4dafe6da91c6d5ac28447ec336c1",
+    "valid_states_tested": 28,
+    "invalid_states_tested": 249572,
+    "valid_state_rejected": 0,
+    "invalid_state_accepted": 0,
+    "randomized_seeds": 20,
+    "randomized_enumeration_scenarios": 400,
+    "randomized_fault_order_checks": 300,
+    "focused_tests_passed": 47,
+    "all_fk0957_tests_run": 192,
+    "all_fk0957_test_errors": 2,
+    "test_error_reason": "The installed libc SHA256/build-id differs from the immutable approved pin; native runtime tests correctly refuse.",
+    "compileall": "PASS",
+    "git_diff_check": "PASS",
+    "startup_injection_regressions": "PASS: static launcher, -I -S, hostile sitecustomize/usercustomize, PYTHONPATH/PYTHONHOME/PYTHONUSERBASE, LD_PRELOAD/LD_LIBRARY_PATH and PATH substitution",
+    "production_importable_backend_argument_seam": "REMOVED",
+    "unhashable_refusal_fields": "CANONICAL_REJECT",
+    "mutation_counter_semantics": "write_count/reset_count/program_count=0; jtag_operation_count=1 for the fixed read-only two-scan transaction"
+  },
+  "runtime_source_hashes": {
+    "tools/phk2_host/phk2_fk0957_topology_transport.py": "5cd40f8748d3d4c15e58ad6c99d69278df4dd256dff1ae0f0ef6c51047c1f735",
+    "tools/phk2_host/phk2_fk0957_topology_live_cli.py": "afcc1b5e6edd1e7229b86028647ef55437f8eab617839acd045ac65910de0b6f",
+    "tools/phk2_host/phk2_fk0957_topology_discovery.py": "d21e9e081d6c9fd26f97e0d2760d51b75cd9efdc3585c916a910b853c013a52e",
+    "tools/phk2_host/phk2_fk0957_idcode_gate.py": "229b4d97f8b00135a9d29b646058b2c63a7e48a70458783146ac2b17b208b5c0",
+    "tools/phk2_host/phk2_fk0957_remote_orchestrator.py": "b6ed447757484eec258ef5096be4c950c49e9ae89b63bad32fa360e881f680ff",
+    "tools/phk2_host/phk2_fk0957_remote_collector.py": "d944db4b592bba442431ca24a8f0ce2d8600e9f744d8e96c50bf27119f2f60b4",
+    "tools/phk2_host/phk2_fk0957_readonly_backend.py": "bc7b69f84e2851b017cf3a0e60e0e49c74f23467d97104528722992fcfd2add2",
+    "tools/phk2_host/phk2_fk0957_identity_observer.py": "49651502745163b2d69d2641b319f7d88b602a60ba4d91ee042afe81e354fd7e",
+    "tools/phk2_host/phk2_fk0957_ephemeral_bundle.py": "a60d4bb57fea4e9441bf9a89476e286da16e12d4b9bd9cf7c7df8178a41c3438",
+    "tools/phk2_host/phk2_fk0957_ephemeral_runner.py": "8e3aaf2422199072551c9be495c0335df61e3d7abaf1c4fc9f6cfd015a351813",
+    "tools/phk2_host/fk0957_safe_launcher.c": "4dfb65d68ed9b152ccad3d99550a15a4c311fcda7078083dd981caa739c554d5",
+    "tools/phk2_host/fk0957_safe_bootstrap.py": "5f6aa7153431479fb6959333cb30f5873145cd509d32cb89da4bae31b3cd7e3d",
+    "tools/phk2_host/build_fk0957_safe_launcher.py": "11b5cf6bf6399c9321edf311433b4d1dde53d6d72111c60f0195c89b0b62089a"
+  },
+  "approved_native_library_pins": [
+    {
+      "name": "libcap",
+      "path": "/usr/lib/x86_64-linux-gnu/libcap.so.2.66",
+      "sha256": "6ac6abc86ac891c6e13486470e26f1d939f47fda9e6b5d5508a7f5ec881adc84",
+      "build_id": "7a7c2bbc541071e68f1c74f691d5ffba03bfb5ad",
+      "current_match": true
+    },
+    {
+      "name": "libudev",
+      "path": "/usr/lib/x86_64-linux-gnu/libudev.so.1.7.8",
+      "sha256": "0d6934adafb2ef3c640382440c14d6bd60f391e688c000796ffcea0c72849269",
+      "build_id": "1166cb4a3de6a68b330a78ef0f099ebddf315698",
+      "current_match": true
+    },
+    {
+      "name": "libusb",
+      "path": "/usr/lib/x86_64-linux-gnu/libusb-1.0.so.0.4.0",
+      "sha256": "751349e3def1808981dc26bbeb746e2d6ff4ca97fc2c8bc8faaa8f46c879057f",
+      "build_id": "47533e904f636332fab2f1ca8847ad7759ed19ec",
+      "current_match": true
+    },
+    {
+      "name": "libc",
+      "path": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+      "approved_sha256": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf",
+      "approved_build_id": "a4a7992a8e66555c8141ab2a08a8465ff6e0ea65",
+      "observed_sha256": "755a371e86cc9f564ab54f66140747700fb0a103f698f659f2060f707897e09a",
+      "observed_build_id": "8cebda42d140fc2b09639f8b13a5d5f2e617ef09",
+      "current_match": false
+    },
+    {
+      "name": "libftdi",
+      "path": "/usr/lib/x86_64-linux-gnu/libftdi1.so.2.5.0",
+      "sha256": "0e5332df54c66f14ef9107934365b47b9429df02e3ff3402436bd85e9e3e84fe",
+      "build_id": "5d7c81b08d369b6ea8654c825cbdff7fdce1f87c",
+      "current_match": true
+    }
+  ],
+  "maintenance_controller_reference": null
 }
