@@ -274,17 +274,39 @@ def provenance_tamper_fixture(repo: Path) -> dict[str, Any]:
     source = Path(transport.__file__).read_text(encoding="utf-8")
     hash_fn = source.split("def transport_source_sha256()", 1)[1].split("\ndef ", 1)[0]
     git_fn = source.split("def _production_git_state(", 1)[1].split("\ndef ", 1)[0]
+    import phk2_fk0957_remote_topology_endpoint as endpoint
+    release_paths = set(endpoint.RELEASE_SOURCE_PATHS)
+    expected_release_paths = {
+        "tools/phk2_host/fk0957_safe_launcher.c",
+        "tools/phk2_host/fk0957_safe_bootstrap.py",
+        "tools/phk2_host/phk2_fk0957_remote_orchestrator.py",
+        "tools/phk2_host/phk2_fk0957_identity_observer.py",
+        "tools/phk2_host/phk2_fk0957_remote_topology_endpoint.py",
+        "tools/phk2_host/phk2_fk0957_topology_transport.py",
+        "tools/phk2_host/phk2_fk0957_topology_discovery.py",
+        "tools/phk2_host/phk2_fk0957_idcode_gate.py",
+        "tools/phk2_host/phk2_fk0957_topology_live_cli.py",
+        "tools/phk2_host/phk2_fk0957_topology_rgb_cli.py",
+        "tools/phk2_host/phk2_fk0957_topology_rgb_orchestrator.py",
+        "tools/phk2_host/phk2_fk0957_topology_signing.py",
+    }
     git_head_gate = "rev-parse" in git_fn and "_production_git_state(repo)" in hash_fn
     dirty_tree_gate = "status" in git_fn and "--untracked-files=all" in git_fn
-    release_pin = ("EXPECTED_PRODUCTION_HEAD" in source or
-                   "TRUSTED_SOURCE_MANIFEST_SHA256" in source or
-                   "verify_release_manifest" in source)
+    endpoint_source = Path(endpoint.__file__).read_text(encoding="utf-8")
+    release_code = "_verify_signed" in endpoint_source and "_verify_runtime_manifest" in endpoint_source
+    release_pin_configured = bool(endpoint.TRUST_CONFIG_SHA256)
+    manifest_complete = release_paths == expected_release_paths
     return {"one_byte_change_changes_runtime_hash": outcomes,
+            "transport_hash_is_subset_not_complete_release_manifest": not all(outcomes.values()),
+            "complete_release_manifest_paths": sorted(release_paths),
+            "release_manifest_covers_expected_sources": manifest_complete,
             "dirty_tree_gate_present": dirty_tree_gate,
             "wrong_head_gate_present": git_head_gate,
-            "self_consistent_runtime_source_hash": all(outcomes.values()) and dirty_tree_gate and git_head_gate,
-            "immutable_release_authorization_present": release_pin,
-            "complete_runtime_source_provenance": all(outcomes.values()) and dirty_tree_gate and git_head_gate and release_pin}
+            "self_consistent_transport_hash": dirty_tree_gate and git_head_gate,
+            "release_authorization_code_present": release_code,
+            "release_issuer_pin_configured": release_pin_configured,
+            "complete_runtime_source_provenance": manifest_complete and dirty_tree_gate and
+                git_head_gate and release_code and release_pin_configured}
 
 
 def malformed_boundary(repo: Path, count: int = 20000) -> dict[str, int]:
@@ -451,65 +473,88 @@ def unconsumed_permit_internal_entry_attack(repo: Path) -> dict[str, Any]:
 
 
 def bridge_gate_attack(repo: Path) -> dict[str, Any]:
-    """Replace the acquisition boundary with a refusal sentinel; no hardware."""
+    """Exercise the actual signed remote handoff validator with disposable keys."""
     sys.path.insert(0, str(repo / "tools/phk2_host"))
-    import phk2_fk0957_topology_live_cli as cli
-    import phk2_fk0957_topology_transport as transport
-    import phk2_fk0957_topology_signing as signing
-    cases = ("missing_handoff", "stale_handoff", "wrong_bridge_identity",
-             "competing_owner", "unknown_owner", "different_permit", "different_target")
-    reached = []
-    with tempfile.TemporaryDirectory(prefix="fk0957-bridge-gate-") as d:
-        root = Path(d)
-        for case in cases:
-            output = root / f"{case}.json"
-            with mock.patch.object(cli, "_read_descriptor", return_value=b"mock descriptor"), \
-                    mock.patch.object(signing,
-                                      "perform_fk0957_topology_discovery_once",
-                                      side_effect=transport.Refusal("sentinel stop")) as acquire:
-                _, status = cli.run_once(Path("synthetic-descriptor.json"), output)
-                if acquire.call_count:
-                    reached.append(case)
-                if output.exists() or status == 0:
-                    raise AssertionError("bridge refusal fixture unexpectedly published success")
-    return {"cases": list(cases), "reached_acquisition_boundary": reached,
-            "device_open_possible_in_fixture": False}
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import fk0957_endpoint_acceptance
+    report = fk0957_endpoint_acceptance.run(repo)
+    fields = ("missing_handoff", "unsigned_handoff", "stale_handoff",
+              "wrong_bridge_hash", "bridge_still_active", "wrong_clients",
+              "wrong_lanes", "competing_usbfs_owner", "unknown_usbfs_owner",
+              "operation_mismatch", "authorization_replay")
+    outcomes = {name: report.get(name, "NOT_EXERCISED") for name in fields}
+    accepted_labels = {"ACCEPT", "ACCEPTED_SIGNED_ASSERTION", "NOT_EXERCISED"}
+    refused = [name for name, result in outcomes.items()
+               if not (type(result) is str and result in accepted_labels)]
+    return {"cases": outcomes, "refused_cases": refused,
+            "issuer_provisioned_in_production": bool(report.get("production_trust_configured", False)),
+            "endpoint_fake_transport_calls": report.get("endpoint_full_request_replay", {}).get(
+                "physical_transport_calls", 0),
+            "real_device_open_possible_in_fixture": False}
 
 
 def remote_signing_and_handoff_gates(repo: Path) -> dict[str, Any]:
+    sys.path.insert(0, str(repo / "tools/phk2_host"))
     host = repo / "tools/phk2_host"
     cli = (host / "phk2_fk0957_topology_live_cli.py").read_text(encoding="utf-8")
+    rgb_cli_path = host / "phk2_fk0957_topology_rgb_cli.py"
+    rgb_orch_path = host / "phk2_fk0957_topology_rgb_orchestrator.py"
+    endpoint_path = host / "phk2_fk0957_remote_topology_endpoint.py"
     transport = (host / "phk2_fk0957_topology_transport.py").read_text(encoding="utf-8")
     signing = (host / "phk2_fk0957_topology_signing.py").read_text(encoding="utf-8") \
         if (host / "phk2_fk0957_topology_signing.py").is_file() else ""
     discovery = (host / "phk2_fk0957_topology_discovery.py").read_text(encoding="utf-8")
-    code = cli + transport + signing + discovery
+    rgb_cli = rgb_cli_path.read_text(encoding="utf-8") if rgb_cli_path.is_file() else ""
+    rgb_orch = rgb_orch_path.read_text(encoding="utf-8") if rgb_orch_path.is_file() else ""
+    endpoint = endpoint_path.read_text(encoding="utf-8") if endpoint_path.is_file() else ""
+    code = cli + transport + signing + discovery + rgb_cli + rgb_orch + endpoint
     key_path = "/home/rmann/.local/share/sidecar/operator-keys/"
-    ssh_present = bool(re.search(r"\bssh\b|SSH_AUTH_SOCK", code))
-    handoff_present = any(word in code for word in (
-        "validate_bridge_handoff", "handoff_issuer", "handoff_signature",
-        "bridge_owner", "operation_id"))
+    ssh_present = bool(re.search(r"\bssh\b|SSH_AUTH_SOCK", rgb_orch))
+    remote_signing = ("Ed25519PrivateKey" in endpoint or
+                      "LOCAL_SIGNING_KEY_PATH" in endpoint or
+                      "PRIVATE_KEY_PATH" in endpoint or
+                      bool(re.search(r"^\s*(?:from|import)\s+phk2_fk0957_topology_signing",
+                                     endpoint, re.M)))
+    try:
+        import phk2_fk0957_remote_topology_endpoint as endpoint_module
+        release_sources = sorted(endpoint_module.RELEASE_SOURCE_PATHS)
+        trust_pins = endpoint_module.TRUST_CONFIG_SHA256
+    except (ImportError, AttributeError):
+        release_sources = []
+        trust_pins = ""
+    handoff_present = ("FK0957_MAINTENANCE_AUTHORITY" in endpoint and
+                       "_verify_signed" in endpoint and "HANDOFF_FIELDS" in endpoint)
     return {
-        "ssh_auth_sock_consumed": "SSH_AUTH_SOCK" in code,
-        "ssh_agent_forwarding_path": ssh_present,
-        "remote_acquisition_path": ssh_present,
+        "ssh_auth_sock_consumed": "SSH_AUTH_SOCK" in rgb_orch,
+        "ssh_agent_forwarding_disabled": "ForwardAgent=no" in rgb_orch,
+        "remote_acquisition_path": ("def execute_request(" in endpoint and
+                                    "run_fk0957_topology_discovery(permit)" in endpoint and
+                                    "REMOTE_ENDPOINT_COMMAND" in rgb_orch),
         "local_key_path_is_hardcoded": key_path in signing,
         "private_key_transmission_code_present": bool(re.search(
             r"(ssh|stdin|bundle|remote).{0,100}(private.key|LOCAL_SIGNING_KEY_PATH)|"
             r"(private.key|LOCAL_SIGNING_KEY_PATH).{0,100}(ssh|stdin|bundle|remote)",
-            code, re.I | re.S)),
-        "remote_signing_protocol_present": bool(re.search(r"remote.{0,40}sign|sign.{0,40}remote", code, re.I)),
-        "fixed_local_signing_flow_present": "perform_fk0957_topology_discovery_once" in signing and
-                                             "sign_local_discovery_record" in signing,
+            endpoint, re.I | re.S)),
+        "remote_signing_protocol_present": remote_signing,
+        "fixed_local_signing_flow_present": "_sign_validated_remote_record" in rgb_orch and
+                                             "_validate_unsigned_record" in rgb_orch,
         "handoff_issuer_or_authentication_present": handoff_present,
-        "operation_id_binding_present": "operation_id" in code,
+        "operation_id_binding_present": "operation_id" in endpoint,
         "permit_nonce_binding_present": "permit_nonce" in transport and "nonce" in discovery,
-        "unsigned_record_remote_boundary_present": "canonical unsigned" in code.lower(),
+        "unsigned_record_remote_boundary_present": "_unsigned_record" in endpoint and
+                                                    "_validate_unsigned_record" in rgb_orch,
         "result_integrity_seal_present": "_SEALED_RESULTS" in transport and
                                           "_validate_transport_observation" in transport,
-        "replay_guard_present": "_SIGNED_PERMITS" in transport and "_RESULTS" in discovery,
+        "replay_guard_present": ("_consume_authorization" in endpoint and
+                                 "O_EXCL" in endpoint),
         "source_hash_present": "transport_source_sha256" in transport,
-        "wrong_production_head_gate_present": "git rev-parse" in code or "EXPECTED_PRODUCTION_HEAD" in code,
+        "release_manifest_source_count": len(release_sources),
+        "release_manifest_covers_RGB_signer": "tools/phk2_host/phk2_fk0957_topology_signing.py" in release_sources,
+        "release_manifest_covers_RGB_orchestrator": "tools/phk2_host/phk2_fk0957_topology_rgb_orchestrator.py" in release_sources,
+        "release_manifest_covers_launcher": "tools/phk2_host/fk0957_safe_launcher.c" in release_sources,
+        "release_issuer_pin_configured": bool(trust_pins),
+        "wrong_production_head_gate_present": "RUNTIME_GIT_STATE_MISMATCH" in endpoint and
+            "_production_git_state" in endpoint,
     }
 
 

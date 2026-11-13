@@ -77,6 +77,12 @@ def run(candidate: Path) -> dict:
     outcomes={}
     try: validate(request); outcomes['baseline']='ACCEPT'
     except ep.Refusal as e: outcomes['baseline']=e.code
+    for label, changed_request in (
+        ('missing_handoff', {k:v for k,v in request.items() if k != 'handoff'}),
+        ('unsigned_handoff', dict(request, handoff=dict(handenv, signature_hex='0'*128))),
+    ):
+      try: validate(changed_request); outcomes[label]='ACCEPT'
+      except ep.Refusal as e: outcomes[label]=e.code
     # Real policy refusal cases.
     for label, mutate in [
       ('operation_mismatch',lambda r:r.update(operation_id='9'*32)),
@@ -120,6 +126,7 @@ def run(candidate: Path) -> dict:
          mock.patch.object(tr,'run_fk0957_topology_discovery',side_effect=lambda *_:called.append('OPEN')):
       try: ep.execute_request(ep.canonical(request))
       except ep.Refusal as e: outcomes['unprovisioned_endpoint']=e.code
+    outcomes['production_trust_configured']=bool(ep.TRUST_CONFIG_SHA256)
     outcomes['physical_transport_calls_before_pin_provisioning']=len(called)
     # Execute the actual endpoint request flow twice with only the FTDI edge
     # replaced by a fake result. The durable authorization ledger must stop
@@ -180,6 +187,7 @@ def run(candidate: Path) -> dict:
     outcomes['malformed_top_level_type_campaign']={'generated':len(ep.REQUEST_FIELDS)*len(replacements),
         'refused':malformed,'escaped_exception_classes':escaped}
     outcomes['rgb_remote_result_consumer_present']=(candidate/'tools/phk2_host/phk2_fk0957_topology_rgb_orchestrator.py').is_file()
+    fixture.doCleanups()
     return outcomes
 
 if __name__=='__main__':
