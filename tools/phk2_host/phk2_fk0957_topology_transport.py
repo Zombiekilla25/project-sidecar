@@ -120,7 +120,11 @@ REFUSAL_CODES = frozenset({
 OPERATION_STATES = (
     "PRELIVE", "PERMIT_VALIDATED", "RUNTIME_READY", "ENUMERATING",
     "DEVICE_SELECTED", "DEVICE_OPENED", "MPSSE_READY", "SCAN_A_ACTIVE",
-    "SCAN_A_COMPLETE", "SCAN_B_ACTIVE", "SCAN_B_COMPLETE",
+    "SCAN_A_NAV_WRITE", "SCAN_A_BULK_WRITE", "SCAN_A_BULK_READ",
+    "SCAN_A_FINAL_WRITE", "SCAN_A_FINAL_READ", "SCAN_A_EXIT_WRITE",
+    "SCAN_A_COMPLETE", "SCAN_B_ACTIVE", "SCAN_B_NAV_WRITE",
+    "SCAN_B_BULK_WRITE", "SCAN_B_BULK_READ", "SCAN_B_FINAL_WRITE",
+    "SCAN_B_FINAL_READ", "SCAN_B_EXIT_WRITE", "SCAN_B_COMPLETE",
     "TRANSPORT_CLOSING", "TRANSPORT_CLOSED", "LOCAL_VALIDATED", "SIGNED_STAGED",
 )
 _OPERATION_STATE_RANK = {name: index for index, name in enumerate(OPERATION_STATES)}
@@ -162,7 +166,7 @@ class _AttemptTrace:
     def __init__(self):
         self.phase = "PRELIVE_VALIDATION"
         self.return_code = None
-        self.target_candidates: int | str = "unknown"
+        self.target_candidates: int | str = 0
         self.device_opened: int | str = 0
         self.scan_a_started = 0
         self.scan_a_tck_emitted = 0
@@ -759,7 +763,7 @@ class _NativeLibFtdi:
             if serial != USB_DESCRIPTOR_SERIAL:
                 continue
             if trace is not None:
-                trace.target_candidates = min(int(trace.target_candidates) + 1, 256)
+                trace.target_candidates = min(int(trace.target_candidates) + 1, 300)
             # Count the exact USB-serial identity before applying the remaining
             # signed descriptor fields, so duplicate serials fail closed even
             # when they appear at different USB paths.
@@ -768,7 +772,7 @@ class _NativeLibFtdi:
         if seen != count or node:
             raise Refusal("libftdi enumeration count/list disagreement")
         if trace is not None:
-            trace.target_candidates = min(len(candidates), 256)
+            trace.target_candidates = min(len(candidates), 300)
             if not candidates:
                 trace.code_override = "NO_TARGET_CANDIDATE"
             elif len(candidates) > 1:
@@ -908,6 +912,22 @@ def _execute_scan(backend: Any, commands: tuple[topology.Command, ...], scan: st
             trace.advance("SCAN_B_ACTIVE")
     for command in commands:
         if trace is not None:
+            if scan == "A":
+                detail_state = {
+                    "TMS_NO_READ": ("SCAN_A_NAV_WRITE" if trace.scan_a_tck_emitted < 9
+                                    else "SCAN_A_EXIT_WRITE"),
+                    "DR_A_INOUT_BYTE_LSB": "SCAN_A_BULK_WRITE",
+                    "DR_A_FINAL_BIT_EXIT": "SCAN_A_FINAL_WRITE",
+                }[command.label]
+            else:
+                detail_state = {
+                    "TMS_NO_READ": ("SCAN_B_NAV_WRITE" if trace.scan_b_tck_emitted < 4
+                                    else "SCAN_B_EXIT_WRITE"),
+                    "DR_B_INOUT_BYTE_LSB": "SCAN_B_BULK_WRITE",
+                    "DR_B_FINAL_BIT_EXIT": "SCAN_B_FINAL_WRITE",
+                }[command.label]
+            trace.advance(detail_state)
+        if trace is not None:
             trace.phase = f"SCAN_{scan}_WRITE"
         backend.write_exact(command.write)
         if trace is not None:
@@ -917,6 +937,11 @@ def _execute_scan(backend: Any, commands: tuple[topology.Command, ...], scan: st
         if command.read_bytes:
             if trace is not None:
                 trace.phase = f"SCAN_{scan}_READ"
+                trace.advance("SCAN_A_BULK_READ" if scan == "A" and
+                              command.label == "DR_A_INOUT_BYTE_LSB" else
+                              "SCAN_A_FINAL_READ" if scan == "A" else
+                              "SCAN_B_BULK_READ" if command.label == "DR_B_INOUT_BYTE_LSB" else
+                              "SCAN_B_FINAL_READ")
             data = backend.read_exact(command.read_bytes)
             if not isinstance(data, bytes) or len(data) != command.read_bytes:
                 raise Refusal("fixed scan returned a short/oversized FTDI read")
@@ -988,7 +1013,7 @@ def _run_consumed_permit(permit: topology.DiscoveryPermit, backend: Any,
             trace.advance("ENUMERATING")
         candidates = backend.enumerate_candidates()
         if trace is not None:
-            trace.target_candidates = min(len(candidates), 256)
+            trace.target_candidates = min(len(candidates), 300)
             trace.code_override = ("NO_TARGET_CANDIDATE" if len(candidates) == 0 else
                                    "MULTIPLE_TARGET_CANDIDATES" if len(candidates) > 1 else None)
             trace.phase = "DEVICE_SELECTION"
@@ -1012,12 +1037,12 @@ def _run_consumed_permit(permit: topology.DiscoveryPermit, backend: Any,
         failure = exc
         failure_phase = trace.phase if trace is not None else None
     try:
-        if trace is not None:
+        if trace is not None and opened:
             trace.phase = "TRANSPORT_CLOSE"
             trace.begin_close()
         backend.close_checked()
         closed = True
-        if trace is not None:
+        if trace is not None and opened:
             trace.transport_closed = 1
             trace.finish_close()
     except BaseException as exc:

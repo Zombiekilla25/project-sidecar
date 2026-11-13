@@ -108,7 +108,7 @@ def signed_fake_record(signer):
 
 
 def refusal_progress(phase):
-    values = dict(target_candidates="unknown", device_opened=0,
+    values = dict(target_candidates=0, device_opened=0,
                   scan_a_started=0, scan_a_tck_emitted=0,
                   scan_b_started=0, scan_b_tck_emitted=0,
                   transport_closed=0, permit_consumed=1,
@@ -118,13 +118,15 @@ def refusal_progress(phase):
         "LIBRARY_PROVENANCE": "PERMIT_VALIDATED", "FTDI_CONTEXT_CREATE": "RUNTIME_READY",
         "REMOTE_BOOTSTRAP": "RUNTIME_READY", "DEVICE_ENUMERATION": "ENUMERATING",
         "DEVICE_SELECTION": "ENUMERATING", "DEVICE_OPEN": "DEVICE_SELECTED",
-        "MPSSE_INIT": "DEVICE_OPENED", "SCAN_A_WRITE": "SCAN_A_ACTIVE",
-        "SCAN_A_READ": "SCAN_A_ACTIVE", "SCAN_B_WRITE": "SCAN_B_ACTIVE",
-        "SCAN_B_READ": "SCAN_B_ACTIVE", "TRANSPORT_CLOSE": "TRANSPORT_CLOSING",
+        "MPSSE_INIT": "DEVICE_OPENED", "SCAN_A_WRITE": "SCAN_A_NAV_WRITE",
+        "SCAN_A_READ": "SCAN_A_BULK_READ", "SCAN_B_WRITE": "SCAN_B_NAV_WRITE",
+        "SCAN_B_READ": "SCAN_B_BULK_READ", "TRANSPORT_CLOSE": "TRANSPORT_CLOSING",
         "LOCAL_VALIDATION": "TRANSPORT_CLOSED", "LOCAL_SIGNING": "LOCAL_VALIDATED",
         "INTERNAL_REFUSAL": "PRELIVE",
     }
     values["operation_state"] = states[phase]
+    if phase in {"PRELIVE_VALIDATION", "PERMIT_VALIDATION", "INTERNAL_REFUSAL"}:
+        values["permit_consumed"] = 0
     if phase in {"DEVICE_SELECTION", "DEVICE_OPEN", "MPSSE_INIT", "SCAN_A_WRITE",
                  "SCAN_A_READ", "SCAN_B_WRITE", "SCAN_B_READ", "TRANSPORT_CLOSE",
                  "LOCAL_VALIDATION", "LOCAL_SIGNING"}:
@@ -139,6 +141,10 @@ def refusal_progress(phase):
                  "LOCAL_VALIDATION", "LOCAL_SIGNING"}:
         values["scan_a_tck_emitted"] = 591
         values["scan_b_started"] = 1
+    if phase == "SCAN_A_READ":
+        values["scan_a_tck_emitted"] = 585
+    if phase == "SCAN_B_READ":
+        values["scan_b_tck_emitted"] = 580
     if phase == "TRANSPORT_CLOSE":
         values.update(scan_b_tck_emitted=586, transport_closed=0,
                       close_from_state="SCAN_B_COMPLETE")
@@ -178,7 +184,8 @@ class LiveCliTests(unittest.TestCase):
                 self.assertEqual(value["phase"], phase)
                 self.assertEqual(value["code"], expected_code)
                 self.assertEqual(value["status"], "REFUSED")
-                self.assertEqual(value["permit_consumed"], 1)
+                self.assertEqual(value["permit_consumed"], 1 if phase not in {
+                    "PRELIVE_VALIDATION", "PERMIT_VALIDATION", "INTERNAL_REFUSAL"} else 0)
                 self.assertEqual(output, orchestrator.canonical(envelope.as_dict()) + b"\n")
                 self.assertNotIn(b"must never", output)
                 self.assertNotIn(b"secret", output)
@@ -480,12 +487,28 @@ class LiveCliTests(unittest.TestCase):
     def test_legitimate_partial_write_boundaries_and_large_candidate_count(self):
         for phase, counter, values in (
                 ("SCAN_A_WRITE", "scan_a_tck_emitted", (0, 1, 590, 591)),
-                ("SCAN_A_READ", "scan_a_tck_emitted", (0, 1, 590, 591)),
+                ("SCAN_A_READ", "scan_a_tck_emitted", (585, 586)),
                 ("SCAN_B_WRITE", "scan_b_tck_emitted", (0, 1, 585, 586)),
-                ("SCAN_B_READ", "scan_b_tck_emitted", (0, 1, 585, 586))):
+                ("SCAN_B_READ", "scan_b_tck_emitted", (580, 581))):
             for count in values:
                 fields = refusal_progress(phase)
                 fields[counter] = count
+                if phase == "SCAN_A_WRITE":
+                    fields["operation_state"] = (
+                        "SCAN_A_NAV_WRITE" if count <= 9 else
+                        "SCAN_A_BULK_WRITE" if count <= 585 else
+                        "SCAN_A_FINAL_WRITE" if count == 586 else "SCAN_A_EXIT_WRITE")
+                elif phase == "SCAN_B_WRITE":
+                    fields["operation_state"] = (
+                        "SCAN_B_NAV_WRITE" if count <= 4 else
+                        "SCAN_B_BULK_WRITE" if count <= 580 else
+                        "SCAN_B_FINAL_WRITE" if count == 581 else "SCAN_B_EXIT_WRITE")
+                if phase == "SCAN_A_READ":
+                    fields["operation_state"] = (
+                        "SCAN_A_BULK_READ" if count == 585 else "SCAN_A_FINAL_READ")
+                elif phase == "SCAN_B_READ":
+                    fields["operation_state"] = (
+                        "SCAN_B_BULK_READ" if count == 580 else "SCAN_B_FINAL_READ")
                 envelope = transport.RefusalEnvelope(
                     phase, transport._DEFAULT_REFUSAL_CODE[phase], None, **fields)
                 with self.subTest(phase=phase, tcks=count):
@@ -494,16 +517,80 @@ class LiveCliTests(unittest.TestCase):
         fields["target_candidates"] = 300
         too_many = transport.RefusalEnvelope(
             "DEVICE_SELECTION", "MULTIPLE_TARGET_CANDIDATES", None, **fields)
-        self.assertFalse(cli._bounded_envelope(too_many.as_dict()))
+        self.assertTrue(cli._bounded_envelope(too_many.as_dict()))
+        fields["target_candidates"] = 301
+        out_of_schema = transport.RefusalEnvelope(
+            "DEVICE_SELECTION", "MULTIPLE_TARGET_CANDIDATES", None, **fields)
+        self.assertFalse(cli._bounded_envelope(out_of_schema.as_dict()))
+
+    def test_phase_boundaries_bind_candidate_count_open_and_command_substage(self):
+        for count in (0, 1, 2, 255, 256, 300):
+            fields = refusal_progress("DEVICE_ENUMERATION")
+            fields["target_candidates"] = count
+            envelope = transport.RefusalEnvelope(
+                "DEVICE_ENUMERATION", "ENUMERATION_FAILED", None, **fields)
+            with self.subTest(phase="DEVICE_ENUMERATION", count=count):
+                self.assertTrue(cli._bounded_envelope(envelope.as_dict()))
+
+        selected = refusal_progress("DEVICE_SELECTION")
+        selected.update(target_candidates=300)
+        multiple = transport.RefusalEnvelope(
+            "DEVICE_SELECTION", "MULTIPLE_TARGET_CANDIDATES", None, **selected)
+        self.assertTrue(cli._bounded_envelope(multiple.as_dict()))
+
+        opened = refusal_progress("DEVICE_OPEN")
+        opened.update(device_opened=1, operation_state="DEVICE_OPENED")
+        open_completed = transport.RefusalEnvelope(
+            "DEVICE_OPEN", "DEVICE_OPEN_FAILED", None, **opened)
+        self.assertTrue(cli._bounded_envelope(open_completed.as_dict()))
+
+        impossible = dict(opened, scan_a_started=1, scan_a_tck_emitted=591,
+                          operation_state="DEVICE_OPENED")
+        rejected = transport.RefusalEnvelope(
+            "DEVICE_OPEN", "DEVICE_OPEN_FAILED", None, **impossible)
+        self.assertFalse(cli._bounded_envelope(rejected.as_dict()))
+
+        invalid_write_points = (
+            ("SCAN_A_WRITE", "SCAN_A_NAV_WRITE", "scan_a_tck_emitted", 10),
+            ("SCAN_A_WRITE", "SCAN_A_BULK_WRITE", "scan_a_tck_emitted", 8),
+            ("SCAN_A_WRITE", "SCAN_A_FINAL_WRITE", "scan_a_tck_emitted", 587),
+            ("SCAN_A_WRITE", "SCAN_A_EXIT_WRITE", "scan_a_tck_emitted", 585),
+            ("SCAN_B_WRITE", "SCAN_B_NAV_WRITE", "scan_b_tck_emitted", 5),
+            ("SCAN_B_WRITE", "SCAN_B_BULK_WRITE", "scan_b_tck_emitted", 3),
+            ("SCAN_B_WRITE", "SCAN_B_FINAL_WRITE", "scan_b_tck_emitted", 582),
+            ("SCAN_B_WRITE", "SCAN_B_EXIT_WRITE", "scan_b_tck_emitted", 580),
+        )
+        for phase, operation_state, counter, value in invalid_write_points:
+            fields = refusal_progress(phase)
+            fields.update(operation_state=operation_state)
+            fields[counter] = value
+            bad = transport.RefusalEnvelope(
+                phase, transport._DEFAULT_REFUSAL_CODE[phase], None, **fields)
+            with self.subTest(phase=phase, operation_state=operation_state, value=value):
+                self.assertFalse(cli._bounded_envelope(bad.as_dict()))
+
+    def test_close_history_allows_cleanup_but_not_fabricated_later_progress(self):
+        valid = dict(target_candidates=1, device_opened=1, scan_a_started=1,
+                     scan_a_tck_emitted=591, scan_b_started=0,
+                     scan_b_tck_emitted=0, transport_closed=1,
+                     permit_consumed=1, operation_state="TRANSPORT_CLOSED",
+                     close_from_state="SCAN_A_COMPLETE")
+        envelope = transport.RefusalEnvelope(
+            "TRANSPORT_CLOSE", "TRANSPORT_CLOSE_FAILED", None, **valid)
+        self.assertTrue(cli._bounded_envelope(envelope.as_dict()))
+        forged = dict(valid, scan_b_started=1, scan_b_tck_emitted=586)
+        impossible = transport.RefusalEnvelope(
+            "TRANSPORT_CLOSE", "TRANSPORT_CLOSE_FAILED", None, **forged)
+        self.assertFalse(cli._bounded_envelope(impossible.as_dict()))
 
     def test_transport_close_preserves_each_legal_prior_state(self):
         scenarios = (
             ("DEVICE_SELECTED", 0, 0, 0, 0, 0),
             ("DEVICE_OPENED", 1, 0, 0, 0, 0),
             ("MPSSE_READY", 1, 0, 0, 0, 0),
-            ("SCAN_A_ACTIVE", 1, 1, 23, 0, 0),
+            ("SCAN_A_BULK_WRITE", 1, 1, 23, 0, 0),
             ("SCAN_A_COMPLETE", 1, 1, 591, 0, 0),
-            ("SCAN_B_ACTIVE", 1, 1, 591, 1, 17),
+            ("SCAN_B_BULK_WRITE", 1, 1, 591, 1, 17),
             ("SCAN_B_COMPLETE", 1, 1, 591, 1, 586),
         )
         for prior, opened, a_started, a_tcks, b_started, b_tcks in scenarios:

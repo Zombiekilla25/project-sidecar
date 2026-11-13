@@ -81,7 +81,7 @@ def _read_descriptor(path: Path) -> bytes:
 def _fallback_refusal(phase: str, code: str) -> bytes:
     trace = transport._AttemptTrace()
     trace.phase = phase
-    trace.permit_consumed = 0 if phase in ("PRELIVE_VALIDATION", "PERMIT_VALIDATION") else "unknown"
+    trace.permit_consumed = 0
     return trace.refuse(code=code, phase=phase).canonical_envelope()
 
 
@@ -98,7 +98,7 @@ def _bounded_envelope(value: Any) -> bool:
     if rc is not None and (type(rc) is not int or not -255 <= rc <= 255):
         return False
     candidates = value.get("target_candidates")
-    if candidates != "unknown" and (type(candidates) is not int or not 0 <= candidates <= 256):
+    if candidates != "unknown" and (type(candidates) is not int or not 0 <= candidates <= 300):
         return False
     opened = value.get("device_opened")
     consumed = value.get("permit_consumed")
@@ -165,50 +165,149 @@ def _bounded_envelope(value: Any) -> bool:
             has_b and not b_complete and b_tcks > 586):
         return False
 
-    # The refusal phase records where an error occurred. The state is the
-    # monotonic progress reached, and close_from_state preserves progress
-    # before cleanup began.
-    failure_state = progress_state
+    # Validate each report against the actual monotonic point at which its
+    # operation can fail.  The coarse operation state records completed
+    # transitions; phase plus TCK counters records an in-flight write/read.
+    no_scans = not any((a_started, a_tcks, b_started, b_tcks))
+    no_candidates = candidates == 0
+    closing = state in {"TRANSPORT_CLOSING", "TRANSPORT_CLOSED"}
+    if closing:
+        closable_states = {
+            "DEVICE_SELECTED", "DEVICE_OPENED", "MPSSE_READY", "SCAN_A_ACTIVE",
+            "SCAN_A_NAV_WRITE", "SCAN_A_BULK_WRITE", "SCAN_A_BULK_READ",
+            "SCAN_A_FINAL_WRITE", "SCAN_A_FINAL_READ", "SCAN_A_EXIT_WRITE",
+            "SCAN_A_COMPLETE", "SCAN_B_ACTIVE", "SCAN_B_NAV_WRITE",
+            "SCAN_B_BULK_WRITE", "SCAN_B_BULK_READ", "SCAN_B_FINAL_WRITE",
+            "SCAN_B_FINAL_READ", "SCAN_B_EXIT_WRITE", "SCAN_B_COMPLETE",
+        }
+        if close_from not in closable_states:
+            return False
+        prior_rank = ranks[close_from]
+        expected_open = int(prior_rank >= ranks["DEVICE_OPENED"])
+        expected_a_started = int(prior_rank >= ranks["SCAN_A_ACTIVE"])
+        expected_b_started = int(prior_rank >= ranks["SCAN_B_ACTIVE"])
+        if (consumed != 1 or candidates != 1 or opened != expected_open or
+                a_started != expected_a_started or b_started != expected_b_started):
+            return False
+        a_ranges = {
+            "SCAN_A_ACTIVE": (0, 0), "SCAN_A_NAV_WRITE": (0, 9),
+            "SCAN_A_BULK_WRITE": (9, 585), "SCAN_A_BULK_READ": (585, 585),
+            "SCAN_A_FINAL_WRITE": (585, 586), "SCAN_A_FINAL_READ": (586, 586),
+            "SCAN_A_EXIT_WRITE": (586, 591), "SCAN_A_COMPLETE": (591, 591),
+        }
+        b_ranges = {
+            "SCAN_B_ACTIVE": (0, 0), "SCAN_B_NAV_WRITE": (0, 4),
+            "SCAN_B_BULK_WRITE": (4, 580), "SCAN_B_BULK_READ": (580, 580),
+            "SCAN_B_FINAL_WRITE": (580, 581), "SCAN_B_FINAL_READ": (581, 581),
+            "SCAN_B_EXIT_WRITE": (581, 586), "SCAN_B_COMPLETE": (586, 586),
+        }
+        if close_from in a_ranges:
+            low, high = a_ranges[close_from]
+            if not low <= a_tcks <= high or b_tcks != 0:
+                return False
+        elif prior_rank < ranks["SCAN_A_ACTIVE"]:
+            if a_tcks != 0 or b_tcks != 0:
+                return False
+        elif a_tcks != 591:
+            return False
+        if close_from in b_ranges:
+            low, high = b_ranges[close_from]
+            if not low <= b_tcks <= high:
+                return False
+        elif b_tcks != 0:
+            return False
+    phase_state = progress_state
+    close_flag_allowed = closing or closed == 0
     if phase in {"PRELIVE_VALIDATION", "PERMIT_VALIDATION"}:
-        if phase == "PERMIT_VALIDATION" and failure_state != "PRELIVE":
+        allowed_states = ({"PRELIVE": 0, "PERMIT_VALIDATED": 1}
+                          if phase == "PRELIVE_VALIDATION" else {"PRELIVE": 0})
+        if (phase_state not in allowed_states or consumed != allowed_states.get(phase_state) or
+                not no_candidates or
+                opened or not no_scans or not close_flag_allowed):
             return False
-        if ranks[failure_state] > ranks["ENUMERATING"] or has_open or has_a or has_b:
+    elif phase == "LIBRARY_PROVENANCE":
+        if (phase_state not in {"PERMIT_VALIDATED", "RUNTIME_READY"} or
+                consumed != 1 or not no_candidates or
+                opened or not no_scans or not close_flag_allowed):
             return False
-    elif phase in {"LIBRARY_PROVENANCE", "FTDI_CONTEXT_CREATE", "REMOTE_BOOTSTRAP"}:
-        if failure_state not in {"PERMIT_VALIDATED", "RUNTIME_READY", "ENUMERATING",
-                                 "SCAN_B_COMPLETE"}:
+    elif phase in {"FTDI_CONTEXT_CREATE", "REMOTE_BOOTSTRAP"}:
+        if (phase_state != "RUNTIME_READY" or consumed != 1 or not no_candidates or
+                opened or not no_scans or not close_flag_allowed):
             return False
-    elif phase == "DEVICE_ENUMERATION":
-        if failure_state != "ENUMERATING":
-            return False
-    elif phase == "DEVICE_SELECTION":
-        if failure_state != "ENUMERATING":
+    elif phase in {"DEVICE_ENUMERATION", "DEVICE_SELECTION"}:
+        if (phase_state != "ENUMERATING" or consumed != 1 or opened or not no_scans or
+                not close_flag_allowed):
             return False
     elif phase == "DEVICE_OPEN":
-        if failure_state != "DEVICE_SELECTED" or opened != 0:
+        if (phase_state not in {"DEVICE_SELECTED", "DEVICE_OPENED"} or consumed != 1 or
+                candidates != 1 or not no_scans or not close_flag_allowed):
             return False
     elif phase == "MPSSE_INIT":
-        if failure_state != "DEVICE_OPENED" or opened != 1:
+        if (phase_state != "DEVICE_OPENED" or consumed != 1 or candidates != 1 or
+                opened != 1 or not no_scans or not close_flag_allowed):
             return False
-    elif phase in {"SCAN_A_WRITE", "SCAN_A_READ"}:
-        if failure_state != "SCAN_A_ACTIVE" or not a_started or b_started:
+    elif phase == "SCAN_A_WRITE":
+        write_ranges = {
+            "SCAN_A_NAV_WRITE": (0, 9), "SCAN_A_BULK_WRITE": (9, 585),
+            "SCAN_A_FINAL_WRITE": (585, 586), "SCAN_A_EXIT_WRITE": (586, 591),
+        }
+        if (phase_state not in {"SCAN_A_NAV_WRITE", "SCAN_A_BULK_WRITE",
+                                "SCAN_A_FINAL_WRITE", "SCAN_A_EXIT_WRITE"} or
+                consumed != 1 or candidates != 1 or
+                opened != 1 or not a_started or
+                not write_ranges.get(phase_state, (1, 0))[0] <= a_tcks <=
+                write_ranges.get(phase_state, (1, 0))[1] or
+                b_started or b_tcks != 0 or not close_flag_allowed):
             return False
-    elif phase in {"SCAN_B_WRITE", "SCAN_B_READ"}:
-        if failure_state != "SCAN_B_ACTIVE" or not a_complete or not b_started:
+    elif phase == "SCAN_A_READ":
+        expected_read = {"SCAN_A_BULK_READ": 585, "SCAN_A_FINAL_READ": 586}
+        if (phase_state not in expected_read or consumed != 1 or candidates != 1 or
+                opened != 1 or not a_started or a_tcks != expected_read.get(phase_state) or
+                b_started or b_tcks != 0 or not close_flag_allowed):
+            return False
+    elif phase == "SCAN_B_WRITE":
+        write_ranges = {
+            "SCAN_B_NAV_WRITE": (0, 4), "SCAN_B_BULK_WRITE": (4, 580),
+            "SCAN_B_FINAL_WRITE": (580, 581), "SCAN_B_EXIT_WRITE": (581, 586),
+        }
+        if (phase_state not in {"SCAN_B_NAV_WRITE", "SCAN_B_BULK_WRITE",
+                                "SCAN_B_FINAL_WRITE", "SCAN_B_EXIT_WRITE"} or
+                consumed != 1 or candidates != 1 or
+                opened != 1 or not a_started or a_tcks != 591 or not b_started or
+                not write_ranges.get(phase_state, (1, 0))[0] <= b_tcks <=
+                write_ranges.get(phase_state, (1, 0))[1] or not close_flag_allowed):
+            return False
+    elif phase == "SCAN_B_READ":
+        expected_read = {"SCAN_B_BULK_READ": 580, "SCAN_B_FINAL_READ": 581}
+        if (phase_state not in expected_read or consumed != 1 or candidates != 1 or
+                opened != 1 or not a_started or a_tcks != 591 or not b_started or
+                b_tcks != expected_read.get(phase_state) or not close_flag_allowed):
             return False
     elif phase == "TRANSPORT_CLOSE":
-        if state != "TRANSPORT_CLOSING" or failure_state not in {
-                "DEVICE_SELECTED", "DEVICE_OPENED", "MPSSE_READY", "SCAN_A_ACTIVE",
-                "SCAN_A_COMPLETE", "SCAN_B_ACTIVE", "SCAN_B_COMPLETE"}:
+        if (not closing or
+                close_from not in {"DEVICE_SELECTED", "DEVICE_OPENED", "MPSSE_READY",
+                                   "SCAN_A_ACTIVE", "SCAN_A_NAV_WRITE", "SCAN_A_BULK_WRITE",
+                                   "SCAN_A_BULK_READ", "SCAN_A_FINAL_WRITE", "SCAN_A_FINAL_READ",
+                                   "SCAN_A_EXIT_WRITE", "SCAN_A_COMPLETE", "SCAN_B_ACTIVE",
+                                   "SCAN_B_NAV_WRITE", "SCAN_B_BULK_WRITE", "SCAN_B_BULK_READ",
+                                   "SCAN_B_FINAL_WRITE", "SCAN_B_FINAL_READ", "SCAN_B_EXIT_WRITE",
+                                   "SCAN_B_COMPLETE"}):
             return False
     elif phase == "LOCAL_VALIDATION":
-        if state != "TRANSPORT_CLOSED" or failure_state != "SCAN_B_COMPLETE":
+        if (state != "TRANSPORT_CLOSED" or close_from != "SCAN_B_COMPLETE" or
+                consumed != 1 or candidates != 1 or opened != 1 or
+                not a_started or a_tcks != 591 or not b_started or b_tcks != 586 or
+                closed != 1):
             return False
     elif phase == "LOCAL_SIGNING":
-        if state not in {"LOCAL_VALIDATED", "SIGNED_STAGED"}:
+        if (state != "LOCAL_VALIDATED" or close_from != "SCAN_B_COMPLETE" or
+                consumed != 1 or candidates != 1 or opened != 1 or
+                not a_started or a_tcks != 591 or not b_started or b_tcks != 586 or
+                closed != 1):
             return False
     elif phase == "INTERNAL_REFUSAL":
-        if state != "PRELIVE" or any((opened, a_started, a_tcks, b_started, b_tcks, closed)):
+        if (state != "PRELIVE" or consumed != 0 or not no_candidates or opened or
+                not no_scans or closed):
             return False
     return True
 
