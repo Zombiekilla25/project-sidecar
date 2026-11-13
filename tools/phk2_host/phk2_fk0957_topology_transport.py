@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 import stat
 import struct
+import subprocess
 import threading
 from typing import Any
 
@@ -109,7 +110,7 @@ REFUSAL_PHASES = frozenset({
     "LOCAL_VALIDATION", "LOCAL_SIGNING", "INTERNAL_REFUSAL",
 })
 REFUSAL_CODES = frozenset({
-    "TRANSACTION_PIN_MISMATCH", "PERMIT_INVALID", "DESCRIPTOR_STALE",
+    "TRANSACTION_PIN_MISMATCH", "TRUSTED_LAUNCHER_REQUIRED", "PERMIT_INVALID", "DESCRIPTOR_STALE",
     "LIBRARY_PIN_MISMATCH", "FTDI_CONTEXT_FAILED", "REMOTE_BOOTSTRAP_FAILED",
     "ENUMERATION_FAILED", "NO_TARGET_CANDIDATE", "MULTIPLE_TARGET_CANDIDATES",
     "CANDIDATE_IDENTITY_MISMATCH", "DEVICE_OPEN_FAILED", "MPSSE_INIT_FAILED",
@@ -340,6 +341,8 @@ class TransportObservation:
     scan_b_raw_tdo: bytes
     total_tck_count: int
     transport_source_sha256: str
+    production_git_head: str
+    worktree_clean: bool
     runtime_library_provenance: tuple[tuple[Any, ...], ...]
     matched_device_count: int
     opened_device_count: int
@@ -564,20 +567,59 @@ def _require_native_files() -> tuple[Path, ...]:
     return tuple(paths)
 
 
+def _production_git_state(repo: Path | None = None) -> tuple[str, bool]:
+    """Read exact HEAD and cleanliness with Git environment/config overrides removed."""
+    root = repo or Path(__file__).resolve().parents[2]
+    clean_env = {
+        "PATH": "/usr/bin:/bin", "HOME": "/nonexistent", "LC_ALL": "C",
+        "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null",
+        "GIT_CONFIG_SYSTEM": "/dev/null", "GIT_OPTIONAL_LOCKS": "0",
+    }
+    try:
+        head = subprocess.run(
+            ["/usr/bin/git", "-C", str(root), "rev-parse", "--verify", "HEAD"],
+            check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            env=clean_env, timeout=5).stdout.strip()
+        status = subprocess.run(
+            ["/usr/bin/git", "-C", str(root), "status", "--porcelain=v1",
+             "--untracked-files=all", "--ignore-submodules=all"],
+            check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            env=clean_env, timeout=5).stdout
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise Refusal("production Git state is unavailable") from exc
+    if (len(head) != 40 or any(char not in "0123456789abcdef" for char in head) or
+            status != ""):
+        raise Refusal("production source worktree is not clean or HEAD is malformed")
+    return head, True
+
+
 def transport_source_sha256() -> str:
-    """Hash reviewed adapter/discovery sources plus the exact native libraries."""
+    """Hash the clean production Git state, runtime-critical sources, and native libraries."""
     repo = Path(__file__).resolve().parents[2]
-    source_files = (
-        Path(__file__).resolve(),
-        (repo / "tools/phk2_host/phk2_fk0957_topology_discovery.py").resolve(strict=True),
-        (repo / "tools/phk2_host/phk2_fk0957_idcode_gate.py").resolve(strict=True),
-        (repo / "tools/phk2_host/phk2_fk0957_remote_orchestrator.py").resolve(strict=True),
-        (repo / "tools/phk1_raw_bscan/libftdi_io.cpp").resolve(strict=True),
-        (repo / "tools/phk1_raw_bscan/mpsse_backend.cpp").resolve(strict=True),
-        (repo / "tools/phk1_raw_bscan/usb_selection.cpp").resolve(strict=True),
-        *_require_native_files(),
+    head, clean = _production_git_state(repo)
+    relative_sources = (
+        "tools/phk2_host/phk2_fk0957_topology_transport.py",
+        "tools/phk2_host/phk2_fk0957_topology_live_cli.py",
+        "tools/phk2_host/phk2_fk0957_topology_discovery.py",
+        "tools/phk2_host/phk2_fk0957_idcode_gate.py",
+        "tools/phk2_host/phk2_fk0957_remote_orchestrator.py",
+        "tools/phk2_host/phk2_fk0957_remote_collector.py",
+        "tools/phk2_host/phk2_fk0957_readonly_backend.py",
+        "tools/phk2_host/phk2_fk0957_identity_observer.py",
+        "tools/phk2_host/phk2_fk0957_ephemeral_bundle.py",
+        "tools/phk2_host/phk2_fk0957_ephemeral_runner.py",
+        "tools/phk2_host/fk0957_safe_launcher.c",
+        "tools/phk2_host/fk0957_safe_bootstrap.py",
+        "tools/phk2_host/build_fk0957_safe_launcher.py",
+        "results/fk0957-topology-software-handoff.json",
+        "tools/phk1_raw_bscan/libftdi_io.cpp",
+        "tools/phk1_raw_bscan/mpsse_backend.cpp",
+        "tools/phk1_raw_bscan/usb_selection.cpp",
     )
+    source_files = tuple((repo / item).resolve(strict=True) for item in relative_sources)
+    source_files += _require_native_files()
     digest = hashlib.sha256()
+    digest.update(b"production_git_head\0" + head.encode("ascii") + b"\0clean=1\0")
     for path in source_files:
         st = path.stat()
         if not stat.S_ISREG(st.st_mode) or st.st_size > 100 * 1024 * 1024:
@@ -983,7 +1025,7 @@ def _make_observation(permit: topology.DiscoveryPermit, identity: topology.Descr
         permit.descriptor_evidence_sha256, permit.nonce,
         topology.scan_transaction_sha256(plan.scan_a_commands), plan.scan_a_tck_count, raw_a,
         topology.scan_transaction_sha256(plan.scan_b_commands), plan.scan_b_tck_count, raw_b,
-        plan.tck_count, source_sha256, runtime_provenance,
+        plan.tck_count, source_sha256, *_production_git_state(), runtime_provenance,
         1, 1, False, 0, 0, 0, proof)
     with _RESULT_LOCK:
         _SEALED_RESULTS[proof] = hashlib.sha256(_observation_payload(result)).hexdigest()
@@ -1116,6 +1158,7 @@ def _validate_transport_observation(permit: topology.DiscoveryPermit,
              result.scan_a_transaction_sha256, result.scan_a_tck_count,
              result.scan_b_transaction_sha256, result.scan_b_tck_count,
              result.total_tck_count, result.transport_source_sha256,
+             result.production_git_head, result.worktree_clean,
              result.runtime_library_provenance,
              result.matched_device_count, result.opened_device_count, result.second_device_opened,
              result.write_count, result.reset_count, result.program_count)
@@ -1123,7 +1166,8 @@ def _validate_transport_observation(permit: topology.DiscoveryPermit,
                 permit.descriptor_evidence_sha256, permit.nonce,
                 topology.scan_transaction_sha256(plan.scan_a_commands), 591,
                 topology.scan_transaction_sha256(plan.scan_b_commands), 586,
-                1177, transport_source_sha256(), result.runtime_library_provenance,
+                1177, transport_source_sha256(), *_production_git_state(),
+                result.runtime_library_provenance,
                 1, 1, False, 0, 0, 0)
     if exact != expected:
         raise Refusal("transport result binding, transaction, count, or mutation counter mismatch")
@@ -1227,6 +1271,8 @@ def _sign_local_discovery_record(permit: topology.DiscoveryPermit,
         "product": result.product,
         "trusted_signer_fingerprint": permit.trusted_signer_fingerprint,
         "transport_source_sha256": result.transport_source_sha256,
+        "production_git_head": result.production_git_head,
+        "worktree_clean": result.worktree_clean,
         "runtime_library_provenance": [
             {"logical_name": row[0], "approved_path": row[1], "expected_sha256": row[2],
              "expected_build_id": row[3], "soname": row[4], "preload_stat": row[5],

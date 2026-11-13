@@ -87,6 +87,8 @@ def signed_fake_record(signer):
         "reset_count": 0,
         "program_count": 0,
         "jtag_operation_count": 1,
+        "production_git_head": "c" * 40,
+        "worktree_clean": True,
         "scan_a_transaction_sha256": "a" * 64,
         "scan_b_transaction_sha256": "b" * 64,
         "scan_a_raw_tdo_hex": raw_a.hex(),

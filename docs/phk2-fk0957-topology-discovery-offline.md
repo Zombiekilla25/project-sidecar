@@ -2,65 +2,41 @@
 
 ## Production software status
 
-The one-shot local topology transport and CLI are integrated in production
-lineage. The latest executable hardening is commit
-`4d9a222db332b35f605a06a0f05dc2cdc331c940`. The transport uses the
-pinned native FTDI/libusb runtime, exact descriptor-bound FK0957 selection,
-the fixed two-scan MPSSE plan, local validation, local signing, and atomic
-no-overwrite evidence publication. Publication uses an atomic same-filesystem
-link and refuses a destination created concurrently; a regression verifies a
-concurrent sentinel is preserved. The CLI has no scan or transport override
-options.
+The reviewed topology transaction remains fixed at 591 TCK for Scan A and
+586 TCK for Scan B (1,177 total), with exact FK0957 descriptor selection and
+atomic evidence publication. The corrected independent state model at
+`ea2104c55a1d4dafe6da91c6d5ac28447ec336c1` previously matched all 28 valid
+and 249,572 invalid boundary states.
 
-The corrected independent state model at
-`ea2104c55a1d4dafe6da91c6d5ac28447ec336c1` reports 28 valid and 249,572
-invalid boundary states; production accepts all 28 valid states and rejects
-all invalid states. The focused production suite passed 189 tests, including
-enumeration, refusal, permit/replay, library provenance, transaction, and
-evidence atomicity and concurrent-output coverage. Right's independent review reported
-`READY_FOR_PRODUCTION_INTEGRATION=YES` and all corresponding invariants passed.
+The current hardening branch is not a live-ready release. It adds a static
+launcher and prevents ordinary direct execution of the Python CLI, but the
+complete remote unsigned-acquisition/RGB-only-signing split, signed bridge
+ownership handoff, and release-manifest source authorization are still
+required. Do not run an acquisition command or issue a permit until those
+items are implemented and independently reviewed. No launcher binary was
+built into or installed on the production host by this offline work.
 
-This is a software qualification record only. It does not issue a permit,
-perform a live acquisition, or authorize hardware access.
+The static launcher source is `tools/phk2_host/fk0957_safe_launcher.c` and
+its bootstrap is `tools/phk2_host/fk0957_safe_bootstrap.py`. The required
+build uses `tools/phk2_host/build_fk0957_safe_launcher.py`; deployment must
+place the resulting binary and bootstrap under an administrator-controlled,
+non-writable path. Tests compile an isolated temporary launcher and verify
+that Python startup hooks and loader environment variables do not affect the
+child interpreter. This does not authorize hardware access.
 
-The deterministic hashes and local host-key pin provenance recorded for this
-integration are in
+The deterministic hashes and local host-key pin observation from the earlier
+software integration are recorded in
 [`results/fk0957-topology-software-handoff.json`](../results/fk0957-topology-software-handoff.json).
+That historical record does not prove current remote acquisition or bridge
+ownership readiness.
 
-## Future one-shot CLI invocation (prepared, not run)
+## Live command status
 
-The future command accepts fresh signed descriptor evidence and a new output
-path. It creates and consumes its one-shot permit internally only when the
-operator runs it; no permit was created during this software work. Replace the
-two shell values with the freshly checked descriptor file and a unique output
-path immediately before the separately authorized physical operation:
-
-```sh
-cd /home/rmann/project-sidecar-phk2-first-silicon-host-20261109
-PYTHONPATH=tools/phk2_host .venv/bin/python \
-  tools/phk2_host/phk2_fk0957_topology_live_cli.py \
-  --descriptor-evidence "$DESCRIPTOR_EVIDENCE" \
-  --output "$NEW_EVIDENCE_PATH"
-```
-
-Expected terminal outcomes are bounded:
-
-- Exit `0`: one signed topology record was atomically published. The JSON
-  summary has `status=SIGNED`, target `FK0957`, counts `591`, `586`, `1177`,
-  transaction hashes matching the manifest, `parse_status=PASS`, and zero
-  write/reset/program counts.
-- Exit `2`: refusal. One canonical JSON object reports `status=REFUSED`, an
-  enumerated `phase` and `code`, bounded progress counters, and
-  `evidence_path=none`; no accepted final evidence is published.
-- Exit `3`: acquisition and publication succeeded, but final reporting failed.
-  The only diagnostic is
-  `FK0957_POST_SUCCESS_REPORTING_FAULT=YES EVIDENCE_PUBLISHED=YES`; the
-  published record remains the success record and is never reclassified as a
-  refusal.
-
-This command is a handoff template, not an authorization or a request to run
-it. Do not use an existing output path, stale descriptor evidence, or any
-historical IDCODE command.
+No live command is published while the remote acquisition split, bridge
+handoff binding, exact production source manifest, and protected launcher
+deployment are incomplete. The old direct-Python command is obsolete and
+fails closed with `TRUSTED_LAUNCHER_REQUIRED`. Keep the fixed transaction
+hashes and counts below as regression references only.
 
 For example, a prelive refusal has this exact field set and bounded values;
 later phases use the same schema with their validated progress:

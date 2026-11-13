@@ -28,7 +28,7 @@ _ENVELOPE_KEYS = frozenset({
     "transport_closed", "permit_consumed", "operation_state", "close_from_state",
 })
 _PHASE_CODES = {
-    "PRELIVE_VALIDATION": {"TRANSACTION_PIN_MISMATCH"},
+    "PRELIVE_VALIDATION": {"TRANSACTION_PIN_MISMATCH", "TRUSTED_LAUNCHER_REQUIRED"},
     "PERMIT_VALIDATION": {"PERMIT_INVALID", "DESCRIPTOR_STALE"},
     "LIBRARY_PROVENANCE": {"LIBRARY_PIN_MISMATCH"},
     "FTDI_CONTEXT_CREATE": {"FTDI_CONTEXT_FAILED"},
@@ -369,6 +369,11 @@ def _verify_signed_record(document: Any) -> dict[str, Any]:
     }
     if any(payload.get(key) != value for key, value in required.items()):
         raise ValueError("signed record policy fields rejected")
+    head = payload.get("production_git_head")
+    if (not isinstance(head, str) or len(head) != 40 or
+            any(char not in "0123456789abcdef" for char in head) or
+            payload.get("worktree_clean") is not True):
+        raise ValueError("signed record production source provenance rejected")
     return payload
 
 
@@ -610,4 +615,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    # Direct interpreter invocation is intentionally non-operational. The
+    # static launcher clears loader variables before Python initialization.
+    raise SystemExit(_emit_report(
+        _fallback_refusal("PRELIVE_VALIDATION", "TRUSTED_LAUNCHER_REQUIRED") + b"\n",
+        2, published=False))

@@ -7,6 +7,7 @@ import hashlib
 import inspect
 import json
 import os
+import subprocess
 from pathlib import Path
 import sys
 import tempfile
@@ -138,6 +139,10 @@ class TopologyTransportTests(unittest.TestCase):
             transport, "transport_source_sha256", return_value=_TEST_SOURCE_SHA256)
         self._source_hash_patch.start()
         self.addCleanup(self._source_hash_patch.stop)
+        self._git_state_patch = mock.patch.object(
+            transport, "_production_git_state", return_value=("a" * 40, True))
+        self._git_state_patch.start()
+        self.addCleanup(self._git_state_patch.stop)
         from cryptography.hazmat.primitives import serialization
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
         self.signing_key = Ed25519PrivateKey.generate()
@@ -256,6 +261,29 @@ class TopologyTransportTests(unittest.TestCase):
         b = backend or self.backend()
         result = run_with_backend(self.permit(), b)
         return b, result
+
+    def test_production_git_state_requires_exact_clean_head_and_ignores_git_env(self):
+        self._git_state_patch.stop()
+        try:
+            head = "1" * 40
+            completed_head = subprocess.CompletedProcess([], 0, head + "\n", "")
+            completed_clean = subprocess.CompletedProcess([], 0, "", "")
+            with mock.patch.object(transport.subprocess, "run",
+                                   side_effect=[completed_head, completed_clean]) as run:
+                self.assertEqual(transport._production_git_state(), (head, True))
+            self.assertEqual(run.call_count, 2)
+            for call in run.call_args_list:
+                self.assertEqual(call.kwargs["env"]["GIT_CONFIG_GLOBAL"], "/dev/null")
+                self.assertNotIn("GIT_DIR", call.kwargs["env"])
+                self.assertEqual(call.kwargs["timeout"], 5)
+
+            dirty = subprocess.CompletedProcess([], 0, " M tracked.py\n", "")
+            with mock.patch.object(transport.subprocess, "run",
+                                   side_effect=[completed_head, dirty]):
+                with self.assertRaises(transport.Refusal):
+                    transport._production_git_state()
+        finally:
+            self._git_state_patch.start()
 
     def test_production_module_has_no_backend_argument_injection_runner(self):
         self.assertFalse(hasattr(transport, "_run_with_backend"))
