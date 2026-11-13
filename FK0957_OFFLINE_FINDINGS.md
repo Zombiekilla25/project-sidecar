@@ -51,6 +51,11 @@ target plus four peers and 120 permutations with duplicate exact targets. The
 unique target was selected in all peer-orderings; all duplicate exact targets
 refused before the fake open.
 
+Additional path probes refused pre-existing output symlinks/hardlinks,
+symlinked parents, a colliding temporary directory, and symlink/hardlink
+signing-key paths. A separate fake-backend signing test passed and confirms
+the runtime seam can produce a signed record without opening a native device.
+
 ### Low: direct malformed-envelope validator calls can raise
 
 Across 10,000 deterministic type mutations, `_bounded_envelope` raised

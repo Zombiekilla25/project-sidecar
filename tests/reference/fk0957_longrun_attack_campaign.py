@@ -6,14 +6,16 @@ it never enumerates devices, issues a permit, or invokes the acquisition path.
 from __future__ import annotations
 
 import argparse
-import ctypes
 import itertools
+import io
 import json
 import os
 from pathlib import Path
 import subprocess
 import tempfile
 import inspect
+import unittest
+from unittest import mock
 from typing import Any
 
 
@@ -111,7 +113,7 @@ def publish_race(cli: Any) -> dict[str, bool]:
         refused = False
         try:
             cli._publish_evidence_atomic(destination, b"SIGNED_AUDIT_FIXTURE")
-        except OSError:
+        except Exception:
             refused = True
         finally:
             os.replace = original_replace
@@ -158,6 +160,86 @@ def parent_move_race(cli: Any, orchestrator: Any) -> dict[str, bool]:
             "requested_path_resolves_to_evidence": destination.exists(),
             "replacement_path_written": (replacement / "record.json").exists(),
         }
+
+
+def filesystem_path_attack_matrix(cli: Any, transport: Any) -> dict[str, bool]:
+    outcomes: dict[str, bool] = {}
+    with tempfile.TemporaryDirectory(prefix="fk0957-path-matrix-") as temp:
+        root = Path(temp)
+        target = root / "sentinel"
+        target.write_bytes(b"preserve")
+        symlink = root / "output-symlink"
+        symlink.symlink_to(target)
+        try:
+            cli._publish_evidence_atomic(symlink, b"new")
+        except Exception:
+            outcomes["output_symlink_refused"] = symlink.is_symlink() and target.read_bytes() == b"preserve"
+        hardlink = root / "output-hardlink"
+        os.link(target, hardlink)
+        try:
+            cli._publish_evidence_atomic(hardlink, b"new")
+        except Exception:
+            outcomes["output_hardlink_refused"] = hardlink.stat().st_ino == target.stat().st_ino
+        real_parent = root / "real-parent"
+        real_parent.mkdir()
+        alias = root / "parent-alias"
+        alias.symlink_to(real_parent, target_is_directory=True)
+        try:
+            cli._publish_evidence_atomic(alias / "record.json", b"new")
+        except OSError:
+            outcomes["parent_symlink_refused"] = not (real_parent / "record.json").exists()
+
+        collision = root / ".fk0957-evidence-fixed"
+        collision.mkdir(mode=0o700)
+        marker = collision / "marker"
+        marker.write_bytes(b"preserve")
+        with mock.patch.object(cli.secrets, "token_hex", return_value="fixed"):
+            try:
+                cli._publish_evidence_atomic(root / "collision.json", b"new")
+            except FileExistsError:
+                outcomes["temp_directory_collision_refused"] = marker.read_bytes() == b"preserve"
+
+        key = root / "key.pem"
+        key.write_bytes(b"not a real private key")
+        key.chmod(0o600)
+        key_link = root / "key-symlink"
+        key_link.symlink_to(key)
+        try:
+            transport._read_local_private_key(key_link)
+        except OSError:
+            outcomes["signing_key_symlink_refused"] = True
+        key_hardlink = root / "key-hardlink"
+        os.link(key, key_hardlink)
+        try:
+            transport._read_local_private_key(key_hardlink)
+        except Exception:
+            outcomes["signing_key_hardlink_refused"] = True
+        key_parent = root / "key-parent"
+        key_parent.mkdir()
+        nested_key = key_parent / "key.pem"
+        nested_key.write_bytes(b"fake")
+        nested_key.chmod(0o600)
+        key_parent_alias = root / "key-parent-alias"
+        key_parent_alias.symlink_to(key_parent, target_is_directory=True)
+        try:
+            transport._read_local_private_key(key_parent_alias / "key.pem")
+        except OSError:
+            outcomes["signing_key_parent_symlink_refused"] = True
+    return outcomes
+
+
+def fake_backend_signing_test(host: Path) -> dict[str, int]:
+    import sys
+    sys.path.insert(0, str(host))
+    import test_phk2_fk0957_topology_transport as fixtures
+    suite = unittest.defaultTestLoader.loadTestsFromName(
+        "TopologyTransportTests.test_local_record_builder_signs_only_after_valid_transport",
+        fixtures)
+    output = io.StringIO()
+    result = unittest.TextTestRunner(stream=output, verbosity=0).run(suite)
+    if not result.wasSuccessful():
+        raise AssertionError("fake backend signing test did not complete cleanly")
+    return {"tests_run": result.testsRun, "successes": result.testsRun}
 
 
 def malformed_type_campaign(validator: Any, safe_refusal: Any,
@@ -303,6 +385,8 @@ def main() -> int:
             host / "phk2_fk0957_topology_live_cli.py"),
         "publish_race": publish_race(cli),
         "parent_move_race": parent_move_race(cli, orchestrator),
+        "filesystem_path_attacks": filesystem_path_attack_matrix(cli, transport),
+        "fake_backend_signing_test": fake_backend_signing_test(host),
         "malformed_type_campaign": malformed_type_campaign(
             cli._bounded_envelope, cli._safe_refusal, transport.Refusal),
         "malformed_internal_refusal_falls_back_safely": (
