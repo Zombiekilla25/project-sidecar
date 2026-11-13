@@ -55,10 +55,18 @@ def run(candidate: Path) -> dict:
                  mock.patch.object(endpoint, "CONSUMED_AUTHORIZATION_DIR", ledger), \
                  mock.patch.object(transport, "_NativeLibFtdi", return_value=backend):
                 if attack == "unsigned_descriptor":
+                    try:
+                        endpoint.execute_request(request_case.request_bytes())
+                        normal_endpoint = "ACCEPTED"
+                    except (endpoint.Refusal, transport.Refusal) as exc:
+                        normal_endpoint = type(exc).__name__
+                    normal_endpoint_opens = backend.open_count
                     with transport._REMOTE_AUTH_LOCK:
                         transport._REMOTE_AUTHORIZED_PERMITS[token] = request_case.request_bytes()
                     result = transport.run_fk0957_topology_discovery(permit)
                     outputs[attack] = {
+                        "normal_endpoint_result": normal_endpoint,
+                        "normal_endpoint_fake_open_count": normal_endpoint_opens,
                         "request_signatures_valid": True,
                         "descriptor_evidence_signature_valid": False,
                         "runtime_manifest_validated": True,
