@@ -39,6 +39,14 @@ def audit_head(repo: Path, audit: Path, sha: str, logical: str) -> dict[str, obj
     if actual != sha:
         raise RuntimeError("detached worktree HEAD mismatch")
 
+    # A completion declaration is informational, never a substitute for the
+    # per-HEAD campaign. Record it against the exact audited object so a final
+    # declaration can be distinguished from ordinary incremental commits.
+    declaration = run(["git", "-C", str(tree), "grep", "-h", "-I", "-o",
+                       "-E", "COMPLETE_HARDENED_CANDIDATE=[0-9a-f]{40}", sha, "--", "."])
+    declared_heads = sorted({line.split("=", 1)[1] for line in
+                             declaration.stdout.splitlines() if "=" in line})
+
     # The corrected oracle lives in the sibling reference-model repository.
     reference_repo = Path("/home/rmann/project-sidecar-phk2-reference-model-20261113")
     oracle_script = reference_repo / "tests/reference/fk0957_corrected_oracle_audit.py"
@@ -61,6 +69,8 @@ def audit_head(repo: Path, audit: Path, sha: str, logical: str) -> dict[str, obj
                            "stdout_path": str(results / f"{name}.stdout"),
                            "stderr_path": str(results / f"{name}.stderr")}
     record = {"candidate_head": sha, "detached_worktree": str(tree),
+              "complete_candidate_declared_for_this_head": sha in declared_heads,
+              "complete_candidate_declarations": declared_heads,
               "suites": summaries, "audit_complete": True}
     (results / "summary.json").write_text(json.dumps(record, sort_keys=True, indent=2) + "\n",
                                            encoding="utf-8")
