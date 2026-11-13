@@ -223,6 +223,51 @@ def run(candidate: Path) -> dict:
                 terminal_row["release_authorization_sha256"] != "9" * 64)
         finally:
             terminal_race.doCleanups()
+        parent_race = receipt_fixtures.RemoteReceiptStoreTests()
+        parent_race.setUp()
+        try:
+            parent_race.store.create(parent_race.payload)
+            parent_race.store.transition(parent_race.operation_id, "CLAIMED",
+                                         process=None, exit_code=None)
+            process = {
+                "pid": __import__("os").getpid(), "start_identity": "123",
+                "uid": __import__("os").getuid(), "executable": "/usr/bin/python3",
+                "executable_sha256": "5" * 64, "argv_sha256": "6" * 64,
+                "cwd": "/", "operation_id_argument": parent_race.operation_id,
+            }
+            with mock.patch.object(receipts, "process_start_identity", return_value="123"):
+                parent_race.store.transition(parent_race.operation_id, "RUNNING",
+                                             process=process, exit_code=None)
+            operation_path = parent_race.store.root / parent_race.operation_id
+            displaced_path = parent_race.store.root / (parent_race.operation_id + ".displaced")
+            parent_replace = receipts.os.replace
+
+            def replace_parent_directory(src, dst, **kwargs):
+                __import__("os").rename(operation_path, displaced_path)
+                __import__("os").mkdir(operation_path, 0o700)
+                conflicting = dict(parent_race.payload)
+                conflicting.update({
+                    "state": "EXITED_REFUSAL", "process": process, "exit_code": 2,
+                    "release_authorization_sha256": "8" * 64,
+                })
+                replacement = operation_path / "receipt.json"
+                replacement.write_bytes(protocol.canonical(conflicting))
+                __import__("os").chmod(replacement, 0o600)
+                return parent_replace(src, dst, **kwargs)
+
+            with mock.patch.object(receipts.os, "replace",
+                                   side_effect=replace_parent_directory), \
+                 mock.patch.object(receipts, "process_start_identity", return_value="123"):
+                parent_race.store.transition(parent_race.operation_id, "EXITED_SUCCESS",
+                                             process=process, exit_code=0)
+            visible, _ = parent_race.store.read(parent_race.operation_id)
+            receipt_writer_attacks["parent_directory_replacement_injected"] = True
+            receipt_writer_attacks["parent_directory_replacement_detected"] = False
+            receipt_writer_attacks["parent_directory_identity_exchanged"] = (
+                visible["state"] == "EXITED_REFUSAL" and
+                visible["release_authorization_sha256"] == "8" * 64)
+        finally:
+            parent_race.doCleanups()
 
     # Deterministic type/value fuzzing for challenge-bound status. Every case
     # starts from a valid canonical NOT_STARTED status; the mutator changes at
