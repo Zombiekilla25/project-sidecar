@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 import ctypes
 from dataclasses import replace
+from contextlib import contextmanager
 import hashlib
 import inspect
 import json
@@ -20,6 +21,7 @@ import phk2_fk0957_topology_discovery as topology
 import phk2_fk0957_topology_transport as transport
 import phk2_fk0957_topology_signing as signing
 import phk2_fk0957_remote_orchestrator as orchestrator
+import phk2_fk0957_remote_topology_endpoint as endpoint
 
 DESCRIPTOR = Path("/home/rmann/.local/share/sidecar/fk0957-descriptor-identity-20261112.json")
 
@@ -42,15 +44,27 @@ def response_for(pattern: tuple[int, ...]) -> tuple[bytes, bytes]:
 _TEST_SOURCE_SHA256 = "a" * 64
 
 
+@contextmanager
+def fake_release_request(permit):
+    """Test-only signed-request validator substitute at the trust boundary."""
+    context = {
+        "descriptor_sha256": permit.descriptor_evidence_sha256,
+        "authorization_sha256": "a" * 64, "handoff_sha256": "b" * 64,
+        "manifest_sha256": "c" * 64, "descriptor": b"fixture-descriptor",
+    }
+    with mock.patch.object(endpoint, "_load_trust_config", return_value={"release": b"x" * 32,
+                                                                           "handoff": b"y" * 32}), \
+         mock.patch.object(endpoint, "_validate_request", return_value=(context, b"auth", "2" * 64)), \
+         mock.patch.object(endpoint, "_consume_authorization"):
+        yield b"offline signed request fixture"
+
+
 def run_with_backend(permit, backend):
     """Test-only backend injection through the concrete production entrypoint."""
-    # Test-only fake release binding; production callers cannot provide these
-    # digests to the transport authorizer anymore.
-    with transport._REMOTE_AUTH_LOCK:
-        transport._REMOTE_AUTHORIZED_PERMITS[permit._token] = (
-            "a" * 64, "b" * 64, "c" * 64, permit.descriptor_evidence_sha256)
-    with mock.patch.object(transport, "_NativeLibFtdi", return_value=backend):
-        return transport.run_fk0957_topology_discovery(permit)
+    with fake_release_request(permit) as request_raw:
+        transport._authorize_remote_permit(permit, request_raw=request_raw)
+        with mock.patch.object(transport, "_NativeLibFtdi", return_value=backend):
+            return transport.run_fk0957_topology_discovery(permit)
 
 
 class FakeBackend:
@@ -306,7 +320,11 @@ class TopologyTransportTests(unittest.TestCase):
         self.assertEqual(tuple(inspect.signature(transport.run_fk0957_topology_discovery).parameters),
                          ("authorized_permit",))
         self.assertEqual(tuple(inspect.signature(transport._run_consumed_permit).parameters),
-                         ("permit", "source_sha256_before", "trace"))
+                         ("permit", "source_sha256_before", "trace", "request_raw"))
+        with mock.patch.object(transport, "_NativeLibFtdi") as backend:
+            with self.assertRaises(transport.Refusal):
+                transport._run_consumed_permit(self.permit())
+        backend.assert_not_called()
 
     def test_public_api_is_one_permit_and_no_generic_scan_surface(self):
         self.assertEqual(tuple(inspect.signature(transport.run_fk0957_topology_discovery).parameters),
@@ -676,13 +694,12 @@ class TopologyTransportTests(unittest.TestCase):
         self.assertEqual(env["permit_consumed"], 0)
 
         permit = self.permit()
-        with transport._REMOTE_AUTH_LOCK:
-            transport._REMOTE_AUTHORIZED_PERMITS[permit._token] = (
-                "a" * 64, "b" * 64, "c" * 64, permit.descriptor_evidence_sha256)
-        with mock.patch.object(transport, "transport_source_sha256",
-                               side_effect=transport.Refusal("secret path /private/native.so")):
-            with self.assertRaises(transport.Refusal) as library:
-                transport.run_fk0957_topology_discovery(permit)
+        with fake_release_request(permit) as request_raw:
+            transport._authorize_remote_permit(permit, request_raw=request_raw)
+            with mock.patch.object(transport, "transport_source_sha256",
+                                   side_effect=transport.Refusal("secret path /private/native.so")):
+                with self.assertRaises(transport.Refusal) as library:
+                    transport.run_fk0957_topology_discovery(permit)
         env = json.loads(library.exception.canonical_envelope())
         self.assertEqual((env["phase"], env["code"]),
                          ("LIBRARY_PROVENANCE", "LIBRARY_PIN_MISMATCH"))
@@ -724,6 +741,15 @@ class TopologyTransportTests(unittest.TestCase):
                 manifest_sha256="c" * 64,
                 descriptor_sha256=permit.descriptor_evidence_sha256)
         self.assertNotIn(permit._token, transport._REMOTE_AUTHORIZED_PERMITS)
+
+        # Even an injected legacy digest tuple is not accepted as request bytes.
+        with transport._REMOTE_AUTH_LOCK:
+            transport._REMOTE_AUTHORIZED_PERMITS[permit._token] = (
+                "a" * 64, "b" * 64, "c" * 64, permit.descriptor_evidence_sha256)
+        with mock.patch.object(transport, "_NativeLibFtdi") as backend:
+            with self.assertRaises(transport.Refusal):
+                transport.run_fk0957_topology_discovery(permit)
+        backend.assert_not_called()
 
     def test_operation_state_transitions_are_monotonic(self):
         trace = transport._AttemptTrace()

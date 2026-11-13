@@ -171,7 +171,7 @@ class RemoteTopologyEndpointTests(unittest.TestCase):
             bind.assert_called_once_with("a" * 40)
             git_state.assert_not_called()
 
-    def test_execute_consumes_before_one_physical_run_and_returns_unsigned_record(self):
+    def test_execute_authorizes_one_physical_run_and_returns_unsigned_record(self):
         events = []
         parsed = SimpleNamespace(aggregate_dr_length=33, taps_tdo_to_tdi=(),
                                  raw_tdo_scan_a_bits="0", raw_tdo_scan_b_bits="1")

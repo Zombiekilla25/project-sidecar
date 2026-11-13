@@ -91,7 +91,7 @@ GOLDEN_TDI_B_SHA256 = "aac746341b56fbd50ab5f0d63677d261201cf5970f0ddc60f2ffaac69
 _RESULT_LOCK = threading.Lock()
 _SEALED_RESULTS: dict[object, str] = {}
 _SIGNED_PERMITS: set[object] = set()
-_REMOTE_AUTHORIZED_PERMITS: dict[object, tuple[str, str, str, str]] = {}
+_REMOTE_AUTHORIZED_PERMITS: dict[object, bytes] = {}
 _REMOTE_AUTH_LOCK = threading.Lock()
 _REMOTE_RELEASE_HEAD: str | None = None
 
@@ -1022,7 +1022,27 @@ def _execute_scan(backend: Any, commands: tuple[topology.Command, ...], scan: st
 
 def _run_consumed_permit(permit: topology.DiscoveryPermit,
                           source_sha256_before: str | None = None,
-                          trace: _AttemptTrace | None = None) -> TransportObservation:
+                          trace: _AttemptTrace | None = None,
+                          request_raw: bytes | None = None) -> TransportObservation:
+    if not isinstance(permit, topology.DiscoveryPermit) or type(request_raw) is not bytes:
+        raise Refusal("physical transport requires a signed one-shot request")
+    try:
+        import phk2_fk0957_remote_topology_endpoint as endpoint
+        issuers = endpoint._load_trust_config()
+        context, authorization_bytes, authorization_id = endpoint._validate_request(request_raw, issuers)
+        if permit.descriptor_evidence_sha256 != context["descriptor_sha256"]:
+            raise Refusal("remote release authorization target does not match descriptor permit")
+        endpoint._consume_authorization(authorization_id, authorization_bytes)
+    except Refusal:
+        raise
+    except Exception:
+        raise Refusal("remote release authorization validation failed") from None
+    topology._consume(permit)
+    if trace is not None:
+        trace.permit_consumed = 1
+        trace.advance("PERMIT_VALIDATED")
+        trace.phase = "LIBRARY_PROVENANCE"
+    source_sha = source_sha256_before or transport_source_sha256()
     backend = _NativeLibFtdi(trace)
     opened = False
     closed = False
@@ -1030,7 +1050,6 @@ def _run_consumed_permit(permit: topology.DiscoveryPermit,
     failure: BaseException | None = None
     failure_phase = None
     selected_identity = None
-    source_sha = source_sha256_before or transport_source_sha256()
     try:
         if trace is not None:
             trace.phase = "PRELIVE_VALIDATION"
@@ -1133,15 +1152,10 @@ def run_fk0957_topology_discovery(authorized_permit: topology.DiscoveryPermit) -
         if not isinstance(authorized_permit, topology.DiscoveryPermit):
             raise Refusal("topology operation requires a verified release permit")
         with _REMOTE_AUTH_LOCK:
-            release_binding = _REMOTE_AUTHORIZED_PERMITS.pop(authorized_permit._token, None)
-        if release_binding is None:
+            request_raw = _REMOTE_AUTHORIZED_PERMITS.pop(authorized_permit._token, None)
+        if request_raw is None:
             raise Refusal("topology operation requires authenticated release authorization")
-        topology._consume(authorized_permit)
-        trace.permit_consumed = 1
-        trace.advance("PERMIT_VALIDATED")
-        trace.phase = "LIBRARY_PROVENANCE"
-        source_sha = transport_source_sha256()
-        return _run_consumed_permit(authorized_permit, source_sha, trace)
+        return _run_consumed_permit(authorized_permit, trace=trace, request_raw=request_raw)
     except BaseException as exc:
         with topology._PERMIT_LOCK:
             if isinstance(authorized_permit, topology.DiscoveryPermit):
@@ -1186,21 +1200,17 @@ def _authorize_remote_permit(permit: topology.DiscoveryPermit, *, request_raw: b
     try:
         import phk2_fk0957_remote_topology_endpoint as endpoint
         issuers = endpoint._load_trust_config()
-        context, authorization_bytes, authorization_id = endpoint._validate_request(request_raw, issuers)
-        if (permit.descriptor_evidence_sha256 != context["descriptor_sha256"] or
-                context["descriptor_sha256"] != hashlib.sha256(context["descriptor"]).hexdigest()):
+        context, _, _ = endpoint._validate_request(request_raw, issuers)
+        if permit.descriptor_evidence_sha256 != context["descriptor_sha256"]:
             raise Refusal("remote release authorization target does not match descriptor permit")
-        endpoint._consume_authorization(authorization_id, authorization_bytes)
     except Refusal:
         raise
     except Exception:
         raise Refusal("remote release authorization validation failed") from None
-    digests = (context["authorization_sha256"], context["handoff_sha256"],
-               context["manifest_sha256"], context["descriptor_sha256"])
     with _REMOTE_AUTH_LOCK:
         if permit._token in _REMOTE_AUTHORIZED_PERMITS:
             raise Refusal("remote release authorization context was already attached")
-        _REMOTE_AUTHORIZED_PERMITS[permit._token] = digests
+        _REMOTE_AUTHORIZED_PERMITS[permit._token] = request_raw
 
 
 def _validate_transport_observation(permit: topology.DiscoveryPermit,
