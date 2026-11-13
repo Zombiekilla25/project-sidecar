@@ -50,6 +50,7 @@ class SafeLauncherTests(unittest.TestCase):
                 "PATH": str(substitute), "PYTHONPATH": str(hostile),
                 "PYTHONHOME": str(root / "bad-home"),
                 "PYTHONUSERBASE": str(root / "bad-userbase"),
+                "PYTHONNOUSERSITE": "0",
                 "LD_PRELOAD": str(preload), "LD_LIBRARY_PATH": str(root),
             }
             run = subprocess.run([str(output), "--launcher-self-test"], check=False,

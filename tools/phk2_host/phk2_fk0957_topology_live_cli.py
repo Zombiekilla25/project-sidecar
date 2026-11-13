@@ -417,18 +417,49 @@ def _success_summary(payload: dict[str, Any], evidence_path: Path,
     }
 
 
+def _verify_output_parent(path: Path, parent_fd: int,
+                          expected_identity: tuple[int, int]) -> None:
+    """Require the validated pathname to still name the held parent directory."""
+    try:
+        held = os.fstat(parent_fd)
+        if not stat.S_ISDIR(held.st_mode) or (held.st_dev, held.st_ino) != expected_identity:
+            raise ValueError("held evidence parent identity changed")
+        current_fd, _ = orchestrator._open_path_parent(path)
+        try:
+            current = os.fstat(current_fd)
+            if ((current.st_dev, current.st_ino) != expected_identity or
+                    not stat.S_ISDIR(current.st_mode)):
+                raise ValueError("evidence parent pathname was replaced or moved")
+        finally:
+            os.close(current_fd)
+    except OSError as exc:
+        raise ValueError("evidence parent pathname is no longer safely reachable") from exc
+
+
 def _publish_evidence_atomic(path: Path, data: bytes,
                              publish_state: list[str] | None = None) -> None:
-    """Publish validated evidence from a private, mode-0600 staging file."""
+    """Publish a validated record only while its original parent path stays bound."""
     path = Path(path)
+    if not path.name or path.name in (".", "..") or ".." in path.parts:
+        raise ValueError("evidence output path is unsafe")
+    # Bind relative paths to the caller's current directory once. All later
+    # checks use this absolute lexical path, while file operations use dirfds.
+    path = Path(os.path.abspath(path))
     parent_fd, output_name = orchestrator._open_path_parent(path)
+    parent_info = os.fstat(parent_fd)
+    if not stat.S_ISDIR(parent_info.st_mode):
+        os.close(parent_fd)
+        raise ValueError("evidence parent is not a directory")
+    parent_identity = (parent_info.st_dev, parent_info.st_ino)
     temp_dir = f".fk0957-evidence-{secrets.token_hex(16)}"
     temp_name = "record.tmp"
     temp_dir_created = False
     temp_file_created = False
     temp_fd = None
     published = False
+    file_info = None
     try:
+        _verify_output_parent(path, parent_fd, parent_identity)
         try:
             os.stat(output_name, dir_fd=parent_fd, follow_symlinks=False)
         except FileNotFoundError:
@@ -438,87 +469,108 @@ def _publish_evidence_atomic(path: Path, data: bytes,
         os.mkdir(temp_dir, 0o700, dir_fd=parent_fd)
         temp_dir_created = True
         temp_fd = os.open(temp_dir, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) |
-                          getattr(os, "O_NOFOLLOW", 0), dir_fd=parent_fd)
+                          getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0),
+                          dir_fd=parent_fd)
+        dir_info = os.fstat(temp_fd)
+        if (not stat.S_ISDIR(dir_info.st_mode) or stat.S_IMODE(dir_info.st_mode) != 0o700 or
+                dir_info.st_uid != os.geteuid()):
+            raise ValueError("private evidence staging directory rejected")
+        file_fd = os.open(temp_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL |
+                          getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0),
+                          0o600, dir_fd=temp_fd)
+        temp_file_created = True
         try:
-            dir_info = os.fstat(temp_fd)
-            if (not stat.S_ISDIR(dir_info.st_mode) or stat.S_IMODE(dir_info.st_mode) != 0o700 or
-                    dir_info.st_uid != os.geteuid()):
-                raise ValueError("private evidence staging directory rejected")
-            file_fd = os.open(temp_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL |
-                              getattr(os, "O_NOFOLLOW", 0), 0o600, dir_fd=temp_fd)
-            temp_file_created = True
-            file_info = None
+            file_info = os.fstat(file_fd)
+            if (not stat.S_ISREG(file_info.st_mode) or file_info.st_nlink != 1 or
+                    stat.S_IMODE(file_info.st_mode) != 0o600 or file_info.st_uid != os.geteuid()):
+                raise ValueError("private evidence staging file rejected")
+            with os.fdopen(file_fd, "wb") as stream:
+                stream.write(data)
+                stream.flush()
+                os.fsync(stream.fileno())
+            current = os.stat(temp_name, dir_fd=temp_fd, follow_symlinks=False)
+            if ((current.st_dev, current.st_ino) != (file_info.st_dev, file_info.st_ino) or
+                    not stat.S_ISREG(current.st_mode) or current.st_nlink != 1 or
+                    stat.S_IMODE(current.st_mode) != 0o600):
+                raise ValueError("evidence staging file changed")
+
+            _verify_output_parent(path, parent_fd, parent_identity)
             try:
-                file_info = os.fstat(file_fd)
-                if (not stat.S_ISREG(file_info.st_mode) or file_info.st_nlink != 1 or
-                        stat.S_IMODE(file_info.st_mode) != 0o600):
-                    raise ValueError("private evidence staging file rejected")
-                with os.fdopen(file_fd, "wb") as stream:
-                    stream.write(data)
-                    stream.flush()
-                    os.fsync(stream.fileno())
-                current = os.stat(temp_name, dir_fd=temp_fd, follow_symlinks=False)
-                if ((current.st_dev, current.st_ino) != (file_info.st_dev, file_info.st_ino) or
-                        not stat.S_ISREG(current.st_mode) or current.st_nlink != 1):
-                    raise ValueError("evidence staging file changed")
-                try:
-                    os.stat(output_name, dir_fd=parent_fd, follow_symlinks=False)
-                except FileNotFoundError:
-                    pass
-                else:
-                    raise ValueError("evidence output changed before publish")
-                try:
-                    # linkat-style publication is atomic and refuses an
-                    # existing destination. os.replace would overwrite a file
-                    # created after the preceding absence check.
-                    os.link(temp_name, output_name, src_dir_fd=temp_fd,
-                            dst_dir_fd=parent_fd, follow_symlinks=False)
-                except BaseException:
-                    # A signal or wrapper error can be observed after link()
-                    # succeeded. Resolve that ambiguous result by the staged
-                    # inode; never report REFUSED for our published record.
-                    try:
-                        final_info = os.stat(output_name, dir_fd=parent_fd,
-                                             follow_symlinks=False)
-                    except OSError:
-                        raise
-                    if ((final_info.st_dev, final_info.st_ino) !=
-                            (file_info.st_dev, file_info.st_ino) or
-                            not stat.S_ISREG(final_info.st_mode)):
-                        raise
-                published = True
-                if publish_state is not None:
-                    publish_state[0] = "EVIDENCE_PUBLISHED"
-                try:
-                    os.unlink(temp_name, dir_fd=temp_fd)
-                    temp_file_created = False
-                except OSError:
-                    # Publication is already committed. Cleanup is retried by
-                    # the enclosing finally block and cannot downgrade success.
-                    pass
-            except BaseException:
-                # Cover interruption after link returned but before the
-                # commit state assignment. The destination inode is the
-                # receipt for the irreversible publish point.
-                if not published and file_info is not None:
-                    try:
-                        final_info = os.stat(output_name, dir_fd=parent_fd,
-                                             follow_symlinks=False)
-                    except OSError:
-                        final_info = None
-                    if (final_info is not None and
-                            (final_info.st_dev, final_info.st_ino) ==
-                            (file_info.st_dev, file_info.st_ino) and
-                            stat.S_ISREG(final_info.st_mode)):
-                        temp_file_created = False
-                        published = True
-                        if publish_state is not None:
-                            publish_state[0] = "EVIDENCE_PUBLISHED"
-                try:
-                    os.close(file_fd)
-                except OSError:
-                    pass
+                os.stat(output_name, dir_fd=parent_fd, follow_symlinks=False)
+            except FileNotFoundError:
+                pass
+            else:
+                raise ValueError("evidence output changed before publish")
+
+            link_error = None
+            try:
+                # linkat-style publication is atomic and refuses an existing
+                # destination. The held dirfd prevents redirection by a
+                # replaced path component.
+                os.link(temp_name, output_name, src_dir_fd=temp_fd,
+                        dst_dir_fd=parent_fd, follow_symlinks=False)
+            except BaseException as exc:
+                link_error = exc
+            try:
+                final_info = os.stat(output_name, dir_fd=parent_fd, follow_symlinks=False)
+            except OSError:
+                if link_error is not None:
+                    raise link_error
                 raise
+            expected_identity = (file_info.st_dev, file_info.st_ino)
+            if ((final_info.st_dev, final_info.st_ino) != expected_identity or
+                    not stat.S_ISREG(final_info.st_mode) or
+                    stat.S_IMODE(final_info.st_mode) != 0o600 or
+                    final_info.st_nlink != 2):
+                if link_error is not None:
+                    raise link_error
+                raise ValueError("published evidence inode differs from staged record")
+
+            try:
+                _verify_output_parent(path, parent_fd, parent_identity)
+            except BaseException:
+                # The record was linked into the original directory inode,
+                # but that inode no longer occupies the validated pathname.
+                # Remove only our inode through the held descriptor.
+                try:
+                    check = os.stat(output_name, dir_fd=parent_fd, follow_symlinks=False)
+                    if ((check.st_dev, check.st_ino) == expected_identity and
+                            stat.S_ISREG(check.st_mode)):
+                        os.unlink(output_name, dir_fd=parent_fd)
+                        os.fsync(parent_fd)
+                finally:
+                    raise
+
+            published = True
+            if publish_state is not None:
+                publish_state[0] = "EVIDENCE_PUBLISHED"
+            try:
+                os.unlink(temp_name, dir_fd=temp_fd)
+                temp_file_created = False
+                os.fsync(parent_fd)
+            except OSError:
+                # Final publication is committed. Cleanup cannot downgrade it.
+                pass
+        except BaseException:
+            if not published and file_info is not None:
+                try:
+                    final_info = os.stat(output_name, dir_fd=parent_fd, follow_symlinks=False)
+                except OSError:
+                    final_info = None
+                if (final_info is not None and
+                        (final_info.st_dev, final_info.st_ino) ==
+                        (file_info.st_dev, file_info.st_ino) and
+                        stat.S_ISREG(final_info.st_mode)):
+                    try:
+                        os.unlink(output_name, dir_fd=parent_fd)
+                        os.fsync(parent_fd)
+                    except OSError:
+                        pass
+            try:
+                os.close(file_fd)
+            except OSError:
+                pass
+            raise
         finally:
             if temp_file_created:
                 try:
@@ -529,11 +581,9 @@ def _publish_evidence_atomic(path: Path, data: bytes,
             try:
                 os.close(temp_fd)
             except OSError:
-                # Once the atomic rename succeeds, the validated operation is
-                # committed. A close error cannot turn it into a refusal after
-                # publishing the accepted record.
                 if not published:
                     raise
+            temp_fd = None
     finally:
         if temp_dir_created:
             try:
@@ -545,7 +595,6 @@ def _publish_evidence_atomic(path: Path, data: bytes,
         except OSError:
             if not published:
                 raise
-
 
 def run_once(descriptor_path: Path, output_path: Path) -> tuple[bytes, int]:
     try:

@@ -1,0 +1,37 @@
+{
+  "schema": "fk0957-native-library-requalification-required-v1",
+  "status": "NATIVE_LIBRARY_REQUALIFICATION_REQUIRED",
+  "hardware_access": false,
+  "usb_access": false,
+  "network_access": false,
+  "library": "libc",
+  "expected_path": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+  "actual_path": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+  "expected_sha256": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf",
+  "actual_sha256": "755a371e86cc9f564ab54f66140747700fb0a103f698f659f2060f707897e09a",
+  "expected_build_id": "a4a7992a8e66555c8141ab2a08a8465ff6e0ea65",
+  "actual_build_id": "8cebda42d140fc2b09639f8b13a5d5f2e617ef09",
+  "installed_package": {
+    "name": "libc6:amd64",
+    "version": "2.39-0ubuntu8.12",
+    "status": "install ok installed",
+    "dpkg_verification": "PASS"
+  },
+  "upgrade_evidence": {
+    "from_version": "2.39-0ubuntu8.9",
+    "to_version": "2.39-0ubuntu8.12",
+    "dpkg_log_entry": "2026-11-13 06:10:12 upgrade libc6:amd64 2.39-0ubuntu8.9 2.39-0ubuntu8.12",
+    "apt_history_entry": "Upgrade: libc6:amd64 (2.39-0ubuntu8.9, 2.39-0ubuntu8.12)"
+  },
+  "assessment": {
+    "wrong_library_loaded": false,
+    "reason": "Production preflight opens libraries only after exact path, SHA256, build-id, and mapping checks; this libc fails the byte/build-id pin before ctypes loading.",
+    "legitimate_os_update": true,
+    "historical_pin_stale": true,
+    "provenance_configuration_error": false,
+    "approved_old_bytes_available_locally": false,
+    "pin_changed": false,
+    "safe_force_to_historical_bytes": false
+  },
+  "required_action": "Independent native-runtime requalification and explicit reviewed pin update are required before qualification can pass."
+}

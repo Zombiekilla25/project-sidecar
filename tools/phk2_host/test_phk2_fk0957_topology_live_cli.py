@@ -309,6 +309,16 @@ class LiveCliTests(unittest.TestCase):
         self.assertEqual({path.name for path in self.root.iterdir()},
                          {"descriptor.json", "topology.json"})
 
+    def test_preexisting_hardlink_destination_is_refused_and_preserved(self):
+        sentinel = self.root / "sentinel"
+        sentinel.write_bytes(b"preexisting")
+        os.link(sentinel, self.output)
+        with self.assertRaises(ValueError):
+            cli._publish_evidence_atomic(self.output, b"signed-record")
+        self.assertEqual(self.output.read_bytes(), b"preexisting")
+        self.assertEqual(sentinel.stat().st_ino, self.output.stat().st_ino)
+        self.assertEqual(self.output.stat().st_nlink, 2)
+
     def test_concurrent_output_creation_is_not_replaced_at_publish(self):
         signer = Ed25519PrivateKey.generate()
         document, fingerprint = signed_fake_record(signer)
@@ -331,6 +341,64 @@ class LiveCliTests(unittest.TestCase):
         self.assertEqual(self.output.read_bytes(), sentinel)
         self.assertEqual({path.name for path in self.root.iterdir()},
                          {"descriptor.json", "topology.json"})
+
+    def test_parent_rename_during_publish_rolls_back_original_dirfd_link(self):
+        parent = self.root / "evidence-parent"
+        moved = self.root / "evidence-parent-moved"
+        parent.mkdir()
+        output = parent / "record.json"
+        real_link = os.link
+
+        def link_then_move_parent(*args, **kwargs):
+            real_link(*args, **kwargs)
+            parent.rename(moved)
+            parent.mkdir()
+
+        with mock.patch.object(cli.os, "link", side_effect=link_then_move_parent):
+            with self.assertRaises(ValueError):
+                cli._publish_evidence_atomic(output, b"signed-record")
+        self.assertFalse((moved / "record.json").exists())
+        self.assertEqual(list(parent.iterdir()), [])
+        self.assertEqual(list(moved.iterdir()), [])
+
+    def test_parent_symlink_or_replacement_during_publish_fails_closed(self):
+        parent = self.root / "bound-parent"
+        moved = self.root / "bound-parent-moved"
+        replacement = self.root / "replacement-parent"
+        parent.mkdir(); replacement.mkdir()
+        output = parent / "record.json"
+        real_link = os.link
+
+        def link_then_replace_parent(*args, **kwargs):
+            real_link(*args, **kwargs)
+            parent.rename(moved)
+            parent.symlink_to(replacement, target_is_directory=True)
+
+        with mock.patch.object(cli.os, "link", side_effect=link_then_replace_parent):
+            with self.assertRaises(ValueError):
+                cli._publish_evidence_atomic(output, b"signed-record")
+        self.assertFalse((moved / "record.json").exists())
+        self.assertEqual(list(replacement.iterdir()), [])
+        self.assertTrue(parent.is_symlink())
+
+    def test_parent_replaced_before_publish_does_not_redirect_output(self):
+        parent = self.root / "parent-before-link"
+        moved = self.root / "parent-before-link-moved"
+        replacement = self.root / "parent-before-link-new"
+        parent.mkdir(); replacement.mkdir()
+        output = parent / "record.json"
+        real_link = os.link
+
+        def replace_before_link(*args, **kwargs):
+            parent.rename(moved)
+            parent.symlink_to(replacement, target_is_directory=True)
+            return real_link(*args, **kwargs)
+
+        with mock.patch.object(cli.os, "link", side_effect=replace_before_link):
+            with self.assertRaises((ValueError, OSError)):
+                cli._publish_evidence_atomic(output, b"signed-record")
+        self.assertFalse((moved / "record.json").exists())
+        self.assertEqual(list(replacement.iterdir()), [])
 
     def test_final_stdout_failure_after_publish_is_not_downgraded_to_refusal(self):
         signer = Ed25519PrivateKey.generate()

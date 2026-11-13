@@ -7,6 +7,7 @@ import hmac
 import io
 import json
 import shlex
+import socket
 import os
 from pathlib import Path
 import subprocess
@@ -73,8 +74,20 @@ class RemoteOrchestratorTests(unittest.TestCase):
         self.known_hosts_path = Path(self.pin_dir.name) / "testbench.known_hosts"
         self.known_hosts_path.write_text(hostkey_line())
         self.known_hosts_path.chmod(0o600)
+        self.agent_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.agent_path = Path(self.pin_dir.name) / "agent.sock"
+        old_mask = os.umask(0o177)
+        try:
+            self.agent_socket.bind(str(self.agent_path))
+        finally:
+            os.umask(old_mask)
+        self.agent_path.chmod(0o600)
+        self.agent_env = mock.patch.dict(os.environ, {"SSH_AUTH_SOCK": str(self.agent_path)})
+        self.agent_env.start()
 
     def tearDown(self):
+        self.agent_env.stop()
+        self.agent_socket.close()
         self.pin_dir.cleanup()
 
     def make_bundle(self, nonce="1" * 64, runner_bytes=None):
@@ -123,6 +136,7 @@ class RemoteOrchestratorTests(unittest.TestCase):
             self.assertEqual(seen_pin["links"], 1)
             self.assertEqual(seen_pin["parent_mode"], 0o700)
             self.assertIn("ForwardAgent=no", cmd)
+            self.assertEqual(kwargs["env"]["SSH_AUTH_SOCK"], str(self.agent_path))
             self.assertRegex(cmd[-1], rf"^cd -- '/remote repo' && FK0957_TARGET=FK0957 python3 - {remote.COLLECTOR_PIN} [0-9a-f]{{64}}$")
             self.assertEqual(kwargs["input"], remote.COLLECTOR.read_bytes())
             self.assertNotIn(key_bytes, kwargs["input"])
@@ -270,9 +284,23 @@ class RemoteOrchestratorTests(unittest.TestCase):
             remote.acquire_and_sign(key_path, known_hosts_path=self.known_hosts_path, runner=fake, expected_hostname="testbox", remote_repo="/remote repo")
             cmd, kwargs = fake.calls[0]
             self.assertEqual(set(kwargs), {"input", "stdout", "stderr", "check", "timeout", "env"})
-            self.assertEqual(set(kwargs["env"]), {"PATH", "HOME", "LC_ALL", "LANG"})
+            self.assertEqual(set(kwargs["env"]), {"PATH", "HOME", "LC_ALL", "LANG", "SSH_AUTH_SOCK"})
+            self.assertEqual(kwargs["env"]["SSH_AUTH_SOCK"], str(self.agent_path))
+            self.assertIn("ForwardAgent=no", cmd)
             self.assertNotIn(b"SECRET_KEY_FILE", kwargs["input"])
             self.assertNotIn("SECRET_KEY_FILE", repr(cmd) + repr(kwargs))
+
+    def test_local_ssh_agent_is_required_and_validated_before_runner(self):
+        with mock.patch.dict(os.environ, {}, clear=True):
+            with self.assertRaises(remote.Refusal):
+                remote._validated_local_ssh_auth_sock()
+        with tempfile.TemporaryDirectory() as d:
+            not_socket = Path(d) / "not-socket"
+            not_socket.write_text("x")
+            not_socket.chmod(0o600)
+            with mock.patch.dict(os.environ, {"SSH_AUTH_SOCK": str(not_socket)}):
+                with self.assertRaises(remote.Refusal):
+                    remote._validated_local_ssh_auth_sock()
 
     def test_remote_repository_metacharacters_are_shell_quoted(self):
         from cryptography.hazmat.primitives import serialization
@@ -477,7 +505,7 @@ class RemoteOrchestratorTests(unittest.TestCase):
     def test_open_ssh_options_environment_and_config_are_fail_closed(self):
         fake = FakeSSH(lambda cmd: wire(unsigned(session_nonce=cmd[-1].split()[-1])))
         hostile = {"SSH_OPTIONS": "-o StrictHostKeyChecking=no", "SSH_CONFIG": "/tmp/evil",
-                   "SSH_AUTH_SOCK": "/tmp/agent", "GIT_SSH_COMMAND": "evil", "HOME": "/tmp/evil"}
+                   "SSH_AUTH_SOCK": str(self.agent_path), "GIT_SSH_COMMAND": "evil", "HOME": "/tmp/evil"}
         with mock.patch.dict(os.environ, hostile, clear=False):
             with tempfile.TemporaryDirectory() as d:
                 key_path = Path(d) / "key.pem"
@@ -494,7 +522,9 @@ class RemoteOrchestratorTests(unittest.TestCase):
         self.assertEqual(cmd.count("StrictHostKeyChecking=yes"), 1)
         self.assertEqual(cmd.count("GlobalKnownHostsFile=/dev/null"), 1)
         self.assertNotIn("StrictHostKeyChecking=no", cmd)
-        self.assertEqual(kwargs["env"], {"PATH": "/usr/bin:/bin", "HOME": "/nonexistent", "LC_ALL": "C", "LANG": "C"})
+        self.assertEqual(kwargs["env"], {"PATH": "/usr/bin:/bin", "HOME": "/nonexistent",
+                                         "LC_ALL": "C", "LANG": "C",
+                                         "SSH_AUTH_SOCK": str(self.agent_path)})
         self.assertNotIn("shell", kwargs)
 
     def test_destination_and_host_alias_cannot_be_overridden_by_module_aliases(self):

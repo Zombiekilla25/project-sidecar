@@ -14,6 +14,7 @@ from pathlib import Path
 import re
 import secrets
 import shlex
+import socket
 import stat
 import subprocess
 import sys
@@ -275,6 +276,45 @@ def _open_path_parent(path: Path) -> tuple[int, str]:
     except BaseException:
         os.close(fd)
         raise
+
+
+def _validated_local_ssh_auth_sock() -> tuple[str, tuple[int, int]]:
+    """Validate the RGB-local agent endpoint; it is never forwarded remotely."""
+    raw = os.environ.get("SSH_AUTH_SOCK")
+    if not isinstance(raw, str) or not raw or len(raw) > 107 or "\x00" in raw:
+        raise Refusal("local SSH agent socket is unavailable or malformed")
+    path = Path(raw)
+    if not path.is_absolute() or ".." in path.parts:
+        raise Refusal("local SSH agent socket path is unsafe")
+    parent_fd, name = _open_path_parent(path)
+    try:
+        parent = os.fstat(parent_fd)
+        if (not stat.S_ISDIR(parent.st_mode) or
+                (parent.st_uid == os.geteuid() and parent.st_mode & 0o022) or
+                (parent.st_uid != os.geteuid() and
+                 not (parent.st_uid == 0 and parent.st_mode & stat.S_ISVTX))):
+            raise Refusal("local SSH agent socket parent is not protected")
+        before = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        if (not stat.S_ISSOCK(before.st_mode) or before.st_uid != os.geteuid() or
+                before.st_mode & 0o077):
+            raise Refusal("local SSH_AUTH_SOCK is not an owner-only Unix socket")
+        after = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        identity = (before.st_dev, before.st_ino)
+        if identity != (after.st_dev, after.st_ino):
+            raise Refusal("local SSH_AUTH_SOCK changed during validation")
+        return str(path), identity
+    except OSError as exc:
+        raise Refusal("local SSH_AUTH_SOCK cannot be validated") from exc
+    finally:
+        os.close(parent_fd)
+
+
+def _revalidate_local_ssh_auth_sock(path: str, identity: tuple[int, int]) -> None:
+    if os.environ.get("SSH_AUTH_SOCK") != path:
+        raise Refusal("local SSH_AUTH_SOCK changed before SSH invocation")
+    current_path, current_identity = _validated_local_ssh_auth_sock()
+    if current_path != path or current_identity != identity:
+        raise Refusal("local SSH_AUTH_SOCK identity changed before SSH invocation")
 
 
 def _read_signing_key(path: Path) -> bytes:
@@ -677,8 +717,9 @@ def acquire_and_sign(key_path: Path, *, known_hosts_path: Path, runner: Callable
         execution_mode = "REMOTE_CHECKOUT"
     known_hosts_bytes, host_identity, source_identity = _read_pinned_source(known_hosts_path)
     pinned_hash = sha(known_hosts_bytes)
+    agent_path, agent_identity = _validated_local_ssh_auth_sock()
     safe_env = {"PATH": "/usr/bin:/bin", "HOME": "/nonexistent",
-                "LC_ALL": "C", "LANG": "C"}
+                "LC_ALL": "C", "LANG": "C", "SSH_AUTH_SOCK": agent_path}
     with tempfile.TemporaryDirectory(prefix="fk0957-known-hosts-", dir="/tmp") as pin_dir_name:
         pin_dir = Path(pin_dir_name)
         pin_dir_fd, pin_dir_identity = _open_private_pin_dir(pin_dir)
@@ -703,6 +744,7 @@ def acquire_and_sign(key_path: Path, *, known_hosts_path: Path, runner: Callable
             raise Refusal("pinned known_hosts changed between validation and SSH invocation")
         _validate_private_pin(temporary_pin, known_hosts_bytes, host_identity,
                               pin_dir_identity, pin_file_identity)
+        _revalidate_local_ssh_auth_sock(agent_path, agent_identity)
         result = runner(cmd, input=stdin_data, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                         check=False, timeout=30, env=safe_env)
     returncode = getattr(result, "returncode", 1)
