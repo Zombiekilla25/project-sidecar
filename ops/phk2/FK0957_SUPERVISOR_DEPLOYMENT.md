@@ -40,6 +40,28 @@ incomplete journal as a confirmed terminal result. Unknown or missing state
 must be handled as manual recovery. A successful run is only confirmed after
 the supervisor's exact `Popen` child is waited/reaped and its exit is journaled.
 
+## Maintenance status API
+
+The maintenance controller uses the installed `fk0957-safe-launcher
+--supervisor-client status <operation-id>` command. This is a read-only query;
+the IPC request has exactly `schema`, `command`, and `operation_id`, and the
+kernel peer credential must identify `sidecar-acquire`. The caller cannot
+submit a child state, exit code, launch-closed assertion, or restore decision.
+
+The client returns canonical JSON with schema
+`fk0957-maintenance-status-v1`, the queried `operation_id`, `state`, `terminal`,
+and `restore_eligible`. For `RUNNING`, it also returns `child_identity`. A
+terminal response includes authorization, handoff, manifest, target, and
+transaction bindings; exact child identity; exit code; registration and reap
+timestamps; and the bounded unsigned result. `restore_eligible` is computed
+by the client only when the response is an exact, internally consistent
+`EXITED_SUCCESS`, `EXITED_REFUSAL`, or `EXITED_FAILURE` record with the pinned
+child identity and reap metadata. Every malformed, missing, mismatched,
+incomplete, or unavailable status is projected to `state=UNKNOWN`,
+`terminal=false`, `restore_eligible=false`. Controllers must restore shared
+USB ownership only when the operation ID matches and `restore_eligible` is
+exactly `true`; all other states require manual recovery.
+
 ## Current provisioning state
 
 The issuer pin is unset in the remote endpoint source and the root-owned

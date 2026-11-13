@@ -126,7 +126,7 @@ class RGBTopologyOrchestratorTests(unittest.TestCase):
         handoff_payload = {"handoff_id": "c" * 64}
         result_record = endpoint.canonical({"schema": "unused-test-result"})
         status = endpoint.canonical({
-            "schema": "fk0957-supervisor-status-v1", "operation_id": operation,
+            "schema": "fk0957-maintenance-status-v1", "operation_id": operation,
             "authorization_id": auth_id, "authorization_sha256": hashlib.sha256(
                 endpoint.canonical({"authorization_id": auth_id})).hexdigest(),
             "handoff_sha256": hashlib.sha256(endpoint.canonical(handoff_payload)).hexdigest(),
@@ -134,8 +134,9 @@ class RGBTopologyOrchestratorTests(unittest.TestCase):
             "production_head": manifest_payload.get("production_head"),
             "transaction_profile_sha256": manifest_payload.get("transaction_profile_sha256"),
             "target": "FK0957", "one_shot": True, "registered_ns": 100,
-            "state": "EXITED_SUCCESS", "exit_code": 0, "reaped_ns": 123,
-            "process": {"operation_id": operation, "authorization_id": auth_id,
+            "state": "EXITED_SUCCESS", "terminal": True, "restore_eligible": True,
+            "exit_code": 0, "reaped_ns": 123,
+            "child_identity": {"operation_id": operation, "authorization_id": auth_id,
                         "pid": 100, "parent_pid": 50, "start_identity": "12345",
                         "launcher": supervisor_protocol.LAUNCHER, "launcher_sha256": "1" * 64,
                         "executable_sha256": supervisor_protocol.PYTHON_EXECUTABLE_SHA256,

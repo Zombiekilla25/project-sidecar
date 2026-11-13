@@ -184,7 +184,8 @@ def _pinned_ssh(request_raw: bytes, *, runner=None) -> tuple[bytes, dict[str, An
                 status_fields = {"schema", "operation_id", "authorization_id", "authorization_sha256",
                                  "handoff_sha256", "manifest_sha256", "production_head",
                                  "transaction_profile_sha256", "target", "one_shot", "registered_ns",
-                                 "state", "process", "exit_code", "reaped_ns", "result_b64"}
+                                 "state", "child_identity", "exit_code", "reaped_ns", "result_b64",
+                                 "terminal", "restore_eligible"}
                 auth_payload = request_value.get("release_authorization", {}).get("payload", {})
                 handoff_payload = request_value.get("handoff", {}).get("payload", {})
                 manifest_payload = request_value.get("runtime_manifest", {}).get("payload", {})
@@ -193,7 +194,7 @@ def _pinned_ssh(request_raw: bytes, *, runner=None) -> tuple[bytes, dict[str, An
                 handoff_sha = hashlib.sha256(endpoint.canonical(handoff_payload)).hexdigest()
                 manifest_sha = hashlib.sha256(endpoint.canonical(manifest_payload)).hexdigest()
                 if (set(status) != status_fields or
-                        status.get("schema") != "fk0957-supervisor-status-v1" or
+                        status.get("schema") != "fk0957-maintenance-status-v1" or
                         status.get("operation_id") != operation_id or
                         status.get("authorization_id") != auth_id or
                         status.get("authorization_sha256") != auth_sha or
@@ -201,7 +202,8 @@ def _pinned_ssh(request_raw: bytes, *, runner=None) -> tuple[bytes, dict[str, An
                         status.get("manifest_sha256") != manifest_sha or
                         status.get("production_head") != manifest_payload.get("production_head") or
                         status.get("transaction_profile_sha256") != manifest_payload.get("transaction_profile_sha256") or
-                        status.get("target") != "FK0957" or status.get("one_shot") is not True):
+                        status.get("target") != "FK0957" or status.get("one_shot") is not True or
+                        status.get("terminal") is not True or status.get("restore_eligible") is not True):
                     raise ValueError("status binding mismatch")
                 if status.get("state") not in {"EXITED_SUCCESS", "EXITED_REFUSAL", "EXITED_FAILURE"}:
                     raise ValueError("status is not terminal")
@@ -211,7 +213,7 @@ def _pinned_ssh(request_raw: bytes, *, runner=None) -> tuple[bytes, dict[str, An
                         (status["state"] == "EXITED_REFUSAL" and terminal_code != 2) or
                         (status["state"] == "EXITED_FAILURE" and terminal_code in (0, 2))):
                     raise ValueError("terminal process state contradicts exit status")
-                child_identity = status.get("process")
+                child_identity = status.get("child_identity")
                 if (type(child_identity) is not dict or child_identity.get("operation_id") != operation_id or
                         child_identity.get("authorization_id") != auth_id or
                         type(child_identity.get("pid")) is not int or child_identity["pid"] <= 1 or

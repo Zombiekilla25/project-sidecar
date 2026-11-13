@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import json
 import re
 import socket
@@ -105,14 +106,126 @@ def run_once(request_raw: bytes) -> tuple[bytes, int]:
     return result, code
 
 
+def _status_projection(operation_id: str, response: Any) -> dict[str, Any]:
+    """Return a bounded maintenance view; only exact reaped children restore."""
+    unknown = {"schema": "fk0957-maintenance-status-v1",
+               "operation_id": operation_id, "state": "UNKNOWN",
+               "terminal": False, "restore_eligible": False}
+    if type(response) is not dict or response.get("operation_id") != operation_id:
+        return unknown
+    state = response.get("state")
+    if type(state) is not str:
+        return unknown
+    if state in {"REGISTERED", "LAUNCHING", "RUNNING"}:
+        # These states are useful for diagnosis, but never permit restoration.
+        allowed = {
+            "REGISTERED": {"schema", "operation_id", "authorization_id", "authorization_sha256",
+                            "handoff_sha256", "manifest_sha256", "production_head",
+                            "transaction_profile_sha256", "target", "one_shot", "registered_ns", "state"},
+            "LAUNCHING": {"schema", "operation_id", "authorization_id", "authorization_sha256",
+                           "handoff_sha256", "manifest_sha256", "production_head",
+                           "transaction_profile_sha256", "target", "one_shot", "registered_ns",
+                           "state", "launch_ns"},
+            "RUNNING": {"schema", "operation_id", "authorization_id", "authorization_sha256",
+                        "handoff_sha256", "manifest_sha256", "production_head",
+                        "transaction_profile_sha256", "target", "one_shot", "registered_ns",
+                        "state", "process"},
+        }[state]
+        if set(response) != allowed or not _status_identity_valid(response, operation_id):
+            return unknown
+        if state == "LAUNCHING" and (type(response.get("launch_ns")) is not int or
+                                      response["launch_ns"] < response["registered_ns"]):
+            return unknown
+        if state == "RUNNING" and not _status_process_valid(response.get("process"), operation_id,
+                                                             response.get("authorization_id")):
+            return unknown
+        return {"schema": "fk0957-maintenance-status-v1", "operation_id": operation_id,
+                "state": state, "terminal": False, "restore_eligible": False,
+                **({"child_identity": response["process"]} if state == "RUNNING" else {})}
+    if state not in {"EXITED_SUCCESS", "EXITED_REFUSAL", "EXITED_FAILURE"}:
+        return unknown
+    required = {"schema", "operation_id", "authorization_id", "authorization_sha256",
+                "handoff_sha256", "manifest_sha256", "production_head",
+                "transaction_profile_sha256", "target", "one_shot", "registered_ns",
+                "state", "process", "exit_code", "reaped_ns", "result_b64"}
+    if set(response) != required or not _status_identity_valid(response, operation_id):
+        return unknown
+    if not _status_process_valid(response.get("process"), operation_id,
+                                 response.get("authorization_id")):
+        return unknown
+    code, registered, reaped = (response.get("exit_code"), response.get("registered_ns"),
+                                 response.get("reaped_ns"))
+    if (type(code) is not int or not -255 <= code <= 255 or
+            type(registered) is not int or registered <= 0 or
+            type(reaped) is not int or reaped < registered or
+            (state == "EXITED_SUCCESS" and code != 0) or
+            (state == "EXITED_REFUSAL" and code != 2) or
+            (state == "EXITED_FAILURE" and code in (0, 2))):
+        return unknown
+    encoded = response.get("result_b64")
+    if type(encoded) is not str or len(encoded) > endpoint.MAX_RECORD_BYTES * 2:
+        return unknown
+    try:
+        result = base64.b64decode(encoded, validate=True)
+    except (ValueError, binascii.Error):
+        return unknown
+    if not result or len(result) > endpoint.MAX_RECORD_BYTES:
+        return unknown
+    # Keep the supervisor's bound identities visible to the controller, while
+    # computing restore eligibility here from the complete validated proof.
+    return {"schema": "fk0957-maintenance-status-v1", "operation_id": operation_id,
+            "state": state, "terminal": True, "restore_eligible": True,
+            "authorization_id": response["authorization_id"],
+            "authorization_sha256": response["authorization_sha256"],
+            "handoff_sha256": response["handoff_sha256"],
+            "manifest_sha256": response["manifest_sha256"],
+            "production_head": response["production_head"],
+            "transaction_profile_sha256": response["transaction_profile_sha256"],
+            "target": response["target"], "one_shot": True,
+            "registered_ns": registered, "reaped_ns": reaped, "exit_code": code,
+            "result_b64": encoded, "child_identity": response["process"]}
+
+
+def _status_identity_valid(response: dict[str, Any], operation_id: str) -> bool:
+    return (response.get("schema") == supervisor_protocol.RESPONSE_SCHEMA and
+            response.get("operation_id") == operation_id and
+            type(response.get("authorization_id")) is str and
+            HEX64.fullmatch(response["authorization_id"]) is not None and
+            all(type(response.get(name)) is str and HEX64.fullmatch(response[name]) is not None
+                for name in ("authorization_sha256", "handoff_sha256", "manifest_sha256",
+                             "transaction_profile_sha256")) and
+            type(response.get("production_head")) is str and
+            HEX40.fullmatch(response["production_head"]) is not None and
+            response.get("target") == "FK0957" and response.get("one_shot") is True and
+            type(response.get("registered_ns")) is int and response["registered_ns"] > 0)
+
+
+def _status_process_valid(process: Any, operation_id: str, authorization_id: Any) -> bool:
+    fields = {"pid", "start_identity", "parent_pid", "operation_id", "authorization_id",
+              "launcher", "launcher_sha256", "executable", "executable_sha256", "argv_sha256"}
+    return (type(process) is dict and set(process) == fields and
+            type(process.get("pid")) is int and process["pid"] > 1 and
+            type(process.get("parent_pid")) is int and process["parent_pid"] > 1 and
+            type(process.get("start_identity")) is str and
+            re.fullmatch(r"[1-9][0-9]{0,19}", process["start_identity"]) is not None and
+            process.get("operation_id") == operation_id and
+            process.get("authorization_id") == authorization_id and
+            process.get("launcher") == supervisor_protocol.LAUNCHER and
+            process.get("executable") == supervisor_protocol.PYTHON_EXECUTABLE and
+            process.get("executable_sha256") == supervisor_protocol.PYTHON_EXECUTABLE_SHA256 and
+            all(type(process.get(name)) is str and HEX64.fullmatch(process[name]) is not None
+                for name in ("launcher_sha256", "argv_sha256")))
+
+
 def query_status(operation_id: str) -> dict[str, Any]:
     if type(operation_id) is not str or not OP_ID.fullmatch(operation_id):
         raise ValueError("operation ID invalid")
-    response = request_supervisor({"schema": supervisor_protocol.REQUEST_SCHEMA,
-                                   "command": "status", "operation_id": operation_id})
-    if response.get("operation_id") != operation_id:
-        raise ValueError("operation status binding rejected")
-    return response
+    try:
+        response = request_supervisor({"schema": supervisor_protocol.REQUEST_SCHEMA,
+                                       "command": "status", "operation_id": operation_id})
+    except BaseException:
+        return _status_projection(operation_id, None)
+    return _status_projection(operation_id, response)
 
 
 def main(argv=None) -> int:

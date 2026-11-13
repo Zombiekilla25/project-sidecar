@@ -164,6 +164,62 @@ class SupervisorProtocolTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 client.run_once(raw)
 
+    def test_maintenance_status_projection_derives_restore_only_from_reaped_child(self):
+        operation_id = "a" * 32
+        authorization_id = "b" * 64
+        process = {"pid": 100, "start_identity": "12345", "parent_pid": 50,
+                   "operation_id": operation_id, "authorization_id": authorization_id,
+                   "launcher": supervisor.LAUNCHER, "launcher_sha256": "1" * 64,
+                   "executable": supervisor.PYTHON_EXECUTABLE,
+                   "executable_sha256": supervisor.PYTHON_EXECUTABLE_SHA256,
+                   "argv_sha256": "2" * 64}
+        terminal = {
+            "schema": supervisor.RESPONSE_SCHEMA, "operation_id": operation_id,
+            "authorization_id": authorization_id, "authorization_sha256": "c" * 64,
+            "handoff_sha256": "d" * 64, "manifest_sha256": "e" * 64,
+            "production_head": "f" * 40, "transaction_profile_sha256": "9" * 64,
+            "target": "FK0957", "one_shot": True, "registered_ns": 100,
+            "state": "EXITED_SUCCESS", "exit_code": 0, "reaped_ns": 200,
+            "process": process, "result_b64": base64.b64encode(b"signed-independent-result").decode(),
+        }
+        projected = client._status_projection(operation_id, terminal)
+        self.assertEqual(projected["schema"], "fk0957-maintenance-status-v1")
+        self.assertTrue(projected["terminal"])
+        self.assertTrue(projected["restore_eligible"])
+        self.assertEqual(projected["child_identity"], process)
+
+        for forged in (
+            {**terminal, "reaped_ns": 99},
+            {**terminal, "process": {**process, "start_identity": "0"}},
+            {**terminal, "exit_code": 2},
+            {**terminal, "operation_id": "b" * 32},
+            {**terminal, "restore_eligible": True},
+            {"schema": supervisor.RESPONSE_SCHEMA, "operation_id": operation_id,
+             "state": "EXITED_FAILURE", "exit_code": 1, "reaped_ns": 200},
+            {"schema": supervisor.RESPONSE_SCHEMA, "operation_id": operation_id,
+             "state": ["EXITED_SUCCESS"]},
+            {"schema": supervisor.RESPONSE_SCHEMA, "operation_id": operation_id,
+             "state": {"EXITED_SUCCESS": True}},
+        ):
+            refused = client._status_projection(operation_id, forged)
+            self.assertEqual(refused["state"], "UNKNOWN")
+            self.assertFalse(refused["restore_eligible"])
+
+        running = {key: value for key, value in terminal.items()
+                   if key not in {"exit_code", "reaped_ns", "result_b64"}}
+        running["state"] = "RUNNING"
+        projected_running = client._status_projection(operation_id, running)
+        self.assertEqual(projected_running["state"], "RUNNING")
+        self.assertFalse(projected_running["restore_eligible"])
+
+    def test_status_query_failure_is_operation_bound_unknown(self):
+        operation_id = "a" * 32
+        with mock.patch.object(client, "request_supervisor", side_effect=OSError("secret")):
+            status = client.query_status(operation_id)
+        self.assertEqual(status, {"schema": "fk0957-maintenance-status-v1",
+                                  "operation_id": operation_id, "state": "UNKNOWN",
+                                  "terminal": False, "restore_eligible": False})
+
     def test_supervisor_failure_does_not_emit_valid_refusal_or_confirm_exit(self):
         import io
         output = io.BytesIO()
