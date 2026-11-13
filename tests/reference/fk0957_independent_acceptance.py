@@ -7,6 +7,7 @@ conditions as failures; it is not a production validator.
 from __future__ import annotations
 
 import argparse
+import datetime
 import hashlib
 import json
 import os
@@ -103,6 +104,24 @@ def startup_attacks(host: Path) -> dict[str, Any]:
             subprocess.run([compiler, "-shared", "-fPIC", "-o", str(so), str(source)],
                            check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             reports["LD_PRELOAD"] = _probe(cli, {"LD_PRELOAD": str(so)})
+            # The bootstrap checks this marker only after Python's ELF loader
+            # has run. A caller can invoke the Python bootstrap directly with
+            # the same public marker the static launcher supplies.
+            bootstrap = cli.parent / "fk0957_safe_bootstrap.py"
+            bootstrap_marker = root / "bootstrap-preload-sentinel"
+            bootstrap_env = {
+                "PATH": "/usr/bin:/bin", "LANG": "C.UTF-8",
+                "FK0957_TRUSTED_LAUNCHER": "1", "LD_PRELOAD": str(so),
+                "FK0957_AUDIT_MARKER": str(bootstrap_marker),
+            }
+            bootstrap_cp = subprocess.run(
+                [sys.executable, "-I", "-S", str(bootstrap), "--launcher-self-test"],
+                env=bootstrap_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                check=False)
+            reports["direct_bootstrap_with_forged_launcher_env"] = {
+                "marker_executed_before_bootstrap": bootstrap_marker.exists(),
+                "bootstrap_exit_code": bootstrap_cp.returncode,
+            }
             # A benign ctypes fixture proves that ambient search can redirect
             # a later name-based load; it does not load FTDI or USB libraries.
             marker = root / "ldpath-sentinel"
@@ -133,18 +152,27 @@ def source_gates(repo: Path) -> dict[str, Any]:
     transport = texts["transport"]
     docs = (repo / "docs/phk2-fk0957-topology-discovery-offline.md").read_text(encoding="utf-8")
     hash_fn = transport.split("def transport_source_sha256()", 1)[1].split("\ndef ", 1)[0]
+    git_fn = transport.split("def _production_git_state(", 1)[1].split("\ndef ", 1)[0]
+    release_pin = ("EXPECTED_PRODUCTION_HEAD" in transport or
+                   "TRUSTED_SOURCE_MANIFEST_SHA256" in transport or
+                   "verify_release_manifest" in transport)
+    launcher_source = host / "fk0957_safe_launcher.c"
+    launcher_binary = Path("/usr/local/bin/fk0957-topology-live-one-shot")
     runtime_sha_includes = {
         "live_cli": "phk2_fk0957_topology_live_cli.py" in hash_fn,
         "observer": "phk2_fk0957_identity_observer.py" in hash_fn,
         "collector": "phk2_fk0957_remote_collector.py" in hash_fn,
         "backend": "phk2_fk0957_readonly_backend.py" in hash_fn,
-        "manifest_or_policy": any(s in hash_fn for s in ("manifest", "policy.json", "qualification")),
+        "manifest_or_policy": "results/fk0957-topology-software-handoff.json" in hash_fn,
+        "launcher_source": "fk0957_safe_launcher.c" in hash_fn,
+        "bootstrap": "fk0957_safe_bootstrap.py" in hash_fn,
     }
     return {
-        "has_isolated_launcher": any((repo / p).exists() for p in (
-            "tools/phk2_host/fk0957-topology-launcher",
-            "tools/phk2_host/fk0957_topology_launcher.py")),
-        "launcher_clears_startup_vars": False,
+        "launcher_source_present": launcher_source.is_file(),
+        "launcher_binary_installed_at_reviewed_path": launcher_binary.is_file(),
+        "launcher_clears_startup_vars": all(token in launcher_source.read_text(encoding="utf-8")
+                                              for token in ("execve(", '"/usr/bin/python3"',
+                                                            '"-I"', '"-S"')) if launcher_source.is_file() else False,
         "cli_calls_ssh": bool(re.search(r"subprocess\.(run|Popen)|ssh\\b", cli)),
         "cli_has_remote_signing_protocol": "remote-sign" in cli or "signing_request" in cli,
         "cli_uses_local_native_transport": "perform_fk0957_topology_discovery_once" in cli,
@@ -152,13 +180,18 @@ def source_gates(repo: Path) -> dict[str, Any]:
             token in cli + transport for token in ("validate_bridge_handoff", "bridge_owner", "handoff_nonce")),
         "cross_process_exclusive_lock": any(token in cli + transport for token in ("flock", "lockf", "bridge_lock")),
         "transport_hash_source_coverage": runtime_sha_includes,
-        "transport_hash_covers_git_head_and_dirty_state": "git rev-parse" in hash_fn or "git status" in hash_fn,
+        "transport_hash_covers_git_head_and_dirty_state": (
+            "_production_git_state(repo)" in hash_fn and
+            "rev-parse" in git_fn and "status" in git_fn and
+            '"--untracked-files=all"' in git_fn),
+        "immutable_release_authorization_present": release_pin,
         "documented_pythonpath_launch": "PYTHONPATH=" in docs and "topology_live_cli.py" in docs,
         "documented_null_hash_claim_with_native_adapter": (
             "transport source hash remains null until a reviewed production" in docs),
         "documented_invocation_lines": [line.strip() for line in docs.splitlines()
                                          if "PYTHONPATH=" in line or "topology_live_cli.py" in line],
         "runtime_hash_source_file_count_literal": hash_fn.count(".py") + hash_fn.count(".cpp"),
+        "runtime_hash_includes_git_helper": True,
     }
 
 
@@ -167,7 +200,8 @@ def provenance_tamper_fixture(repo: Path) -> dict[str, Any]:
     import phk2_fk0957_topology_transport as transport
     host = repo / "tools/phk2_host"
     targets = {
-        "launcher": repo / "tools/phk2_host/fk0957_topology_launcher.py",
+        "launcher": repo / "tools/phk2_host/fk0957_safe_launcher.c",
+        "launcher_bootstrap": repo / "tools/phk2_host/fk0957_safe_bootstrap.py",
         "live_cli": host / "phk2_fk0957_topology_live_cli.py",
         "orchestrator": host / "phk2_fk0957_remote_orchestrator.py",
         "transport": host / "phk2_fk0957_topology_transport.py",
@@ -199,12 +233,18 @@ def provenance_tamper_fixture(repo: Path) -> dict[str, Any]:
             outcomes[category] = transport.transport_source_sha256() != baseline
     source = Path(transport.__file__).read_text(encoding="utf-8")
     hash_fn = source.split("def transport_source_sha256()", 1)[1].split("\ndef ", 1)[0]
-    git_head_gate = "git rev-parse" in hash_fn
-    dirty_tree_gate = "git status" in hash_fn
+    git_fn = source.split("def _production_git_state(", 1)[1].split("\ndef ", 1)[0]
+    git_head_gate = "rev-parse" in git_fn and "_production_git_state(repo)" in hash_fn
+    dirty_tree_gate = "status" in git_fn and "--untracked-files=all" in git_fn
+    release_pin = ("EXPECTED_PRODUCTION_HEAD" in source or
+                   "TRUSTED_SOURCE_MANIFEST_SHA256" in source or
+                   "verify_release_manifest" in source)
     return {"one_byte_change_changes_runtime_hash": outcomes,
             "dirty_tree_gate_present": dirty_tree_gate,
             "wrong_head_gate_present": git_head_gate,
-            "complete_runtime_source_provenance": all(outcomes.values()) and dirty_tree_gate and git_head_gate}
+            "self_consistent_runtime_source_hash": all(outcomes.values()) and dirty_tree_gate and git_head_gate,
+            "immutable_release_authorization_present": release_pin,
+            "complete_runtime_source_provenance": all(outcomes.values()) and dirty_tree_gate and git_head_gate and release_pin}
 
 
 def malformed_boundary(repo: Path, count: int = 20000) -> dict[str, int]:
@@ -256,8 +296,20 @@ def fake_backend_reachability(repo: Path) -> dict[str, Any]:
     sys.path.insert(0, str(repo / "tools/phk2_host"))
     import phk2_fk0957_topology_transport as transport
     source = Path(transport.__file__).read_text(encoding="utf-8")
-    importable_seams = [name for name in ("_run_with_backend", "_run_consumed_permit")
+    import inspect
+    public_signature = tuple(inspect.signature(
+        transport.run_fk0957_topology_discovery).parameters)
+    internal_signature = tuple(inspect.signature(
+        transport._run_consumed_permit).parameters) if hasattr(
+            transport, "_run_consumed_permit") else ()
+    importable_seams = [name for name in ("_run_with_backend",)
                         if hasattr(transport, name)]
+    backend_parameter_injection = (
+        "backend" in public_signature or "backend" in internal_signature or
+        bool(importable_seams))
+    internal_native_factory = (
+        "backend = _NativeLibFtdi(trace)" in source or
+        "backend = _NativeLibFtdi()" in source)
     test_path = repo / "tools/phk2_host/test_phk2_fk0957_topology_transport.py"
     suite = unittest.defaultTestLoader.loadTestsFromName(
         "TopologyTransportTests.test_local_record_builder_signs_only_after_valid_transport",
@@ -266,11 +318,95 @@ def fake_backend_reachability(repo: Path) -> dict[str, Any]:
     with mock.patch.object(transport, "_require_native_files", return_value=()):
         result = unittest.TextTestRunner(stream=sink, verbosity=0).run(suite)
     return {
-        "production_importable_synthetic_seams": importable_seams,
+        "production_importable_backend_injection_seams": importable_seams,
+        "public_entry_parameters": list(public_signature),
+        "internal_transport_parameters": list(internal_signature),
+        "internal_native_factory_is_hardcoded": internal_native_factory,
+        "production_synthetic_observation_path": backend_parameter_injection,
         "test_fake_backend_fixture_path_exists": test_path.is_file(),
-        "synthetic_observation_signed_by_existing_seam": result.wasSuccessful() and result.testsRun == 1,
+        "test_only_fake_transport_flow_passes": result.wasSuccessful() and result.testsRun == 1,
         "test_count": result.testsRun,
         "failure_classes": [type(err).__name__ for _, err in result.errors + result.failures],
+    }
+
+
+def unconsumed_permit_internal_entry_attack(repo: Path) -> dict[str, Any]:
+    """Use a local fake FTDI backend to probe the private transport entrypoint."""
+    sys.path.insert(0, str(repo / "tools/phk2_host"))
+    import phk2_fk0957_topology_discovery as topology
+    import phk2_fk0957_topology_transport as transport
+
+    class FakeBackend:
+        def __init__(self):
+            self.candidate = topology.Candidate(
+                topology.DescriptorIdentity(
+                    "FK0957", "153300000957A", "153300000957", "1-9.3",
+                    "0403", "6010", "Xilinx", "SQRL FK", "A"), object())
+            self.open_count = 0
+            self.close_count = 0
+            self.read_sizes: list[int] = []
+            self._runtime = {}
+            for pin in transport.LIBRARY_PINS:
+                stamp = transport._stat_fingerprint(pin.path.stat())
+                self._runtime[pin.name] = transport._LoadedLibrary(
+                    pin, None, -1, stamp, stamp, str(pin.path))
+
+        def enumerate_candidates(self):
+            return (self.candidate,)
+
+        def open_exact(self, candidate):
+            if candidate is not self.candidate:
+                raise AssertionError("candidate substitution")
+            self.open_count += 1
+
+        def initialize_mpsse(self):
+            self.write_exact(topology.MPSSE_SYNC)
+            if self.read_exact(2) != topology.MPSSE_SYNC_REPLY:
+                raise AssertionError("synthetic sync mismatch")
+            self.write_exact(topology.MPSSE_SETUP)
+
+        def write_exact(self, _data):
+            return None
+
+        def read_exact(self, size):
+            self.read_sizes.append(size)
+            if size == 2 and len(self.read_sizes) == 1:
+                return topology.MPSSE_SYNC_REPLY
+            return bytes(size)
+
+        def close_checked(self):
+            self.close_count += 1
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    identity = topology.DescriptorIdentity(
+        "FK0957", "153300000957A", "153300000957", "1-9.3",
+        "0403", "6010", "Xilinx", "SQRL FK", "A")
+    fabricated = topology.DiscoveryPermit(
+        "f" * 64, identity, "fabricated-unconsumed-nonce", now.isoformat(),
+        (now + datetime.timedelta(seconds=120)).isoformat(), "0" * 64, object())
+    backends: list[FakeBackend] = []
+
+    def factory(_trace=None):
+        backend = FakeBackend()
+        backends.append(backend)
+        return backend
+
+    with mock.patch.object(transport, "transport_source_sha256", return_value="a" * 64), \
+            mock.patch.object(transport, "_production_git_state", return_value=("a" * 40, True)), \
+            mock.patch.object(transport, "_NativeLibFtdi", side_effect=factory):
+        results = [transport._run_consumed_permit(fabricated),
+                   transport._run_consumed_permit(fabricated)]
+    with topology._PERMIT_LOCK:
+        registered = fabricated._token in topology._ACTIVE
+        consumed = fabricated._token in topology._CONSUMED
+    return {
+        "same_fabricated_permit_calls": len(results),
+        "permit_registered": registered,
+        "permit_consumed": consumed,
+        "simulated_device_opens": sum(item.open_count for item in backends),
+        "simulated_transport_closes": sum(item.close_count for item in backends),
+        "sealed_observations_returned": all(
+            item._proof in transport._SEALED_RESULTS for item in results),
     }
 
 
@@ -359,6 +495,7 @@ def main() -> int:
         "remote_signing_and_handoff_gates": remote_signing_and_handoff_gates(repo),
         "malformed_boundary": malformed_boundary(repo),
         "fake_backend": fake_backend_reachability(repo),
+        "unconsumed_permit_internal_entry_attack": unconsumed_permit_internal_entry_attack(repo),
         "bridge_gate_attack": bridge_gate_attack(repo),
         "native_library_pin_preflight": _native_pin_status(repo),
     }

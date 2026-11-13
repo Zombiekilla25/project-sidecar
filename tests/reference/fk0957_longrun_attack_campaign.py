@@ -150,13 +150,19 @@ def parent_move_race(cli: Any, orchestrator: Any) -> dict[str, bool]:
             return fd, name
 
         orchestrator._open_path_parent = move_after_open
+        refused = False
         try:
-            cli._publish_evidence_atomic(destination, b"SIGNED_AUDIT_FIXTURE")
+            try:
+                cli._publish_evidence_atomic(destination, b"SIGNED_AUDIT_FIXTURE")
+            except (OSError, ValueError):
+                refused = True
         finally:
             orchestrator._open_path_parent = original_open_parent
         return {
             "race_injected": moved_once,
-            "publish_reported_success": (moved / "record.json").exists(),
+            "publish_refused": refused,
+            "publish_reported_success": (moved / "record.json").exists() or
+                                        (replacement / "record.json").exists(),
             "requested_path_resolves_to_evidence": destination.exists(),
             "replacement_path_written": (replacement / "record.json").exists(),
         }
