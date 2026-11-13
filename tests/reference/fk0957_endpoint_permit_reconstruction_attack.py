@@ -22,6 +22,7 @@ def run(candidate: Path) -> dict:
     import test_phk2_fk0957_topology_transport as transport_fixtures
     import test_phk2_fk0957_remote_topology_endpoint as endpoint_fixtures
     import phk2_fk0957_remote_topology_endpoint as endpoint
+    import phk2_fk0957_topology_discovery as topology
     import phk2_fk0957_topology_transport as transport
 
     original_cwd = Path.cwd()
@@ -70,6 +71,17 @@ def run(candidate: Path) -> dict:
             def capture_permits(permit, result):
                 observed["endpoint_permit_nonce"] = permit.nonce
                 observed["result_permit_nonce"] = result.permit_nonce
+                with topology._PERMIT_LOCK:
+                    observed["endpoint_permit_active"] = permit._token in topology._ACTIVE
+                    observed["endpoint_permit_consumed"] = permit._token in topology._CONSUMED
+                    matching = [
+                        (token, row) for token, row in topology._ACTIVE.items()
+                        if row[0] == result.descriptor_evidence_sha256 and
+                        row[2] == result.permit_nonce
+                    ]
+                    observed["matching_nonce_active_permits"] = len(matching)
+                    observed["matching_nonce_consumed_permits"] = sum(
+                        token in topology._CONSUMED for token, _row in matching)
                 return real_validate(permit, result)
 
             with mock.patch.object(endpoint, "_load_trust_config",
