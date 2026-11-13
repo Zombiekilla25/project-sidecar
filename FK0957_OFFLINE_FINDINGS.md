@@ -36,6 +36,11 @@ that working-tree version now refuses and preserves the competing file. These
 changes are not ours and remain uncommitted; this report does not certify that
 candidate until the full suite and source review complete.
 
+The independent selection campaign also exercised 120 permutations of one
+target plus four peers and 120 permutations with duplicate exact targets. The
+unique target was selected in all peer-orderings; all duplicate exact targets
+refused before the fake open.
+
 ### Low: direct malformed-envelope validator calls can raise
 
 Across 10,000 deterministic type mutations, `_bounded_envelope` raised

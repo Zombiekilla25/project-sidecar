@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+import itertools
 import json
 import os
 from pathlib import Path
@@ -159,6 +160,59 @@ def malformed_type_campaign(validator: Any, seed: int = 0xF0957) -> dict[str, in
             "validator_exceptions": exceptions}
 
 
+def enumeration_permutation_campaign(host: Path) -> dict[str, int]:
+    """Exercise the real sysfs/libusb selection logic through its fake backend."""
+    import sys
+    sys.path.insert(0, str(host))
+    import test_phk2_fk0957_topology_transport as fixtures
+    from phk2_fk0957_topology_discovery import Refusal, validate_candidates
+
+    target = "153300000957"
+    peers = ("153300000958", "153300000959", "153300000960", "153300000961")
+    case = fixtures.TopologyTransportTests(
+        "test_native_enumeration_filters_peer_serial_before_multiplicity")
+    case.setUp()
+    unique_selected = 0
+    duplicates_refused = 0
+    fake_open_calls = 0
+    try:
+        for serials in itertools.permutations((target,) + peers):
+            peer_ports = {serial: 4 + index for index, serial in enumerate(peers)}
+            ports = tuple((9, 3) if serial == target else (9, peer_ports[serial])
+                          for serial in serials)
+            permit = case.permit()
+            _, native, rows = case.native_rows_for_serials(
+                serials, ports=ports, permit=permit)
+            selected = validate_candidates(permit, rows)
+            expected_index = serials.index(target)
+            if int(selected.handle_token) != 0x1234 + expected_index:
+                raise AssertionError("enumeration order changed exact target selection")
+            native.open_exact(selected)
+            if native._ftdi.ftdi_usb_open_dev.call_count != 1:
+                raise AssertionError("selected target was not the sole fake open")
+            unique_selected += 1
+            fake_open_calls += 1
+        duplicate_values = (target, target, peers[0], peers[1], peers[2])
+        for serials in itertools.permutations(duplicate_values):
+            ports = tuple((9, 3 + index) for index in range(len(serials)))
+            permit = case.permit()
+            _, native, rows = case.native_rows_for_serials(
+                serials, ports=ports, permit=permit)
+            try:
+                validate_candidates(permit, rows)
+            except Refusal:
+                duplicates_refused += 1
+            else:
+                raise AssertionError("duplicate exact target was selected")
+            if native._ftdi.ftdi_usb_open_dev.call_count:
+                raise AssertionError("duplicate exact target reached fake open")
+    finally:
+        case.doCleanups()
+    return {"unique_target_permutations_selected": unique_selected,
+            "duplicate_target_permutations_refused": duplicates_refused,
+            "fake_open_calls": fake_open_calls}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--production-root", type=Path, required=True)
@@ -194,6 +248,7 @@ def main() -> int:
         "malformed_internal_refusal_falls_back_safely": (
             safe_fallback.get("phase") == "INTERNAL_REFUSAL" and
             safe_fallback.get("code") == "INTERNAL_REFUSAL"),
+        "enumeration_permutations": enumeration_permutation_campaign(host),
         "transactions": {
             "scan_a_tck_count": plan.scan_a_tck_count,
             "scan_b_tck_count": plan.scan_b_tck_count,
