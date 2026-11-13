@@ -60,7 +60,8 @@
     "base_production_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
     "branch": "hardening/fk0957-production-20261113",
     "hardware_access": false,
-    "head": "941d84234fa2cbff1ffb741661e6679197b9070c",
+    "head": "adc2766f6eb3feefd7a715f177bdbb361d317d39",
+    "head_semantics": "latest code/native pin commit covered by this handoff snapshot; this snapshot itself is a follow-up documentation commit",
     "live_acquisition_performed": false,
     "native_library_requalification": "Independently reproduced: 173/173 suites with updated libc pin; prestart loader validation still absent.",
     "native_runtime_prestart_validation": false,
@@ -69,10 +70,9 @@
     "runtime_source_hashes_match": true,
     "unresolved_gates": [
       "remote unsigned topology acquisition and RGB-only signing split",
-      "fresh permit-bound bridge ownership handoff with trusted issuer",
-      "administrator-controlled safe-launcher deployment",
-      "authenticated release manifest for exact runtime sources and clean Git state",
-      "native libc requalification after verified OS package update"
+      "fresh permit-bound bridge ownership handoff with authenticated trusted issuer",
+      "administrator-controlled launcher deployment and prestart loader validation",
+      "authenticated complete runtime source manifest bound to clean Git state"
     ]
   },
   "hardening_milestone": {
@@ -112,7 +112,7 @@
     "hardware_access": false,
     "invalid_state_accepted": 0,
     "invalid_states_tested": 249572,
-    "latest_corrected_oracle": "PASS: 28 valid accepted; 249572 invalid rejected; 0 mismatches; 20 seeds",
+    "latest_corrected_oracle": "PASS: 28 valid accepted; 249572 invalid rejected; 0 mismatches; 5-seed full-suite repeat pending final metadata commit recheck",
     "latest_evidence_race_soak": {
       "cases": 160,
       "cases_per_seed": 8,
@@ -120,24 +120,24 @@
       "seeds": 20
     },
     "latest_focused_tests_passed": 115,
-    "latest_full_fk0957_test_errors": 2,
-    "latest_full_fk0957_tests_run": 200,
+    "latest_full_fk0957_test_errors": 0,
+    "latest_full_fk0957_tests_run": 204,
     "latest_malformed_envelope_fuzz": {
       "cases": 20000,
       "result": "PASS",
       "uncaught_exceptions": 0
     },
     "left_operations_candidate": {
-      "agent_probe_reimplemented_locally": true,
-      "commit": "7ab491f1385a960c133b58134e18c2fec6a5b95b",
-      "committed_contract_integrated": false,
-      "current_left_worktree": "in progress with uncommitted validator/profile changes",
-      "latest_combined_contract_tests": "58 run; 1 error (NameError: tempfile not defined)",
-      "review": "docs/handoffs/FK0957_LEFT_OPERATIONS_PATCH_REVIEW.md"
+      "agent_behavior": "reimplemented with stricter descriptor-relative parent validation",
+      "commit": "dfd1f3b1f4530663f0b512ca3e5e01a9c657cd53",
+      "remote_topology_contract_integrated": false,
+      "review": "docs/handoffs/FK0957_LEFT_OPERATIONS_PATCH_REVIEW.md",
+      "stable_patch_id": "25dd3c7ee15c81a0ddd5a3f1b2c76cf75c9341fa"
     },
     "live_acquisition_performed": false,
     "local_ssh_agent": "Owner-owned 0775 GNOME socket accepted only under private owner-only parent; forwarding disabled.",
     "mutation_counter_semantics": "write_count/reset_count/program_count=0; jtag_operation_count=1 for the fixed read-only two-scan transaction",
+    "native_library_tests": "PASS: 173 tests independently reproduced on disposable production baseline; integrated full suite also passes",
     "native_pin_reproduction_tests": 173,
     "native_requalification_commit": "6e67c4496a0e9d4c82f6a5601e50fcd1c7787d67",
     "native_runtime_inventory_status": "libc pin independently requalified and integrated on WIP branch; loader inventoried, not prestart-validated",

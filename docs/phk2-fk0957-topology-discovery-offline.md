@@ -48,17 +48,22 @@ hashes are recorded in the handoff JSON. Do not treat those candidate hashes
 as an authenticated release manifest: no trusted signed manifest currently
 authorizes the exact source bytes or clean Git state.
 
-The approved libc pin also requires requalification after the host's verified
-`libc6:amd64` update from `2.39-0ubuntu8.9` to `2.39-0ubuntu8.12`. The runtime
-continues to refuse the changed SHA256/build-id before loading the native
-transport. Details are in
-[`fk0957-native-library-requalification-required.json`](../results/fk0957-native-library-requalification-required.json);
-the immutable pin has not been changed.
+The host's verified `libc6:amd64` update from `2.39-0ubuntu8.9` to
+`2.39-0ubuntu8.12` has been independently requalified for the WIP native
+library loader. The libc SHA256/build ID are now pinned to the installed
+package bytes in this branch; Right's result was reproduced with 173 tests in
+a disposable production-baseline copy. The exact `.deb` was not cached, and
+the dynamic loader is inventoried but not checked before Python starts. This
+does not establish prestart library validation or authorize a live operation.
+See [`FK0957_NATIVE_RUNTIME_REQUALIFICATION.md`](handoffs/FK0957_NATIVE_RUNTIME_REQUALIFICATION.md)
+and [`fk0957-native-runtime-pin-qualification.json`](../results/fk0957-native-runtime-pin-qualification.json).
+The older `fk0957-native-library-requalification-required.json` records the
+original mismatch and remains historical evidence.
 
 The interpreter, ELF loader, and pinned native-library state are inventoried in
 [`fk0957-native-runtime-inventory.json`](../results/fk0957-native-runtime-inventory.json).
-That artifact is inventory only; it does not approve changed libc bytes or
-establish an approved loader pin. Review of Left's operations candidate is in
+That inventory now reflects the qualified libc pin, while explicitly marking
+the ELF loader as not prestart-enforced. Review of Left's operations candidate is in
 [`FK0957_LEFT_OPERATIONS_PATCH_REVIEW.md`](handoffs/FK0957_LEFT_OPERATIONS_PATCH_REVIEW.md).
 
 ## Live command status

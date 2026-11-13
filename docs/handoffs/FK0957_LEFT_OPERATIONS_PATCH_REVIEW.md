@@ -7,6 +7,14 @@ Left's final reviewed commit is `dfd1f3b1f4530663f0b512ca3e5e01a9c657cd53`
 agent-socket permission rule and related tests/docs. Its other commits are
 listed below with their stable patch IDs. None was cherry-picked wholesale.
 
+That final commit's exact changed paths are:
+`docs/handoffs/FK0957_MIDDLE_OPERATIONS_INTEGRATION.md`,
+`docs/handoffs/FK0957_REMOTE_OPERATION_CONTROL_CONTRACT.md`,
+`tools/phk2_host/fk0957_maintenance_controller.py`,
+`tools/phk2_host/phk2_fk0957_remote_orchestrator.py`,
+`tools/phk2_host/test_fk0957_maintenance_controller.py`, and
+`tools/phk2_host/test_phk2_fk0957_remote_orchestrator.py`.
+
 ## Local SSH agent
 
 Left's new case accepts a socket with group/other access when the immediate
