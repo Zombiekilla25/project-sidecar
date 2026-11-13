@@ -4,6 +4,7 @@ from contextlib import contextmanager
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -128,6 +129,7 @@ class LiveCliTests(unittest.TestCase):
                 self.assertNotIn(b"secret", output)
                 self.assertNotIn(b"/private", output)
                 self.assertFalse(self.output.exists())
+                self.assertEqual({path.name for path in self.root.iterdir()}, {"descriptor.json"})
                 operation.assert_called_once()
 
     def test_actual_cli_fake_success_verifies_and_atomically_writes_record(self):
@@ -192,6 +194,28 @@ class LiveCliTests(unittest.TestCase):
         self.assertFalse(self.output.exists())
         self.assertEqual({path.name for path in self.root.iterdir()}, {"descriptor.json"})
 
+    def test_ambiguous_post_rename_error_is_resolved_as_published_success(self):
+        signer = Ed25519PrivateKey.generate()
+        document, fingerprint = signed_fake_record(signer)
+        real_replace = os.replace
+
+        def replace_then_raise(*args, **kwargs):
+            real_replace(*args, **kwargs)
+            raise OSError("synthetic error after atomic rename")
+
+        with mock.patch.object(identity_gate, "TRUSTED_SIGNER_FINGERPRINT_SHA256", fingerprint), \
+             mock.patch.object(identity_gate, "_trusted_signer", return_value=signer.public_key()), \
+             mock.patch.object(transport, "perform_fk0957_topology_discovery_once",
+                               return_value=document), \
+             mock.patch.object(cli.os, "replace", side_effect=replace_then_raise):
+            with captured_main(["--descriptor-evidence", str(self.descriptor),
+                                "--output", str(self.output)]) as (rc, output):
+                self.assertEqual(rc, 0)
+        self.assertEqual(json.loads(output)["status"], "SIGNED")
+        self.assertEqual(json.loads(self.output.read_bytes()), document)
+        self.assertEqual({path.name for path in self.root.iterdir()},
+                         {"descriptor.json", "topology.json"})
+
     def test_argument_surface_rejects_transport_controls(self):
         with captured_main(["--descriptor-evidence", str(self.descriptor),
                             "--output", str(self.output), "--tms", "111"]
@@ -254,6 +278,10 @@ class LiveCliTests(unittest.TestCase):
             ("LOCAL_SIGNING", dict(transport_closed=0)),
             ("SCAN_A_WRITE", dict(scan_a_tck_emitted=592)),
             ("SCAN_B_READ", dict(scan_b_tck_emitted=587)),
+            ("SCAN_A_WRITE", dict(scan_a_tck_emitted=591)),
+            ("SCAN_A_READ", dict(scan_a_tck_emitted=591)),
+            ("SCAN_B_WRITE", dict(scan_b_tck_emitted=586)),
+            ("SCAN_B_READ", dict(scan_b_tck_emitted=586)),
         )
         for phase, changes in cases:
             values = refusal_progress(phase)
@@ -263,6 +291,46 @@ class LiveCliTests(unittest.TestCase):
                 None, **values)
             with self.subTest(phase=phase, changes=changes):
                 self.assertFalse(cli._bounded_envelope(envelope.as_dict()))
+
+    def test_every_impossible_progress_envelope_is_scrubbed_at_live_cli(self):
+        cases = (
+            ("PRELIVE_VALIDATION", dict(device_opened=1)),
+            ("PRELIVE_VALIDATION", dict(scan_a_started=1)),
+            ("DEVICE_ENUMERATION", dict(device_opened=1)),
+            ("DEVICE_OPEN", dict(scan_a_started=1)),
+            ("SCAN_A_WRITE", dict(scan_b_started=1)),
+            ("SCAN_A_READ", dict(scan_b_started=1)),
+            ("SCAN_B_WRITE", dict(scan_a_tck_emitted=590, scan_b_started=1)),
+            ("LOCAL_VALIDATION", dict(scan_b_tck_emitted=585)),
+            ("LOCAL_SIGNING", dict(transport_closed=0)),
+            ("SCAN_A_WRITE", dict(scan_a_tck_emitted=592)),
+            ("SCAN_B_READ", dict(scan_b_tck_emitted=587)),
+            ("SCAN_A_WRITE", dict(scan_a_tck_emitted=591)),
+            ("SCAN_A_READ", dict(scan_a_tck_emitted=591)),
+            ("SCAN_B_WRITE", dict(scan_b_tck_emitted=586)),
+            ("SCAN_B_READ", dict(scan_b_tck_emitted=586)),
+        )
+        for phase, changes in cases:
+            values = refusal_progress(phase)
+            values.update(changes)
+            envelope = transport.RefusalEnvelope(
+                phase, transport._DEFAULT_REFUSAL_CODE.get(phase, "INTERNAL_REFUSAL"),
+                None, **values)
+            refusal = transport.Refusal("hidden contradictory details", envelope=envelope)
+            with self.subTest(phase=phase, changes=changes), \
+                 mock.patch.object(transport, "perform_fk0957_topology_discovery_once",
+                                   side_effect=refusal):
+                with captured_main(["--descriptor-evidence", str(self.descriptor),
+                                    "--output", str(self.output)]) as (rc, output):
+                    self.assertEqual(rc, 2)
+                reported = json.loads(output)
+                self.assertEqual((reported["phase"], reported["code"]),
+                                 ("INTERNAL_REFUSAL", "INTERNAL_REFUSAL"))
+                self.assertEqual((reported["device_opened"], reported["scan_a_started"],
+                                  reported["scan_a_tck_emitted"], reported["scan_b_started"],
+                                  reported["scan_b_tck_emitted"]), (0, 0, 0, 0, 0))
+                self.assertNotIn(b"hidden contradictory details", output)
+                self.assertFalse(self.output.exists())
 
     def test_valid_progress_state_is_accepted_for_each_refusal_phase(self):
         for phase in transport.REFUSAL_PHASES:
