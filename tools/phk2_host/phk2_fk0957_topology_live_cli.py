@@ -98,7 +98,7 @@ def _bounded_envelope(value: Any) -> bool:
     if rc is not None and (type(rc) is not int or not -255 <= rc <= 255):
         return False
     candidates = value.get("target_candidates")
-    if candidates != "unknown" and (type(candidates) is not int or not 0 <= candidates <= 300):
+    if candidates != "unknown" and (type(candidates) is not int or not 0 <= candidates <= 256):
         return False
     opened = value.get("device_opened")
     consumed = value.get("permit_consumed")
@@ -239,8 +239,8 @@ def _bounded_envelope(value: Any) -> bool:
                 not close_flag_allowed):
             return False
     elif phase == "DEVICE_OPEN":
-        if (phase_state not in {"DEVICE_SELECTED", "DEVICE_OPENED"} or consumed != 1 or
-                candidates != 1 or not no_scans or not close_flag_allowed):
+        if (phase_state != "DEVICE_SELECTED" or consumed != 1 or candidates != 1 or
+                opened != 0 or not no_scans or not close_flag_allowed):
             return False
     elif phase == "MPSSE_INIT":
         if (phase_state != "DEVICE_OPENED" or consumed != 1 or candidates != 1 or

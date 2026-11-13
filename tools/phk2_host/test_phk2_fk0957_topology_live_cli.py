@@ -514,17 +514,21 @@ class LiveCliTests(unittest.TestCase):
                 with self.subTest(phase=phase, tcks=count):
                     self.assertTrue(cli._bounded_envelope(envelope.as_dict()))
         fields = refusal_progress("DEVICE_SELECTION")
-        fields["target_candidates"] = 300
+        fields["target_candidates"] = 256
         too_many = transport.RefusalEnvelope(
             "DEVICE_SELECTION", "MULTIPLE_TARGET_CANDIDATES", None, **fields)
         self.assertTrue(cli._bounded_envelope(too_many.as_dict()))
-        fields["target_candidates"] = 301
+        fields["target_candidates"] = 257
         out_of_schema = transport.RefusalEnvelope(
             "DEVICE_SELECTION", "MULTIPLE_TARGET_CANDIDATES", None, **fields)
         self.assertFalse(cli._bounded_envelope(out_of_schema.as_dict()))
 
     def test_phase_boundaries_bind_candidate_count_open_and_command_substage(self):
-        for count in (0, 1, 2, 255, 256, 300):
+        self.assertEqual(transport._bounded_candidate_count(256), 256)
+        self.assertEqual(transport._bounded_candidate_count(300), 256)
+        self.assertEqual(transport._bounded_candidate_count(-1), "unknown")
+        self.assertEqual(transport._bounded_candidate_count(True), "unknown")
+        for count in (0, 1, 2, 255, 256):
             fields = refusal_progress("DEVICE_ENUMERATION")
             fields["target_candidates"] = count
             envelope = transport.RefusalEnvelope(
@@ -533,16 +537,20 @@ class LiveCliTests(unittest.TestCase):
                 self.assertTrue(cli._bounded_envelope(envelope.as_dict()))
 
         selected = refusal_progress("DEVICE_SELECTION")
-        selected.update(target_candidates=300)
+        selected.update(target_candidates=256)
         multiple = transport.RefusalEnvelope(
             "DEVICE_SELECTION", "MULTIPLE_TARGET_CANDIDATES", None, **selected)
         self.assertTrue(cli._bounded_envelope(multiple.as_dict()))
+        selected["target_candidates"] = 300
+        over_bound = transport.RefusalEnvelope(
+            "DEVICE_SELECTION", "MULTIPLE_TARGET_CANDIDATES", None, **selected)
+        self.assertFalse(cli._bounded_envelope(over_bound.as_dict()))
 
         opened = refusal_progress("DEVICE_OPEN")
         opened.update(device_opened=1, operation_state="DEVICE_OPENED")
         open_completed = transport.RefusalEnvelope(
             "DEVICE_OPEN", "DEVICE_OPEN_FAILED", None, **opened)
-        self.assertTrue(cli._bounded_envelope(open_completed.as_dict()))
+        self.assertFalse(cli._bounded_envelope(open_completed.as_dict()))
 
         impossible = dict(opened, scan_a_started=1, scan_a_tck_emitted=591,
                           operation_state="DEVICE_OPENED")

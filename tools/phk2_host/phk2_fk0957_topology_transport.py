@@ -237,6 +237,13 @@ def _bounded_count(value: Any) -> int | str:
     return "unknown"
 
 
+def _bounded_candidate_count(value: Any) -> int | str:
+    """Saturate the public candidate counter at its reviewed schema bound."""
+    if type(value) is not int or value < 0:
+        return "unknown"
+    return min(value, 256)
+
+
 def _bounded_return_code(value: Any) -> int | None:
     return value if type(value) is int and -255 <= value <= 255 else None
 
@@ -763,7 +770,8 @@ class _NativeLibFtdi:
             if serial != USB_DESCRIPTOR_SERIAL:
                 continue
             if trace is not None:
-                trace.target_candidates = min(int(trace.target_candidates) + 1, 300)
+                trace.target_candidates = _bounded_candidate_count(
+                    int(trace.target_candidates) + 1)
             # Count the exact USB-serial identity before applying the remaining
             # signed descriptor fields, so duplicate serials fail closed even
             # when they appear at different USB paths.
@@ -772,7 +780,7 @@ class _NativeLibFtdi:
         if seen != count or node:
             raise Refusal("libftdi enumeration count/list disagreement")
         if trace is not None:
-            trace.target_candidates = min(len(candidates), 300)
+            trace.target_candidates = _bounded_candidate_count(len(candidates))
             if not candidates:
                 trace.code_override = "NO_TARGET_CANDIDATE"
             elif len(candidates) > 1:
@@ -1013,7 +1021,7 @@ def _run_consumed_permit(permit: topology.DiscoveryPermit, backend: Any,
             trace.advance("ENUMERATING")
         candidates = backend.enumerate_candidates()
         if trace is not None:
-            trace.target_candidates = min(len(candidates), 300)
+            trace.target_candidates = _bounded_candidate_count(len(candidates))
             trace.code_override = ("NO_TARGET_CANDIDATE" if len(candidates) == 0 else
                                    "MULTIPLE_TARGET_CANDIDATES" if len(candidates) > 1 else None)
             trace.phase = "DEVICE_SELECTION"
@@ -1037,12 +1045,12 @@ def _run_consumed_permit(permit: topology.DiscoveryPermit, backend: Any,
         failure = exc
         failure_phase = trace.phase if trace is not None else None
     try:
-        if trace is not None and opened:
+        if trace is not None:
             trace.phase = "TRANSPORT_CLOSE"
             trace.begin_close()
         backend.close_checked()
         closed = True
-        if trace is not None and opened:
+        if trace is not None:
             trace.transport_closed = 1
             trace.finish_close()
     except BaseException as exc:
