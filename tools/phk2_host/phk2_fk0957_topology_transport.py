@@ -1,8 +1,8 @@
-"""Narrow FK0957 reset-default DR transport and local record gate.
+"""Narrow FK0957 reset-default DR physical transport.
 
 The public transport operation accepts only a previously verified one-use
 descriptor permit. Tests replace the private native-backend factory; no CLI,
-network path, generic scan API, or caller-provided transaction exists.
+network path, signing API, generic scan API, or caller-provided transaction exists.
 """
 from __future__ import annotations
 
@@ -20,8 +20,13 @@ import threading
 from typing import Any
 
 import phk2_fk0957_idcode_gate as identity_gate
-import phk2_fk0957_remote_orchestrator as orchestrator
 import phk2_fk0957_topology_discovery as topology
+
+
+def _canonical_json(value: Any) -> bytes:
+    return (json.dumps(value, sort_keys=True, separators=(",", ":"),
+                       ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8")
+
 
 CARD_ID = "FK0957"
 ADAPTER_SERIAL = "153300000957A"
@@ -66,9 +71,6 @@ LIBRARY_PINS = (
 )
 LIBFTDI_PIN = LIBRARY_PINS[-1]
 LIBUSB_PIN = LIBRARY_PINS[2]
-LOCAL_SIGNING_KEY_PATH = Path(
-    "/home/rmann/.local/share/sidecar/operator-keys/phk2-fk0957-evidence-20261111/"
-    "phk2_fk0957_physical_evidence_ed25519_private.pem")
 BITMODE_RESET = 0x00
 BITMODE_MPSSE = 0x02
 GPIO_MASK = 0x0B
@@ -99,7 +101,7 @@ class Refusal(ValueError):
     def canonical_envelope(self) -> bytes:
         if self.envelope is None:
             raise ValueError("refusal has no internally generated diagnostic envelope")
-        return orchestrator.canonical(self.envelope.as_dict())
+        return _canonical_json(self.envelope.as_dict())
 
 
 REFUSAL_PHASES = frozenset({
@@ -356,7 +358,7 @@ class TransportObservation:
 def _observation_payload(result: TransportObservation) -> bytes:
     obj = {name: value.hex() if isinstance(value, bytes) else value
            for name, value in result.__dict__.items() if name != "_proof"}
-    return orchestrator.canonical(obj)
+    return _canonical_json(obj)
 
 
 @dataclass(frozen=True)
@@ -599,22 +601,8 @@ def transport_source_sha256() -> str:
     head, clean = _production_git_state(repo)
     relative_sources = (
         "tools/phk2_host/phk2_fk0957_topology_transport.py",
-        "tools/phk2_host/phk2_fk0957_topology_live_cli.py",
         "tools/phk2_host/phk2_fk0957_topology_discovery.py",
         "tools/phk2_host/phk2_fk0957_idcode_gate.py",
-        "tools/phk2_host/phk2_fk0957_remote_orchestrator.py",
-        "tools/phk2_host/phk2_fk0957_remote_collector.py",
-        "tools/phk2_host/phk2_fk0957_readonly_backend.py",
-        "tools/phk2_host/phk2_fk0957_identity_observer.py",
-        "tools/phk2_host/phk2_fk0957_ephemeral_bundle.py",
-        "tools/phk2_host/phk2_fk0957_ephemeral_runner.py",
-        "tools/phk2_host/fk0957_safe_launcher.c",
-        "tools/phk2_host/fk0957_safe_bootstrap.py",
-        "tools/phk2_host/build_fk0957_safe_launcher.py",
-        "results/fk0957-topology-software-handoff.json",
-        "tools/phk1_raw_bscan/libftdi_io.cpp",
-        "tools/phk1_raw_bscan/mpsse_backend.cpp",
-        "tools/phk1_raw_bscan/usb_selection.cpp",
     )
     source_files = tuple((repo / item).resolve(strict=True) for item in relative_sources)
     source_files += _require_native_files()
@@ -1137,6 +1125,25 @@ def run_fk0957_topology_discovery(authorized_permit: topology.DiscoveryPermit) -
         raise _diagnostic_refusal(exc, trace) from None
 
 
+def issue_fk0957_topology_permit(descriptor_evidence: bytes, expected_sha256: str,
+                                  *, lifetime_seconds: int = 120) -> topology.DiscoveryPermit:
+    """Verify the signed descriptor and issue its one-use topology permit."""
+    trace = _AttemptTrace()
+    trace.phase = "PERMIT_VALIDATION"
+    trace.permit_consumed = 0
+    try:
+        return topology.issue_permit(descriptor_evidence, expected_sha256,
+                                     lifetime_seconds=lifetime_seconds)
+    except BaseException as exc:
+        if isinstance(exc, identity_gate.Refusal):
+            code, phase = "DESCRIPTOR_STALE", "PERMIT_VALIDATION"
+        elif isinstance(exc, topology.Refusal):
+            code, phase = "PERMIT_INVALID", "PERMIT_VALIDATION"
+        else:
+            code, phase = "INTERNAL_REFUSAL", "INTERNAL_REFUSAL"
+        raise _diagnostic_refusal(exc, trace, code=code, phase=phase) from None
+
+
 def _validate_transport_observation(permit: topology.DiscoveryPermit,
                                     result: TransportObservation) -> topology.ParsedTopology:
     if not isinstance(result, TransportObservation):
@@ -1208,170 +1215,3 @@ def validate_transport_observation(permit: topology.DiscoveryPermit,
         return parsed
     except BaseException as exc:
         raise _diagnostic_refusal(exc, trace) from None
-
-
-def _read_local_private_key(path: Path) -> bytes:
-    parent_fd, name = orchestrator._open_path_parent(path)
-    try:
-        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
-        fd = os.open(name, flags, dir_fd=parent_fd)
-        try:
-            info = os.fstat(fd)
-            if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or
-                stat.S_IMODE(info.st_mode) != 0o600):
-                raise Refusal("local signing key must be regular, mode 0600, and single-link")
-            with os.fdopen(fd, "rb", closefd=False) as stream:
-                raw = stream.read(16 * 1024 + 1)
-                if len(raw) > 16 * 1024:
-                    raise Refusal("local signing key file exceeds the bounded PEM size")
-                return raw
-        finally:
-            os.close(fd)
-    finally:
-        os.close(parent_fd)
-
-
-def _sign_local_discovery_record(permit: topology.DiscoveryPermit,
-                                 result: TransportObservation,
-                                 trace: _AttemptTrace | None = None) -> dict[str, Any]:
-    """Validate the complete raw observation, then sign locally on RGB only."""
-    parsed = validate_transport_observation(permit, result)
-    if trace is not None:
-        trace.advance("LOCAL_VALIDATED")
-    with _RESULT_LOCK:
-        if permit._token in _SIGNED_PERMITS:
-            raise Refusal("local topology record already signed for this permit")
-        _SIGNED_PERMITS.add(permit._token)
-    record = {
-        "schema": "fk0957-topology-discovery-record-v1",
-        "topology_discovery_only": True,
-        "idcode_qualification_pass": False,
-        "fpga_dna_observed": False,
-        "loaded_image_identity_observed": False,
-        "bitstream_identity_observed": False,
-        "card_id": result.card_id,
-        "adapter_serial": result.adapter_serial,
-        "usb_descriptor_serial": result.usb_descriptor_serial,
-        "physical_interface": result.physical_interface,
-        "descriptor_evidence_sha256": result.descriptor_evidence_sha256,
-        "permit_nonce": result.permit_nonce,
-        "permit_issued_at": permit.issued_at,
-        "permit_expires_at": permit.expires_at,
-        "observation_timestamp": datetime.now(timezone.utc).isoformat(),
-        "usb_path": result.usb_path,
-        "ftdi_vid": result.ftdi_vid,
-        "ftdi_pid": result.ftdi_pid,
-        "manufacturer": result.manufacturer,
-        "product": result.product,
-        "trusted_signer_fingerprint": permit.trusted_signer_fingerprint,
-        "transport_source_sha256": result.transport_source_sha256,
-        "production_git_head": result.production_git_head,
-        "worktree_clean": result.worktree_clean,
-        "runtime_library_provenance": [
-            {"logical_name": row[0], "approved_path": row[1], "expected_sha256": row[2],
-             "expected_build_id": row[3], "soname": row[4], "preload_stat": row[5],
-             "postload_stat": row[6], "loaded_object_realpath": row[7]}
-            for row in result.runtime_library_provenance],
-        "scan_a_transaction_sha256": result.scan_a_transaction_sha256,
-        "scan_a_tck_count": result.scan_a_tck_count,
-        "scan_a_raw_tdo_hex": result.scan_a_raw_tdo.hex(),
-        "scan_b_transaction_sha256": result.scan_b_transaction_sha256,
-        "scan_b_tck_count": result.scan_b_tck_count,
-        "scan_b_raw_tdo_hex": result.scan_b_raw_tdo.hex(),
-        "total_tck_count": result.total_tck_count,
-        "matched_device_count": result.matched_device_count,
-        "opened_device_count": result.opened_device_count,
-        "second_device_opened": result.second_device_opened,
-        "aggregate_dr_length": parsed.aggregate_dr_length,
-        "observed_taps_tdo_to_tdi": parsed.taps_tdo_to_tdi,
-        "raw_tdo_scan_a_bits_lsb_first": parsed.raw_tdo_scan_a_bits,
-        "raw_tdo_scan_b_bits_lsb_first": parsed.raw_tdo_scan_b_bits,
-        "write_count": 0,
-        "reset_count": 0,
-        "program_count": 0,
-    }
-    raw_key = _read_local_private_key(LOCAL_SIGNING_KEY_PATH)
-    try:
-        from cryptography.hazmat.primitives import serialization
-        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-        key = serialization.load_pem_private_key(raw_key, password=None)
-        if not isinstance(key, Ed25519PrivateKey):
-            raise TypeError("not Ed25519")
-        public_der = key.public_key().public_bytes(serialization.Encoding.DER,
-                                                   serialization.PublicFormat.SubjectPublicKeyInfo)
-        signer_fingerprint = hashlib.sha256(public_der).hexdigest()
-        if signer_fingerprint != permit.trusted_signer_fingerprint:
-            raise Refusal("local key does not match trusted descriptor signer")
-        payload_bytes = orchestrator.canonical(record)
-        signature = key.sign(payload_bytes)
-        identity_gate._trusted_signer().verify(signature, payload_bytes)
-        if trace is not None:
-            trace.advance("SIGNED_STAGED")
-    except Refusal:
-        raise
-    except Exception as exc:
-        raise Refusal("local topology record signing or verification failed") from exc
-    return {"payload": record, "payload_sha256": hashlib.sha256(payload_bytes).hexdigest(),
-            "signature_algorithm": "Ed25519", "signature_hex": signature.hex(),
-            "signer_fingerprint": permit.trusted_signer_fingerprint}
-
-
-def sign_local_discovery_record(permit: topology.DiscoveryPermit,
-                                result: TransportObservation) -> dict[str, Any]:
-    trace = _AttemptTrace()
-    trace.phase = "LOCAL_SIGNING"
-    trace.permit_consumed = _permit_consumption_state(permit)
-    _trace_from_sealed_result(trace, result)
-    try:
-        return _sign_local_discovery_record(permit, result, trace)
-    except BaseException as exc:
-        if isinstance(exc, Refusal) and exc.envelope is not None:
-            raise
-        if trace.operation_state == "TRANSPORT_CLOSED":
-            trace.phase = "LOCAL_VALIDATION"
-        raise _diagnostic_refusal(exc, trace) from None
-
-
-def issue_fk0957_topology_permit(descriptor_evidence: bytes, expected_sha256: str,
-                                  *, lifetime_seconds: int = 120) -> topology.DiscoveryPermit:
-    """Issue the one-shot permit with a bounded descriptor-refusal envelope."""
-    trace = _AttemptTrace()
-    trace.phase = "PERMIT_VALIDATION"
-    trace.permit_consumed = 0
-    try:
-        return topology.issue_permit(descriptor_evidence, expected_sha256,
-                                     lifetime_seconds=lifetime_seconds)
-    except BaseException as exc:
-        if isinstance(exc, identity_gate.Refusal):
-            code, phase = "DESCRIPTOR_STALE", "PERMIT_VALIDATION"
-        elif isinstance(exc, topology.Refusal):
-            code, phase = "PERMIT_INVALID", "PERMIT_VALIDATION"
-        else:
-            code, phase = "INTERNAL_REFUSAL", "INTERNAL_REFUSAL"
-        raise _diagnostic_refusal(exc, trace, code=code, phase=phase) from None
-
-
-def perform_fk0957_topology_discovery_once(descriptor_evidence: bytes,
-                                            expected_sha256: str) -> dict[str, Any]:
-    """One-shot local workflow: authorize, acquire, validate, then sign; never writes a file."""
-    trace = _AttemptTrace()
-    trace.phase = "PERMIT_VALIDATION"
-    trace.permit_consumed = 0
-    try:
-        permit = issue_fk0957_topology_permit(descriptor_evidence, expected_sha256)
-        trace.phase = "PERMIT_VALIDATION"
-        trace.advance("PERMIT_VALIDATED")
-        result = run_fk0957_topology_discovery(permit)
-        trace.permit_consumed = 1
-        _trace_from_sealed_result(trace, result)
-        trace.phase = "LOCAL_VALIDATION"
-        validate_transport_observation(permit, result)
-        trace.advance("LOCAL_VALIDATED")
-        trace.phase = "LOCAL_SIGNING"
-        signed = sign_local_discovery_record(permit, result)
-        trace.advance("SIGNED_STAGED")
-        return signed
-    except BaseException as exc:
-        trace.permit_consumed = _permit_consumption_state(locals().get("permit"))
-        raise _diagnostic_refusal(exc, trace) from None
-

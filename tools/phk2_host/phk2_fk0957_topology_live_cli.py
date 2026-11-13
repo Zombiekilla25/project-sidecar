@@ -19,6 +19,7 @@ from typing import Any, Sequence
 import phk2_fk0957_idcode_gate as identity_gate
 import phk2_fk0957_remote_orchestrator as orchestrator
 import phk2_fk0957_topology_transport as transport
+import phk2_fk0957_topology_signing as signing
 
 MAX_DESCRIPTOR_BYTES = 1024 * 1024
 _ENVELOPE_KEYS = frozenset({
@@ -604,7 +605,7 @@ def run_once(descriptor_path: Path, output_path: Path) -> tuple[bytes, int]:
         return _fallback_refusal("PRELIVE_VALIDATION", "INTERNAL_REFUSAL") + b"\n", 2
 
     try:
-        signed = transport.perform_fk0957_topology_discovery_once(
+        signed = signing.perform_fk0957_topology_discovery_once(
             descriptor, descriptor_sha256)
     except BaseException as exc:
         return _safe_refusal(exc) + b"\n", 2

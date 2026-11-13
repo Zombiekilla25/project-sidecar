@@ -18,6 +18,8 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import phk2_fk0957_topology_discovery as topology
 import phk2_fk0957_topology_transport as transport
+import phk2_fk0957_topology_signing as signing
+import phk2_fk0957_remote_orchestrator as orchestrator
 
 DESCRIPTOR = Path("/home/rmann/.local/share/sidecar/fk0957-descriptor-identity-20261112.json")
 
@@ -132,6 +134,14 @@ class FakeBackend:
 
 
 class TopologyTransportTests(unittest.TestCase):
+    def test_physical_transport_module_contains_no_local_signing_capability(self):
+        source = Path(transport.__file__).read_text()
+        self.assertNotIn("LOCAL_SIGNING_KEY_PATH", source)
+        self.assertNotIn("def sign_local_discovery_record", source)
+        self.assertNotIn("import phk2_fk0957_remote_orchestrator", source)
+        self.assertIn("import phk2_fk0957_topology_signing", Path(
+            __file__).with_name("phk2_fk0957_topology_live_cli.py").read_text())
+
     def setUp(self):
         # Native libraries are deliberately not opened in this suite. The
         # source provenance digest is pinned to the synthetic fake runtime.
@@ -165,10 +175,10 @@ class TopologyTransportTests(unittest.TestCase):
         unsigned["acquisition_timestamp"] = datetime.now(timezone.utc).isoformat()
         provenance = payload["provenance"]
         provenance["acquisition_timestamp"] = unsigned["acquisition_timestamp"]
-        provenance["raw_unsigned_sha256"] = transport.orchestrator.sha(
-            transport.orchestrator.canonical(unsigned) + b"\n")
-        encoded = transport.orchestrator.canonical(payload)
-        self.raw = transport.orchestrator.canonical({
+        provenance["raw_unsigned_sha256"] = orchestrator.sha(
+            orchestrator.canonical(unsigned) + b"\n")
+        encoded = orchestrator.canonical(payload)
+        self.raw = orchestrator.canonical({
             "payload": payload,
             "payload_sha256": hashlib.sha256(encoded).hexdigest(),
             "signature_algorithm": "Ed25519",
@@ -684,14 +694,14 @@ class TopologyTransportTests(unittest.TestCase):
 
         permit = self.permit()
         result = run_with_backend(permit, self.backend())
-        with mock.patch.object(transport, "_read_local_private_key",
+        with mock.patch.object(signing, "_read_local_private_key",
                                side_effect=transport.Refusal("secret key /private/key.pem")):
-            with self.assertRaises(transport.Refusal) as signing:
-                transport.sign_local_discovery_record(permit, result)
-        env = json.loads(signing.exception.canonical_envelope())
+            with self.assertRaises(transport.Refusal) as sign_failure:
+                signing.sign_local_discovery_record(permit, result)
+        env = json.loads(sign_failure.exception.canonical_envelope())
         self.assertEqual((env["phase"], env["code"]),
                          ("LOCAL_SIGNING", "LOCAL_SIGNING_FAILED"))
-        self.assertNotIn("private", signing.exception.canonical_envelope().decode())
+        self.assertNotIn("private", sign_failure.exception.canonical_envelope().decode())
         self.assertNotIn("signature_hex", env)
 
     def test_operation_state_transitions_are_monotonic(self):
@@ -738,9 +748,9 @@ class TopologyTransportTests(unittest.TestCase):
                                side_effect=lambda _p: events.append("acquire") or result) as acquire, \
              mock.patch.object(transport, "validate_transport_observation",
                                side_effect=lambda *_a: events.append("validate")), \
-             mock.patch.object(transport, "sign_local_discovery_record",
+             mock.patch.object(signing, "sign_local_discovery_record",
                                side_effect=lambda *_a: events.append("sign") or {"signed": True}):
-            envelope = transport.perform_fk0957_topology_discovery_once(b"descriptor", "a" * 64)
+            envelope = signing.perform_fk0957_topology_discovery_once(b"descriptor", "a" * 64)
         self.assertEqual(events, ["permit", "acquire", "validate", "sign"])
         self.assertEqual(acquire.call_count, 1)
         self.assertEqual(envelope, {"signed": True})
@@ -752,9 +762,9 @@ class TopologyTransportTests(unittest.TestCase):
              mock.patch.object(transport, "run_fk0957_topology_discovery",
                                side_effect=failure) as acquire, \
              mock.patch.object(transport, "validate_transport_observation") as validate, \
-             mock.patch.object(transport, "sign_local_discovery_record") as sign:
+             mock.patch.object(signing, "sign_local_discovery_record") as sign:
             with self.assertRaises(transport.Refusal) as caught:
-                transport.perform_fk0957_topology_discovery_once(b"descriptor", "a" * 64)
+                signing.perform_fk0957_topology_discovery_once(b"descriptor", "a" * 64)
         self.assertEqual(acquire.call_count, 1)
         validate.assert_not_called()
         sign.assert_not_called()
@@ -771,10 +781,10 @@ class TopologyTransportTests(unittest.TestCase):
             key_path = Path(directory) / "key.pem"
             key_path.write_bytes(pem)
             key_path.chmod(0o600)
-            with mock.patch.object(transport, "LOCAL_SIGNING_KEY_PATH", key_path):
-                envelope = transport.sign_local_discovery_record(permit, result)
+            with mock.patch.object(signing, "LOCAL_SIGNING_KEY_PATH", key_path):
+                envelope = signing.sign_local_discovery_record(permit, result)
                 self.assertEqual(envelope["signer_fingerprint"], self.fingerprint)
-                encoded_record = transport.orchestrator.canonical(envelope["payload"])
+                encoded_record = orchestrator.canonical(envelope["payload"])
                 self.assertEqual(hashlib.sha256(encoded_record).hexdigest(), envelope["payload_sha256"])
                 key.public_key().verify(bytes.fromhex(envelope["signature_hex"]), encoded_record)
                 record = envelope["payload"]

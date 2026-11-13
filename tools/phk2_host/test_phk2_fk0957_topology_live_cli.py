@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import phk2_fk0957_idcode_gate as identity_gate
 import phk2_fk0957_remote_orchestrator as orchestrator
 import phk2_fk0957_topology_transport as transport
+import phk2_fk0957_topology_signing as signing
 import phk2_fk0957_topology_live_cli as cli
 
 from cryptography.hazmat.primitives import serialization
@@ -175,7 +176,7 @@ class LiveCliTests(unittest.TestCase):
                                                  **refusal_progress(phase))
             refusal = transport.Refusal("must never be printed secret=/private/key", envelope=envelope)
             with self.subTest(phase=phase), \
-                 mock.patch.object(transport, "perform_fk0957_topology_discovery_once",
+                 mock.patch.object(signing, "perform_fk0957_topology_discovery_once",
                                    side_effect=refusal) as operation, \
                  mock.patch.object(transport, "issue_fk0957_topology_permit",
                                    side_effect=AssertionError("CLI must use the single workflow")):
@@ -201,7 +202,7 @@ class LiveCliTests(unittest.TestCase):
         document, fingerprint = signed_fake_record(signer)
         with mock.patch.object(identity_gate, "TRUSTED_SIGNER_FINGERPRINT_SHA256", fingerprint), \
              mock.patch.object(identity_gate, "_trusted_signer", return_value=signer.public_key()), \
-             mock.patch.object(transport, "perform_fk0957_topology_discovery_once",
+             mock.patch.object(signing, "perform_fk0957_topology_discovery_once",
                                return_value=document) as operation:
             with captured_main(["--descriptor-evidence", str(self.descriptor),
                                 "--output", str(self.output)]) as (rc, output):
@@ -231,7 +232,7 @@ class LiveCliTests(unittest.TestCase):
         document, fingerprint = signed_fake_record(signer)
         with mock.patch.object(identity_gate, "TRUSTED_SIGNER_FINGERPRINT_SHA256", fingerprint), \
              mock.patch.object(identity_gate, "_trusted_signer", return_value=signer.public_key()), \
-             mock.patch.object(transport, "perform_fk0957_topology_discovery_once",
+             mock.patch.object(signing, "perform_fk0957_topology_discovery_once",
                                return_value=document), \
              mock.patch.object(cli, "_success_summary", side_effect=ValueError("bad final summary")):
             with captured_main(["--descriptor-evidence", str(self.descriptor),
@@ -248,7 +249,7 @@ class LiveCliTests(unittest.TestCase):
         document, fingerprint = signed_fake_record(signer)
         with mock.patch.object(identity_gate, "TRUSTED_SIGNER_FINGERPRINT_SHA256", fingerprint), \
              mock.patch.object(identity_gate, "_trusted_signer", return_value=signer.public_key()), \
-             mock.patch.object(transport, "perform_fk0957_topology_discovery_once",
+             mock.patch.object(signing, "perform_fk0957_topology_discovery_once",
                                return_value=document), \
              mock.patch.object(cli.os, "link", side_effect=OSError("publish failed")):
             with captured_main(["--descriptor-evidence", str(self.descriptor),
@@ -272,7 +273,7 @@ class LiveCliTests(unittest.TestCase):
             with self.subTest(operation=failing_operation), \
                  mock.patch.object(identity_gate, "TRUSTED_SIGNER_FINGERPRINT_SHA256", fingerprint), \
                  mock.patch.object(identity_gate, "_trusted_signer", return_value=signer.public_key()), \
-                 mock.patch.object(transport, "perform_fk0957_topology_discovery_once",
+                 mock.patch.object(signing, "perform_fk0957_topology_discovery_once",
                                    return_value=document):
                 if failing_operation == "open":
                     patcher = mock.patch.object(cli.os, "open", side_effect=fail_staging_open)
@@ -298,7 +299,7 @@ class LiveCliTests(unittest.TestCase):
 
         with mock.patch.object(identity_gate, "TRUSTED_SIGNER_FINGERPRINT_SHA256", fingerprint), \
              mock.patch.object(identity_gate, "_trusted_signer", return_value=signer.public_key()), \
-             mock.patch.object(transport, "perform_fk0957_topology_discovery_once",
+             mock.patch.object(signing, "perform_fk0957_topology_discovery_once",
                                return_value=document), \
              mock.patch.object(cli.os, "link", side_effect=link_then_raise):
             with captured_main(["--descriptor-evidence", str(self.descriptor),
@@ -331,7 +332,7 @@ class LiveCliTests(unittest.TestCase):
 
         with mock.patch.object(identity_gate, "TRUSTED_SIGNER_FINGERPRINT_SHA256", fingerprint), \
              mock.patch.object(identity_gate, "_trusted_signer", return_value=signer.public_key()), \
-             mock.patch.object(transport, "perform_fk0957_topology_discovery_once",
+             mock.patch.object(signing, "perform_fk0957_topology_discovery_once",
                                return_value=document), \
              mock.patch.object(cli.os, "link", side_effect=create_destination_then_link):
             with captured_main(["--descriptor-evidence", str(self.descriptor),
@@ -407,7 +408,7 @@ class LiveCliTests(unittest.TestCase):
         stderr = _BinaryStdout()
         with mock.patch.object(identity_gate, "TRUSTED_SIGNER_FINGERPRINT_SHA256", fingerprint), \
              mock.patch.object(identity_gate, "_trusted_signer", return_value=signer.public_key()), \
-             mock.patch.object(transport, "perform_fk0957_topology_discovery_once",
+             mock.patch.object(signing, "perform_fk0957_topology_discovery_once",
                                return_value=document), \
              mock.patch.object(sys, "stdout", stdout), \
              mock.patch.object(sys, "stderr", stderr):
@@ -431,7 +432,7 @@ class LiveCliTests(unittest.TestCase):
 
         with mock.patch.object(identity_gate, "TRUSTED_SIGNER_FINGERPRINT_SHA256", fingerprint), \
              mock.patch.object(identity_gate, "_trusted_signer", return_value=signer.public_key()), \
-             mock.patch.object(transport, "perform_fk0957_topology_discovery_once",
+             mock.patch.object(signing, "perform_fk0957_topology_discovery_once",
                                return_value=document), \
              mock.patch.object(cli, "_publish_evidence_atomic", side_effect=publish_then_raise):
             with captured_main(["--descriptor-evidence", str(self.descriptor),
@@ -473,7 +474,7 @@ class LiveCliTests(unittest.TestCase):
     def test_malformed_or_unbounded_refusal_becomes_internal_envelope(self):
         refusal = transport.Refusal("SECRET raw exception")
         stderr = io.StringIO()
-        with mock.patch.object(transport, "perform_fk0957_topology_discovery_once",
+        with mock.patch.object(signing, "perform_fk0957_topology_discovery_once",
                                side_effect=refusal), mock.patch.object(sys, "stderr", stderr):
             with captured_main(["--descriptor-evidence", str(self.descriptor),
                                 "--output", str(self.output)]) as (rc, output):
@@ -488,7 +489,7 @@ class LiveCliTests(unittest.TestCase):
         envelope = transport.RefusalEnvelope(
             "DEVICE_OPEN", "DEVICE_OPEN_FAILED", None, 1, 0, 1, 8, 0, 0, 1, 1)
         refusal = transport.Refusal("secret contradiction", envelope=envelope)
-        with mock.patch.object(transport, "perform_fk0957_topology_discovery_once",
+        with mock.patch.object(signing, "perform_fk0957_topology_discovery_once",
                                side_effect=refusal):
             with captured_main(["--descriptor-evidence", str(self.descriptor),
                                 "--output", str(self.output)]) as (rc, output):
@@ -567,7 +568,7 @@ class LiveCliTests(unittest.TestCase):
                 None, **values)
             refusal = transport.Refusal("hidden contradictory details", envelope=envelope)
             with self.subTest(phase=phase, changes=changes), \
-                 mock.patch.object(transport, "perform_fk0957_topology_discovery_once",
+                 mock.patch.object(signing, "perform_fk0957_topology_discovery_once",
                                    side_effect=refusal):
                 with captured_main(["--descriptor-evidence", str(self.descriptor),
                                     "--output", str(self.output)]) as (rc, output):

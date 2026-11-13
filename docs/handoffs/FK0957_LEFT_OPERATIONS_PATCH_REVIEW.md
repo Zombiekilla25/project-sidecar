@@ -86,3 +86,33 @@ the requested trusted handoff or remote topology acquisition gates.
 The agent behavior has local regressions; the remaining operations contract,
 trusted issuer, remote topology acquisition, and complete manifest are not
 claimed complete.
+
+## Latest deployment/recovery candidate (`a6b2cb30ca6e93cce597f3ef609f77d0cc8f2302`)
+
+This candidate adds a read-only protected-layout preflight and adjusts the
+maintenance controller's system `cryptography` import. Its focused offline
+preflight/controller suites pass 56 tests. The layout checker validates a
+caller-supplied out-of-band digest and fails on missing roles, extra files,
+symlinks, hardlinks, mode/owner mismatches, and noncanonical manifests. It is
+not an authenticated release-manifest authority and its path checks are a
+preflight, not an openat/dirfd execution pin; it does not close runtime path
+replacement races after the check.
+
+The controller still does not prove that the remote acquisition process has
+exited before restoring the bridge after SSH loss. `terminate_bound_operation`
+only binds and terminates the local Python/SSH orchestrator PID. In the
+`finally` path, the controller may then issue `RESTORE_COMMAND` and verify
+bridge state without a remote-process exit acknowledgement. A disconnected
+SSH command can leave the remote process state unknown; this fails the
+required `REMOTE_CLEANUP_PROVEN_BEFORE_RESTORE` invariant. Therefore the
+candidate is not integrated into the production topology path. Its
+system-cryptography version check is also not a substitute for the hardening
+branch's pinned native/runtime manifest.
+
+Exact final candidate paths: `docs/FK0957_MAINTENANCE_WINDOW_RUNBOOK.md`,
+`docs/FK0957_DEPLOYMENT_AND_RECOVERY_PACKAGE.md`,
+`docs/FK0957_MIDDLE_OPERATIONS_INTEGRATION.md`,
+`tools/phk2_host/fk0957_deployment_preflight.py`,
+`tools/phk2_host/fk0957_maintenance_controller.py`,
+`tools/phk2_host/test_fk0957_deployment_preflight.py`, and
+`tools/phk2_host/test_fk0957_maintenance_controller.py`.

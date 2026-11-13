@@ -41,6 +41,15 @@ The local remote-acquisition orchestrator validates the RGB-local
 supports the existing descriptor-oriented SSH flow. Topology acquisition is
 not yet split into an unsigned testbench record and RGB-only signing.
 
+The physical topology adapter now lives in
+`tools/phk2_host/phk2_fk0957_topology_transport.py`; local Ed25519 signing has
+been moved to the separate
+`tools/phk2_host/phk2_fk0957_topology_signing.py` module. The physical module
+does not import the RGB orchestrator or signing module and has no signing-key
+path. The current checked-in CLI still performs local acquisition followed
+by local signing; this source separation alone does not establish a remote
+unsigned acquisition endpoint.
+
 The deterministic hashes and local host-key pin observation from the earlier
 software integration are recorded in
 [`results/fk0957-topology-software-handoff.json`](../results/fk0957-topology-software-handoff.json).
