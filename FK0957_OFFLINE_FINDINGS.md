@@ -44,11 +44,11 @@ refused before the fake open.
 ### Low: direct malformed-envelope validator calls can raise
 
 Across 10,000 deterministic type mutations, `_bounded_envelope` raised
-`TypeError` 413 times for unhashable values in phase/code/state positions. Its
-only production call site currently catches exceptions and emits a generic
-internal refusal, so this did not reproduce an external traceback or leak.
-Still, the validator is not total over arbitrary JSON values and merits a
-regression test/hardening.
+`TypeError` 413 times for unhashable values in phase/code/state positions.
+Across all 9,480 noncanonical/rejected cases, the production refusal wrapper
+returned a generic internal refusal; no traceback or raw exception text
+escaped. The validator itself is not total over arbitrary JSON values and
+merits a regression test/hardening.
 
 ## Other software readiness blockers
 

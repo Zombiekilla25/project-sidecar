@@ -126,7 +126,8 @@ def publish_race(cli: Any) -> dict[str, bool]:
         }
 
 
-def malformed_type_campaign(validator: Any, seed: int = 0xF0957) -> dict[str, int]:
+def malformed_type_campaign(validator: Any, safe_refusal: Any,
+                           refusal_type: Any, seed: int = 0xF0957) -> dict[str, int]:
     import random
     rng = random.Random(seed)
     atoms = [None, True, False, -1, 0, 1, 591, 592, 586, 587, 10**100,
@@ -146,18 +147,38 @@ def malformed_type_campaign(validator: Any, seed: int = 0xF0957) -> dict[str, in
     }
     invalid_or_noncanonical = 0
     exceptions = 0
+    safe_fallbacks = 0
+    unsafe_fallbacks = 0
     for _ in range(10000):
         candidate = dict(base)
         key = rng.choice(fields)
         candidate[key] = rng.choice(atoms)
+        raw = json.dumps(candidate).encode("utf-8")
         try:
             accepted = validator(candidate)
         except Exception:
             exceptions += 1
-            continue
+            accepted = False
         invalid_or_noncanonical += int(not accepted)
+        if not accepted:
+            refusal = refusal_type("untrusted exception text must not escape")
+            refusal.canonical_envelope = lambda raw=raw: raw
+            output = safe_refusal(refusal)
+            try:
+                safe = json.loads(output)
+            except Exception:
+                unsafe_fallbacks += 1
+                continue
+            if (safe.get("phase") == "INTERNAL_REFUSAL" and
+                    safe.get("code") == "INTERNAL_REFUSAL" and
+                    b"untrusted exception text" not in output and
+                    b"UNKNOWN" not in output):
+                safe_fallbacks += 1
+            else:
+                unsafe_fallbacks += 1
     return {"generated": 10000, "rejected_or_noncanonical": invalid_or_noncanonical,
-            "validator_exceptions": exceptions}
+            "validator_exceptions": exceptions, "safe_fallbacks": safe_fallbacks,
+            "unsafe_fallbacks": unsafe_fallbacks}
 
 
 def enumeration_permutation_campaign(host: Path) -> dict[str, int]:
@@ -244,7 +265,8 @@ def main() -> int:
         "ld_preload_constructor_reproduced": ld_preload_injection(
             host / "phk2_fk0957_topology_live_cli.py"),
         "publish_race": publish_race(cli),
-        "malformed_type_campaign": malformed_type_campaign(cli._bounded_envelope),
+        "malformed_type_campaign": malformed_type_campaign(
+            cli._bounded_envelope, cli._safe_refusal, transport.Refusal),
         "malformed_internal_refusal_falls_back_safely": (
             safe_fallback.get("phase") == "INTERNAL_REFUSAL" and
             safe_fallback.get("code") == "INTERNAL_REFUSAL"),
