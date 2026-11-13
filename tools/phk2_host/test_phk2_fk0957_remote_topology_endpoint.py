@@ -159,13 +159,15 @@ class RemoteTopologyEndpointTests(unittest.TestCase):
              mock.patch.object(transport, "issue_fk0957_topology_permit",
                                side_effect=lambda *_a, **_k: events.append("permit") or SimpleNamespace(
                                    trusted_signer_fingerprint="f" * 64)), \
+             mock.patch.object(transport, "_authorize_remote_permit",
+                               side_effect=lambda *_a, **_k: events.append("release-bound")), \
              mock.patch.object(transport, "run_fk0957_topology_discovery",
                                side_effect=lambda *_: events.append("physical") or result) as run, \
              mock.patch.object(transport, "validate_transport_observation",
                                side_effect=lambda *_: events.append("validate") or parsed):
             raw = endpoint.execute_request(self.request_bytes())
         record = json.loads(raw)
-        self.assertEqual(events, ["consume", "permit", "physical", "validate"])
+        self.assertEqual(events, ["consume", "permit", "release-bound", "physical", "validate"])
         self.assertEqual(run.call_count, 1)
         self.assertEqual(record["status"], "ACQUIRED")
         self.assertNotIn("signature_hex", record)
