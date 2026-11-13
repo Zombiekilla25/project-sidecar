@@ -6,14 +6,18 @@ import argparse
 from pathlib import Path
 import subprocess
 
-
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--bootstrap-path", required=True, type=Path,
+                        help="absolute installed path of the administrator-managed bootstrap")
     args = parser.parse_args()
     source_dir = Path(__file__).resolve().parent
     source = source_dir / "fk0957_safe_launcher.c"
-    bootstrap = source_dir / "fk0957_safe_bootstrap.py"
+    bootstrap = args.bootstrap_path
+    if (not bootstrap.is_absolute() or ".." in bootstrap.parts
+            or any(ord(ch) < 0x20 or ord(ch) == 0x7f for ch in str(bootstrap))):
+        parser.error("--bootstrap-path must be an absolute path without traversal or control characters")
     output = args.output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     escaped = str(bootstrap).replace("\\", "\\\\").replace('"', '\\"')

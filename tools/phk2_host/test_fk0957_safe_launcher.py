@@ -12,6 +12,21 @@ TOOLS = ROOT / "tools" / "phk2_host"
 
 
 class SafeLauncherTests(unittest.TestCase):
+    def test_launcher_build_requires_absolute_installed_bootstrap_path(self):
+        with tempfile.TemporaryDirectory(prefix="fk0957-launcher-path-test-") as raw:
+            output = Path(raw) / "launcher"
+            for bootstrap in (
+                "relative/bootstrap.py",
+                "/usr/local/lib/sidecar/../unsafe.py",
+            ):
+                run = subprocess.run([
+                    "/usr/bin/python3", str(TOOLS / "build_fk0957_safe_launcher.py"),
+                    "--output", str(output), "--bootstrap-path", bootstrap,
+                ], check=False, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                   env={"PATH": "/usr/bin:/bin", "LANG": "C"})
+                self.assertNotEqual(run.returncode, 0)
+                self.assertFalse(output.exists())
+
     def test_prestart_runtime_hash_and_build_id_mismatches_refuse_before_python(self):
         source = (TOOLS / "fk0957_safe_launcher.c").read_text()
         python_hash = "e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f"
@@ -45,9 +60,12 @@ class SafeLauncherTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="fk0957-launcher-test-") as raw:
             root = Path(raw)
             output = root / "launcher"
+            bootstrap = root / "installed" / "fk0957_safe_bootstrap.py"
+            bootstrap.parent.mkdir(mode=0o700)
+            bootstrap.write_bytes((TOOLS / "fk0957_safe_bootstrap.py").read_bytes())
             subprocess.run([
                 "/usr/bin/python3", str(TOOLS / "build_fk0957_safe_launcher.py"),
-                "--output", str(output),
+                "--output", str(output), "--bootstrap-path", str(bootstrap),
             ], check=True, env={"PATH": "/usr/bin:/bin", "LANG": "C"})
             program_headers = subprocess.run(
                 ["/usr/bin/readelf", "-l", str(output)], check=True,

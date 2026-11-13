@@ -5,7 +5,9 @@
     "interpreter_path": "/lib64/ld-linux-x86-64.so.2",
     "package_owner": "libc6:amd64: /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
     "package_version": "2.39-0ubuntu8.12",
-    "qualification_status": "inventoried; prestart pin enforcement not implemented",
+    "prestart_checked_by_static_launcher_source": true,
+    "prestart_launcher_deployed": false,
+    "qualification_status": "prestart pin enforcement implemented in static launcher source; administrator deployment pending",
     "realpath": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
     "sha256": "5fc0940888e9d2e1a00e66d6b1a559c36364ee867683652e1074fa576952cc3f"
   },
@@ -83,10 +85,13 @@
     "hardware_access": false,
     "libc_pin_pass": true,
     "pins_changed": true,
+    "prestart_native_library_validation_deployed": false,
+    "prestart_native_library_validation_source_pass": true,
     "right_independent_requalification_received": true,
+    "static_launcher_wrong_hash_and_build_id_tests": "PASS",
     "usb_access": false
   },
   "schema": "fk0957-native-runtime-inventory-v1",
-  "status": "PIN_QUALIFIED_FOR_WIP_INTEGRATION_PRESTART_LOADER_BOUNDARY_PENDING",
+  "status": "PIN_QUALIFIED_FOR_WIP_INTEGRATION_PRESTART_VALIDATION_SOURCE_PASS_DEPLOYMENT_PENDING",
   "usb_access": false
 }

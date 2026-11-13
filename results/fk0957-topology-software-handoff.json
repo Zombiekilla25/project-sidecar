@@ -60,19 +60,22 @@
     "base_production_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
     "branch": "hardening/fk0957-production-20261113",
     "hardware_access": false,
-    "head": "adc2766f6eb3feefd7a715f177bdbb361d317d39",
-    "head_semantics": "latest code/native pin commit covered by this handoff snapshot; this snapshot itself is a follow-up documentation commit",
+    "head": "a12806f9fd4aa6b8767a274b4e3ce67a8371ac26",
+    "head_semantics": "code commit containing prestart native-runtime launcher validation; handoff snapshot follows in a documentation/artifact commit",
     "live_acquisition_performed": false,
-    "native_library_requalification": "Independently reproduced: 173/173 suites with updated libc pin; prestart loader validation still absent.",
+    "native_library_requalification": "Independently reproduced: 173/173 suites with updated libc pin; static launcher source now validates loader/runtime pins before Python startup; administrator deployment remains pending.",
     "native_runtime_prestart_validation": false,
     "native_runtime_requalification": "Independent Right result reproduced: 173/173 FK0957 tests with one libc pin update in a disposable tree; integrated WIP pin tests also pass.",
+    "prestart_native_runtime_launcher_deployed": false,
+    "prestart_native_runtime_validation_deployed": false,
+    "prestart_native_runtime_validation_source": true,
     "release_ready": false,
     "runtime_source_hashes_match": true,
     "unresolved_gates": [
-      "remote unsigned topology acquisition and RGB-only signing split",
-      "fresh permit-bound bridge ownership handoff with authenticated trusted issuer",
-      "administrator-controlled launcher deployment and prestart loader validation",
-      "authenticated complete runtime source manifest bound to clean Git state"
+      "remote unsigned topology acquisition endpoint and RGB-only topology signing path",
+      "authenticated maintenance handoff issuer plus immutable single-use release authorization",
+      "complete signed runtime/source release manifest bound to exact clean Git HEAD",
+      "administrator deployment of launcher and trusted bootstrap"
     ]
   },
   "hardening_milestone": {
@@ -97,7 +100,7 @@
   },
   "hardening_qualification": {
     "all_fk0957_test_errors": 0,
-    "all_fk0957_tests_run": 205,
+    "all_fk0957_tests_run": 207,
     "compileall": "PASS",
     "corrected_oracle_latest": "PASS: 28 valid accepted; 249572 invalid rejected; zero mismatches",
     "corrected_oracle_randomized_checks": "400 enumeration scenarios and 300 fault-order checks",
@@ -112,7 +115,7 @@
     "hardware_access": false,
     "invalid_state_accepted": 0,
     "invalid_states_tested": 249572,
-    "latest_corrected_oracle": "PASS: 28 valid accepted; 249572 invalid rejected; 0 mismatches; 5-seed full-suite repeat pending final metadata commit recheck",
+    "latest_corrected_oracle": "PASS: 28 valid accepted; 249572 invalid rejected; zero mismatches after static launcher prestart check",
     "latest_evidence_race_soak": {
       "cases": 160,
       "cases_per_seed": 8,
@@ -121,7 +124,7 @@
     },
     "latest_focused_tests_passed": 115,
     "latest_full_fk0957_test_errors": 0,
-    "latest_full_fk0957_tests_run": 205,
+    "latest_full_fk0957_tests_run": 207,
     "latest_malformed_envelope_fuzz": {
       "cases": 20000,
       "result": "PASS",
@@ -149,7 +152,7 @@
       19,
       20
     ],
-    "latest_seed_suite_cases": 4100,
+    "latest_seed_suite_cases": 4140,
     "left_operations_candidate": {
       "agent_behavior": "reimplemented with stricter descriptor-relative parent validation",
       "commit": "dfd1f3b1f4530663f0b512ca3e5e01a9c657cd53",
@@ -163,9 +166,10 @@
     "native_library_tests": "PASS: 173 tests independently reproduced on disposable production baseline; integrated full suite also passes",
     "native_pin_reproduction_tests": 173,
     "native_requalification_commit": "6e67c4496a0e9d4c82f6a5601e50fcd1c7787d67",
-    "native_runtime_inventory_status": "libc pin independently requalified and integrated on WIP branch; loader inventoried, not prestart-validated",
+    "native_runtime_inventory_status": "libc pin independently requalified and integrated on WIP branch; static source validates loader/native pins prestart, but launcher deployment is pending",
     "orchestrator_agent_socket_tests": 69,
     "orchestrator_tests_after_agent_probe": 68,
+    "prestart_native_pin_validation_source": "PASS: launcher checks five runtime objects by SHA256 and ELF build ID before Python exec; wrong hash and wrong build ID refuse; deployment absent",
     "production_importable_backend_argument_seam": "REMOVED",
     "production_main_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
     "production_main_modified": false,
@@ -175,7 +179,7 @@
     "ssh_agent_adversarial_tests": "PASS: wrong owner/type, symlink, socket inode replacement, parent directory replacement, unsafe shared parent, missing/stale; protected 0775 GNOME socket accepted under 0700 parent",
     "ssh_agent_probe": "PASS: valid agent identity response required; no identities refuse before SSH; ForwardAgent=no",
     "ssh_agent_threat_model": "Same authenticated RGB UID is trusted; other principals blocked by no-follow dirfd walk, parent inode binding, type/owner checks, and pre-SSH socket revalidation; hostile same-UID races after final pathname check are outside the trust boundary.",
-    "startup_injection_regressions": "PASS: static launcher, -I -S, hostile sitecustomize/usercustomize, PYTHONPATH/PYTHONHOME/PYTHONUSERBASE, LD_PRELOAD/LD_LIBRARY_PATH and PATH substitution",
+    "startup_injection_regressions": "PASS: hostile Python/loader environment, static launcher, and prestart runtime hash/build-ID mismatch sentinel tests",
     "test_error_reason": "The installed libc SHA256/build-id differs from the immutable approved pin; native runtime tests correctly refuse.",
     "unhashable_refusal_fields": "CANONICAL_REJECT",
     "valid_state_rejected": 0,
@@ -229,9 +233,9 @@
   "qualification_scope": "offline software integration and regression only",
   "reference_model_commit": "ea2104c55a1d4dafe6da91c6d5ac28447ec336c1",
   "runtime_source_hashes": {
-    "tools/phk2_host/build_fk0957_safe_launcher.py": "11b5cf6bf6399c9321edf311433b4d1dde53d6d72111c60f0195c89b0b62089a",
+    "tools/phk2_host/build_fk0957_safe_launcher.py": "cb6f2466a93d4071ee831443e909899421063da94d4bf0e3dfe3511f5d8773e0",
     "tools/phk2_host/fk0957_safe_bootstrap.py": "5f6aa7153431479fb6959333cb30f5873145cd509d32cb89da4bae31b3cd7e3d",
-    "tools/phk2_host/fk0957_safe_launcher.c": "4dfb65d68ed9b152ccad3d99550a15a4c311fcda7078083dd981caa739c554d5",
+    "tools/phk2_host/fk0957_safe_launcher.c": "85e70a5dd96e0329f9cc1ad780efe25b9310286054483c6dd793c5b5ba13a37c",
     "tools/phk2_host/phk2_fk0957_ephemeral_bundle.py": "a60d4bb57fea4e9441bf9a89476e286da16e12d4b9bd9cf7c7df8178a41c3438",
     "tools/phk2_host/phk2_fk0957_ephemeral_runner.py": "8e3aaf2422199072551c9be495c0335df61e3d7abaf1c4fc9f6cfd015a351813",
     "tools/phk2_host/phk2_fk0957_idcode_gate.py": "229b4d97f8b00135a9d29b646058b2c63a7e48a70458783146ac2b17b208b5c0",

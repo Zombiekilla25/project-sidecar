@@ -17,12 +17,15 @@ items are implemented and independently reviewed. No launcher binary was
 built into or installed on the production host by this offline work.
 
 The static launcher source is `tools/phk2_host/fk0957_safe_launcher.c` and
-its bootstrap is `tools/phk2_host/fk0957_safe_bootstrap.py`. The required
-build uses `tools/phk2_host/build_fk0957_safe_launcher.py`; deployment must
-place the resulting binary and bootstrap under an administrator-controlled,
-non-writable path. Tests compile an isolated temporary launcher and verify
-that Python startup hooks and loader environment variables do not affect the
-child interpreter. This does not authorize hardware access.
+its bootstrap is `tools/phk2_host/fk0957_safe_bootstrap.py`. The build requires
+an explicit absolute bootstrap path; it never embeds a checkout or detached
+worktree path. An administrator deployment builds the launcher with
+`--bootstrap-path /usr/local/lib/sidecar/fk0957/fk0957_safe_bootstrap.py`
+after placing the reviewed bootstrap there, then installs the launcher and
+bootstrap under a root-owned, non-writable directory. Offline tests use a
+temporary installed-path fixture and verify environment sanitization plus
+prestart runtime pin refusal. The launcher has not been deployed on the
+production host; this does not authorize hardware access.
 
 The launcher has not been installed or protected on the production host. Until
 an administrator deploys it at a reviewed absolute path, direct Python

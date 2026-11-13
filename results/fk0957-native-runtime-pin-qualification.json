@@ -1,7 +1,7 @@
 {
   "change": {
     "component": "libc",
-    "loader_pin_policy": "loader inventoried separately; Python application pin enforcement does not occur before interpreter startup; no PRESTART validation claim",
+    "loader_pin_policy": "static launcher source validates loader and native runtime pins before Python startup; administrator deployment is still required for the boundary to be active",
     "new_pin": {
       "build_id": "8cebda42d140fc2b09639f8b13a5d5f2e617ef09",
       "sha256": "755a371e86cc9f564ab54f66140747700fb0a103f698f659f2060f707897e09a"
@@ -39,6 +39,7 @@
     "usb_enumeration_called": false
   },
   "integrated_hardening_validation": {
+    "candidate_code_commit": "a12806f9fd4aa6b8767a274b4e3ce67a8371ac26",
     "corrected_oracle": {
       "commit": "ea2104c55a1d4dafe6da91c6d5ac28447ec336c1",
       "invalid_accepted": 0,
@@ -48,18 +49,33 @@
     },
     "deterministic_hash_seeds": [
       1,
+      2,
+      3,
+      4,
+      5,
+      6,
       7,
+      8,
+      9,
+      10,
+      11,
+      12,
       13,
+      14,
+      15,
+      16,
+      17,
+      18,
       19,
-      23
+      20
     ],
-    "full_fk0957_tests": 205,
-    "full_suite_runs_per_seed": 204
+    "full_fk0957_tests_per_seed": 207,
+    "full_suite_case_runs": 4140
   },
   "limitations": [
     "The exact .deb archive was not cached, so its bytes were not independently rehashed; signed Packages index, dpkg package records, dpkg verification, and installed ELF hashes/build IDs agree.",
-    "The dynamic loader was inventoried, but this candidate does not pin/check it before Python startup.",
-    "This is runtime qualification evidence only; not administrator deployment or live authorization."
+    "The launcher source performs prestart native runtime validation, but no administrator-owned launcher has been deployed, so the check is not yet the active host entrypoint.",
+    "This qualification does not implement remote unsigned topology acquisition, authenticated handoff/release authorization, or a complete authenticated runtime manifest."
   ],
   "network_access": false,
   "package_provenance": {
@@ -78,6 +94,30 @@
       "noble-updates": "Good signature, Ubuntu archive key F6ECB3762474EDA9D21B7022871920D1991BC93C"
     },
     "signed_packages_index_sha256_match": true
+  },
+  "prestart_launcher": {
+    "administrator_deployed": false,
+    "checked_objects": [
+      "python3.12",
+      "ld-linux-x86-64.so.2",
+      "libc.so.6",
+      "libftdi1.so.2.5.0",
+      "libusb-1.0.so.0.4.0"
+    ],
+    "checks": [
+      "absolute canonical path",
+      "O_NOFOLLOW",
+      "root owner",
+      "regular file",
+      "single link",
+      "safe mode",
+      "SHA256",
+      "ELF GNU build ID",
+      "post-read inode/size/mtime stability"
+    ],
+    "runtime_preflight_implemented_in_static_source": true,
+    "wrong_build_id_refusal_test": true,
+    "wrong_hash_refusal_test": true
   },
   "production_main_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
   "runtime": {
