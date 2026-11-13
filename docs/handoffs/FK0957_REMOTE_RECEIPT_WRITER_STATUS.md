@@ -1,46 +1,33 @@
-# FK0957 remote receipt writer status
+# FK0957 remote process status and receipt authority
 
-The WIP hardening branch now contains a local filesystem receipt-store helper
-and regression tests for atomic one-shot state transitions. The helper is not
-yet called by the installed remote acquisition endpoint, and there is no
-installed, separately supervised status-query command. It is therefore a
-protocol implementation component, not proof that remote cleanup is ready.
+This document supersedes the earlier same-UID receipt-store proposal. The
+legacy `ReceiptStore` and cleanup-protocol modules are not authoritative: they
+cannot prove child exit, their terminal-state claims are not restorable, and
+the former `launch_closed` caller assertion has been removed. A caller-written
+receipt or missing PID must never authorize shared USB ownership restoration.
 
-The helper deliberately does not treat an absent `/proc/<pid>` entry as proof
-that the remote operation is safe to restore: absence alone cannot establish
-that launch is closed, rule out a delayed child, or determine the endpoint exit
-class. A terminal receipt is restorable only when a caller with independent
-launcher/supervisor knowledge explicitly reports `launch_closed=true`, and
-the exact recorded process identity is no longer present. `launch_closed`
-defaults to false. SSH exit status 255 always remains unknown.
+The hardening source package now contains a root-service supervisor, a narrow
+Unix-socket client protocol, a systemd unit, a fixed root-owned state layout,
+and dry-run/verification tooling. The supervisor derives terminal state from
+the child it launched and successfully waited for. It records process identity
+including the post-exec Python executable and argv identity; PID absence by
+itself is not exit proof. A supervisor restart cannot reconstruct a `wait()`
+result, so in-flight journal entries become `UNKNOWN`. Unknown state blocks
+automatic restore. The client rejects untrusted lifecycle fields and accepts
+only a supervisor response with the expected operation, executable identity,
+and reaped terminal result.
 
-Process inspection is tri-state: only an actual `ENOENT` is represented as an
-absent process; permission, I/O, decoding, and malformed `/proc` results become
-`STATUS_INSPECTION_FAILED`. That state, transport failure (including SSH 255),
-`UNKNOWN`, and PID identity mismatch are all non-restorable. The protocol
-exposes distinct confirmed terminal statuses (`CONFIRMED_NOT_STARTED` and
-`CONFIRMED_EXITED_*`) and `CONFIRMED_RUNNING` so callers cannot treat a query
-failure as a process result.
+These are source/package properties, not deployment claims. The supervisor
+has not been installed or started with privileges, the service account and
+protected directories have not been provisioned, and the release/handoff
+trust roots remain unconfigured. Consequently remote cleanup is not enabled
+for a live operation. Until an administrator installs and verifies the
+package and approved trust roots are provisioned, any lost or ambiguous SSH
+session remains `REMOTE_STATE_UNKNOWN`; do not restore shared ownership
+automatically.
 
-The receipt directory must be private to the dedicated remote acquisition
-account. A process with that same account can otherwise forge its own local
-receipt. The current helper has no root-owned supervisor, receipt signing key,
-or remote status command, so it cannot establish authenticity against a
-compromised acquisition account. No shared USB ownership restoration is
-authorized by this helper alone.
-
-The status-store update still has a destination-entry race against a
-concurrent process running as the same acquisition UID: a replacement after
-the last inode/content check can be overwritten by the atomic rename. The
-private directory and dirfd handling protect against other UIDs and parent
-path substitution, but they cannot isolate files from the directory owner.
-Accordingly `RECEIPT_REPLACEMENT_RACE_POSSIBLE=YES` until a root-owned
-supervisor/service owns the receipt directory and performs conditional state
-transitions. Do not use this prototype to authorize restoration.
-
-Before remote cleanup can be marked ready, a separately provisioned endpoint
-must atomically claim the signed one-shot authorization, write RUNNING before
-device access, record its terminal state, and be supervised so a fresh
-challenge-bound status query can prove launch closure and process exit. Failure
-to obtain that proof must remain `REMOTE_STATE_UNKNOWN` and require manual
-recovery.
+The `fk0957_remote_receipts` and `fk0957_remote_cleanup_protocol` modules are
+retained only as quarantined legacy compatibility code and regression
+fixtures. They cannot authorize restoration. The supported status authority
+is the protected supervisor IPC path; it must be installed and independently
+verified before operational use.
