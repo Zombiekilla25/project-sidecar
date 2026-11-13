@@ -1,7 +1,7 @@
 {
   "audit_artifact_sha256": {
-    "qualification/fk0957/README.md": "31ffdc0a1c14262492cb95ce1bb4e907ec5814e63870f692a82a02e0a56b4ddb",
-    "qualification/fk0957/build_release_manifest.py": "a5f66303f88385b393d1b13024c0a0f135f2ea6baf026e2118b167e836d75683",
+    "qualification/fk0957/README.md": "749268abcbfd6f5c0bae0c518af3a122d537814db1beb0e0cb7837f3cfe69d88",
+    "qualification/fk0957/build_release_manifest.py": "69fa7786f4633e289084bf34a54a101c78cc4e07f98bd1bd2583c3ab755c55ab",
     "tests/reference/fk0957_corrected_oracle_audit.py": "17e81c6b692454ad188c62604d1824f06a09edebf364396b702162e2cd66617b",
     "tests/reference/fk0957_topology_state_model.py": "ce40d94e9d0ca01f9ab08357886f1aa91debb3759816a4e3711d921ff4ed4e92",
     "tests/reference/test_fk0957_topology_state_model.py": "eeed0740105707130be18bbc3b7392f73b92d5076e5ea3265e704944800feb03",
@@ -32,8 +32,10 @@
     "hardlink_count": 1,
     "mode_octal": "0600",
     "path": "/home/rmann/.local/share/sidecar/ssh/fk0957-testbench-known_hosts",
-    "scope": "local bytes and fingerprint only; no SSH or network; not used by local topology CLI",
-    "sha256": "20770a7196fc873644cc4b3abd42b68a84b8b96ea06bcd95986e53f95d9e14b6"
+    "scope": "local file metadata and fingerprint only; no SSH or network access; not consumed by the local topology CLI; not used by local topology CLI",
+    "sha256": "20770a7196fc873644cc4b3abd42b68a84b8b96ea06bcd95986e53f95d9e14b6",
+    "source_manifest": "results/fk0957-topology-software-handoff.json",
+    "source_manifest_sha256": "e10a84ebcdff29fe38a4ee50626228b27c02bc7c6cbf8bcaab7e11091cd0664c"
   },
   "independent_inputs": {
     "audit_harness_commit": "c7c1f7fd015149c3ce60a1401bb50682153b8c48",

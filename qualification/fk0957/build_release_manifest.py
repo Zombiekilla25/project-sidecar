@@ -3,13 +3,10 @@
 from __future__ import annotations
 
 import ast
-import base64
 import hashlib
 import json
-import os
 from pathlib import Path
 import re
-import stat
 import subprocess
 import sys
 
@@ -19,7 +16,6 @@ PRODUCTION_HEAD = "3226bfc1474d6afa873fce7327ded6dac548baae"
 ORACLE_COMMIT = "ea2104c55a1d4dafe6da91c6d5ac28447ec336c1"
 AUDIT_HARNESS_COMMIT = "c7c1f7fd015149c3ce60a1401bb50682153b8c48"
 MAINTENANCE_CONTROLLER_REFERENCE = "14258638f283576f8017ce284c44ef925b9374d6"
-KNOWN_HOSTS = Path("/home/rmann/.local/share/sidecar/ssh/fk0957-testbench-known_hosts")
 OUT = ROOT / "qualification/fk0957/RELEASE_CANDIDATE_MANIFEST.json"
 
 PRODUCTION_PATHS = (
@@ -116,24 +112,20 @@ def library_pins(values: dict[str, ast.AST]) -> list[dict[str, object]]:
 
 
 def known_hosts_pin() -> dict[str, object]:
-    raw = KNOWN_HOSTS.read_bytes()
-    info = KNOWN_HOSTS.stat(follow_symlinks=False)
-    if (not stat.S_ISREG(info.st_mode) or (info.st_mode & 0o777) != 0o600 or
-            info.st_nlink != 1 or info.st_uid != os.geteuid()):
-        raise ValueError("dedicated known_hosts file permissions or ownership rejected")
-    lines = [line for line in raw.splitlines() if line and not line.startswith(b"#")]
-    if len(lines) != 1:
-        raise ValueError("dedicated known_hosts pin must contain exactly one key line")
-    fields = lines[0].split()
-    if len(fields) != 3 or fields[1] != b"ssh-ed25519":
-        raise ValueError("dedicated known_hosts line has unexpected fields")
-    key = base64.b64decode(fields[2], validate=True)
-    fingerprint = "SHA256:" + base64.b64encode(hashlib.sha256(key).digest()).decode().rstrip("=")
+    source = Path("results/fk0957-topology-software-handoff.json")
+    source_bytes = (ROOT / source).read_bytes()
+    sidecar = (ROOT / (str(source) + ".sha256")).read_text().split()
+    if len(sidecar) != 2 or sidecar[0] != sha256(source_bytes) or sidecar[1] != str(source):
+        raise ValueError("tracked FK0957 host-pin provenance manifest checksum rejected")
+    provenance = json.loads(source_bytes)["testbench_host_key_pin_observation"]
     return {
-        "path": str(KNOWN_HOSTS), "mode_octal": format(info.st_mode & 0o777, "04o"),
-        "hardlink_count": info.st_nlink, "sha256": sha256(raw),
-        "ed25519_fingerprint": fingerprint,
-        "scope": "local bytes and fingerprint only; no SSH or network; not used by local topology CLI",
+        "path": provenance["source_path"], "mode_octal": provenance["mode"],
+        "hardlink_count": provenance["hardlink_count"],
+        "sha256": provenance["known_hosts_sha256"],
+        "ed25519_fingerprint": provenance["ed25519_fingerprint"],
+        "source_manifest": str(source),
+        "source_manifest_sha256": sha256(source_bytes),
+        "scope": provenance["verification_scope"] + "; not used by local topology CLI",
     }
 
 

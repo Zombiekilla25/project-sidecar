@@ -52,6 +52,9 @@ uses a coarse scan-active name and is not used for this corrected comparison.
   tests load the approved shared-library objects and bind function prototypes,
   but never call libftdi/libusb discovery or open functions. There is no device
   handle, USB transaction, or JTAG clock in this qualification.
+- Host-key provenance is taken from the checksum-verified tracked handoff
+  manifest. Rebuilding this release manifest does not require the operator's
+  home directory or access to the local known-hosts file.
 
 ## Runtime dependency inventory
 
