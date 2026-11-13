@@ -88,3 +88,12 @@ tree check. The topology record therefore does not bind the CLI validation,
 signing orchestration, and publish code to its transport hash. The operator
 can perform a manual HEAD review, but the documented invocation does not
 enforce that precondition.
+
+The production transport also retains `_run_with_backend(permit, backend)`,
+which accepts an arbitrary backend object. The committed transport tests use
+that seam with `FakeBackend`, then call `sign_local_discovery_record` and
+verify a signed topology record. The normal CLI does not call this helper, but
+it remains importable and callable in production Python; a caller can bypass
+the native-device path and produce a signed record from synthetic backend
+bytes. Move this seam to test-only code or otherwise make the production
+signing path accept observations only from the native adapter.

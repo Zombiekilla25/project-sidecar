@@ -245,6 +245,8 @@ def main() -> int:
     import phk2_fk0957_topology_live_cli as cli
     import phk2_fk0957_topology_discovery as topology
     import phk2_fk0957_topology_transport as transport
+    transport_source = (host / "phk2_fk0957_topology_transport.py").read_text(encoding="utf-8")
+    cli_source = (host / "phk2_fk0957_topology_live_cli.py").read_text(encoding="utf-8")
 
     plan = topology.build_plan()
     malformed = transport.Refusal("must not leak")
@@ -271,6 +273,16 @@ def main() -> int:
             safe_fallback.get("phase") == "INTERNAL_REFUSAL" and
             safe_fallback.get("code") == "INTERNAL_REFUSAL"),
         "enumeration_permutations": enumeration_permutation_campaign(host),
+        "caller_supplied_backend_seam_present": (
+            callable(getattr(transport, "_run_with_backend", None)) and
+            tuple(inspect.signature(transport._run_with_backend).parameters) ==
+            ("permit", "backend")),
+        "cli_calls_only_reviewed_transport_entry": (
+            "perform_fk0957_topology_discovery_once" in cli_source and
+            "_run_with_backend" not in cli_source),
+        "transport_hash_omits_cli_source": (
+            "phk2_fk0957_topology_live_cli.py" not in transport_source and
+            "Path(__file__).resolve()" in transport_source),
         "transactions": {
             "scan_a_tck_count": plan.scan_a_tck_count,
             "scan_b_tck_count": plan.scan_b_tck_count,
