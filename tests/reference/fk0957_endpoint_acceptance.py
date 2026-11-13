@@ -154,7 +154,7 @@ def run(candidate: Path) -> dict:
           first_raw=ep.execute_request(ep.canonical(request)); first_status=json.loads(first_raw)['status']
         except ep.Refusal as e: first_status=e.code
         try: ep.execute_request(ep.canonical(request))
-        except ep.Refusal as e: second_status=e.code
+        except (ep.Refusal, tr.Refusal) as e: second_status=getattr(e, 'code', type(e).__name__)
         outcomes['endpoint_full_request_replay']={'first':first_status,'second':second_status,
             'physical_transport_calls':physical.call_count}
     # O_EXCL durable ledger replay, using an isolated temp directory.
