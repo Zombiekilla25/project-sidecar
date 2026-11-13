@@ -73,6 +73,25 @@ def signed_fake_record(signer):
     }, fingerprint
 
 
+def refusal_progress(phase):
+    values = dict(target_candidates="unknown", device_opened=0,
+                  scan_a_started=0, scan_a_tck_emitted=0,
+                  scan_b_started=0, scan_b_tck_emitted=0,
+                  transport_closed=0, permit_consumed=1)
+    if phase in {"MPSSE_INIT", "SCAN_A_WRITE", "SCAN_A_READ", "SCAN_B_WRITE",
+                 "SCAN_B_READ", "TRANSPORT_CLOSE", "LOCAL_VALIDATION", "LOCAL_SIGNING"}:
+        values["device_opened"] = 1
+    if phase in {"SCAN_A_WRITE", "SCAN_A_READ", "SCAN_B_WRITE", "SCAN_B_READ",
+                 "TRANSPORT_CLOSE", "LOCAL_VALIDATION", "LOCAL_SIGNING"}:
+        values["scan_a_started"] = 1
+    if phase in {"SCAN_B_WRITE", "SCAN_B_READ", "LOCAL_VALIDATION", "LOCAL_SIGNING"}:
+        values["scan_a_tck_emitted"] = 591
+        values["scan_b_started"] = 1
+    if phase in {"LOCAL_VALIDATION", "LOCAL_SIGNING"}:
+        values.update(scan_b_tck_emitted=586, transport_closed=1)
+    return values
+
+
 class LiveCliTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -88,8 +107,8 @@ class LiveCliTests(unittest.TestCase):
         phases = sorted(transport.REFUSAL_PHASES)
         for phase in phases:
             expected_code = transport._DEFAULT_REFUSAL_CODE.get(phase, "INTERNAL_REFUSAL")
-            envelope = transport.RefusalEnvelope(
-                phase, expected_code, -7, "unknown", 0, 0, 0, 0, 0, 1, 1)
+            envelope = transport.RefusalEnvelope(phase, expected_code, -7,
+                                                 **refusal_progress(phase))
             refusal = transport.Refusal("must never be printed secret=/private/key", envelope=envelope)
             with self.subTest(phase=phase), \
                  mock.patch.object(transport, "perform_fk0957_topology_discovery_once",
@@ -138,6 +157,40 @@ class LiveCliTests(unittest.TestCase):
         self.assertEqual(summary["evidence_sha256"], hashlib.sha256(self.output.read_bytes()).hexdigest())
         self.assertEqual((summary["write_count"], summary["reset_count"],
                           summary["program_count"]), (0, 0, 0))
+        self.assertEqual({path.name for path in self.root.iterdir()}, {"descriptor.json", "topology.json"})
+        self.assertEqual(self.output.stat().st_mode & 0o777, 0o600)
+
+    def test_summary_validation_failure_happens_before_evidence_publish(self):
+        signer = Ed25519PrivateKey.generate()
+        document, fingerprint = signed_fake_record(signer)
+        with mock.patch.object(identity_gate, "TRUSTED_SIGNER_FINGERPRINT_SHA256", fingerprint), \
+             mock.patch.object(identity_gate, "_trusted_signer", return_value=signer.public_key()), \
+             mock.patch.object(transport, "perform_fk0957_topology_discovery_once",
+                               return_value=document), \
+             mock.patch.object(cli, "_success_summary", side_effect=ValueError("bad final summary")):
+            with captured_main(["--descriptor-evidence", str(self.descriptor),
+                                "--output", str(self.output)]) as (rc, output):
+                self.assertEqual(rc, 2)
+        refused = json.loads(output)
+        self.assertEqual((refused["status"], refused["phase"], refused["code"]),
+                         ("REFUSED", "LOCAL_VALIDATION", "LOCAL_VALIDATION_FAILED"))
+        self.assertFalse(self.output.exists())
+        self.assertEqual({path.name for path in self.root.iterdir()}, {"descriptor.json"})
+
+    def test_atomic_publish_failure_removes_private_staging_artifacts(self):
+        signer = Ed25519PrivateKey.generate()
+        document, fingerprint = signed_fake_record(signer)
+        with mock.patch.object(identity_gate, "TRUSTED_SIGNER_FINGERPRINT_SHA256", fingerprint), \
+             mock.patch.object(identity_gate, "_trusted_signer", return_value=signer.public_key()), \
+             mock.patch.object(transport, "perform_fk0957_topology_discovery_once",
+                               return_value=document), \
+             mock.patch.object(cli.os, "replace", side_effect=OSError("publish failed")):
+            with captured_main(["--descriptor-evidence", str(self.descriptor),
+                                "--output", str(self.output)]) as (rc, output):
+                self.assertEqual(rc, 2)
+        self.assertEqual(json.loads(output)["status"], "REFUSED")
+        self.assertFalse(self.output.exists())
+        self.assertEqual({path.name for path in self.root.iterdir()}, {"descriptor.json"})
 
     def test_argument_surface_rejects_transport_controls(self):
         with captured_main(["--descriptor-evidence", str(self.descriptor),
@@ -187,6 +240,38 @@ class LiveCliTests(unittest.TestCase):
         self.assertEqual(value["device_opened"], 0)
         self.assertEqual(value["scan_a_started"], 0)
         self.assertNotIn(b"secret", output)
+
+    def test_phase_counter_state_machine_rejects_impossible_progress(self):
+        cases = (
+            ("PRELIVE_VALIDATION", dict(device_opened=1)),
+            ("PRELIVE_VALIDATION", dict(scan_a_started=1)),
+            ("DEVICE_ENUMERATION", dict(device_opened=1)),
+            ("DEVICE_OPEN", dict(scan_a_started=1)),
+            ("SCAN_A_WRITE", dict(scan_b_started=1)),
+            ("SCAN_A_READ", dict(scan_b_started=1)),
+            ("SCAN_B_WRITE", dict(scan_a_tck_emitted=590, scan_b_started=1)),
+            ("LOCAL_VALIDATION", dict(scan_b_tck_emitted=585)),
+            ("LOCAL_SIGNING", dict(transport_closed=0)),
+            ("SCAN_A_WRITE", dict(scan_a_tck_emitted=592)),
+            ("SCAN_B_READ", dict(scan_b_tck_emitted=587)),
+        )
+        for phase, changes in cases:
+            values = refusal_progress(phase)
+            values.update(changes)
+            envelope = transport.RefusalEnvelope(
+                phase, transport._DEFAULT_REFUSAL_CODE.get(phase, "INTERNAL_REFUSAL"),
+                None, **values)
+            with self.subTest(phase=phase, changes=changes):
+                self.assertFalse(cli._bounded_envelope(envelope.as_dict()))
+
+    def test_valid_progress_state_is_accepted_for_each_refusal_phase(self):
+        for phase in transport.REFUSAL_PHASES:
+            values = refusal_progress(phase)
+            envelope = transport.RefusalEnvelope(
+                phase, transport._DEFAULT_REFUSAL_CODE.get(phase, "INTERNAL_REFUSAL"),
+                None, **values)
+            with self.subTest(phase=phase):
+                self.assertTrue(cli._bounded_envelope(envelope.as_dict()))
 
 
 if __name__ == "__main__":
