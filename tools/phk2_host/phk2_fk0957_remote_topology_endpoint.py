@@ -65,6 +65,7 @@ RELEASE_SOURCE_PATHS = {
     "tools/phk2_host/fk0957_safe_launcher.c",
     "tools/phk2_host/fk0957_safe_bootstrap.py",
     "tools/phk2_host/phk2_fk0957_remote_orchestrator.py",
+    "tools/phk2_host/phk2_fk0957_identity_observer.py",
     "tools/phk2_host/phk2_fk0957_remote_topology_endpoint.py",
     "tools/phk2_host/phk2_fk0957_topology_transport.py",
     "tools/phk2_host/phk2_fk0957_topology_discovery.py",

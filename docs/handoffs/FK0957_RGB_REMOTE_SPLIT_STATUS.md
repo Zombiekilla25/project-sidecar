@@ -43,10 +43,13 @@ deployment inputs and integration work exist:
   and handoff issuer public-key pin file and corresponding administrator-held
   issuer keys have not been provisioned. The endpoint therefore refuses before
   transport open.
-* The signed manifest currently checks the remote endpoint, transport,
-  discovery, and identity-gate source subset. It is not yet the complete
-  authenticated cross-host release manifest covering RGB launcher, CLI,
-  signer, configuration, and all runtime sources.
+* The runtime-manifest payload builder now enumerates the RGB launcher,
+  bootstrap, SSH policy, both CLIs, RGB orchestrator/signer, remote endpoint,
+  transport, observer/identity gate, and discovery source hashes, plus native
+  runtime pins and the fixed transaction profile. The RGB checkout verifies
+  the full source set; a checkout-free testbench bundle verifies its deployed
+  source subset against the same signed manifest. However, the trust-file pin
+  is still empty, so no issuer-signed manifest is accepted in production.
 * The reviewed maintenance authority has not been integrated as a trusted
   handoff issuer. Caller-supplied bridge state is not an authority.
 * There is no remote supervisor/status protocol that proves the acquisition
@@ -54,6 +57,10 @@ deployment inputs and integration work exist:
   recovery; it cannot automatically restore shared USB ownership.
 * The administrator-owned static launcher and protected `/etc` and `/var/lib`
   layouts still require deployment on the RGB and testbench hosts.
+* Before Python starts, the static launcher pins the interpreter, loader,
+  native libraries, and bootstrap bytes. It does not yet pin every imported
+  application module before Python imports them; administrator-owned immutable
+  install paths and a pre-start full-source-manifest check remain required.
 * The production paths are not installed in this environment: the issuer trust
   file, authorization ledger, endpoint executable, and RGB launcher are all
   absent. The authenticated endpoint cannot be used until these protected
