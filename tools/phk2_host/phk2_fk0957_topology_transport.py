@@ -91,7 +91,168 @@ _SIGNED_PERMITS: set[object] = set()
 
 
 class Refusal(ValueError):
-    pass
+    def __init__(self, message: str = "topology operation refused", *, envelope: "RefusalEnvelope | None" = None):
+        super().__init__(message)
+        self.envelope = envelope
+
+    def canonical_envelope(self) -> bytes:
+        if self.envelope is None:
+            raise ValueError("refusal has no internally generated diagnostic envelope")
+        return orchestrator.canonical(self.envelope.as_dict())
+
+
+REFUSAL_PHASES = frozenset({
+    "PRELIVE_VALIDATION", "PERMIT_VALIDATION", "LIBRARY_PROVENANCE",
+    "FTDI_CONTEXT_CREATE", "REMOTE_BOOTSTRAP", "DEVICE_ENUMERATION",
+    "DEVICE_SELECTION", "DEVICE_OPEN", "MPSSE_INIT", "SCAN_A_WRITE",
+    "SCAN_A_READ", "SCAN_B_WRITE", "SCAN_B_READ", "TRANSPORT_CLOSE",
+    "LOCAL_VALIDATION", "LOCAL_SIGNING", "INTERNAL_REFUSAL",
+})
+REFUSAL_CODES = frozenset({
+    "TRANSACTION_PIN_MISMATCH", "PERMIT_INVALID", "DESCRIPTOR_STALE",
+    "LIBRARY_PIN_MISMATCH", "FTDI_CONTEXT_FAILED", "REMOTE_BOOTSTRAP_FAILED",
+    "ENUMERATION_FAILED", "NO_TARGET_CANDIDATE", "MULTIPLE_TARGET_CANDIDATES",
+    "CANDIDATE_IDENTITY_MISMATCH", "DEVICE_OPEN_FAILED", "MPSSE_INIT_FAILED",
+    "SCAN_A_WRITE_FAILED", "SCAN_A_READ_FAILED", "SCAN_B_WRITE_FAILED",
+    "SCAN_B_READ_FAILED", "TRANSPORT_CLOSE_FAILED", "LOCAL_VALIDATION_FAILED",
+    "LOCAL_SIGNING_FAILED", "INTERNAL_REFUSAL",
+})
+
+
+@dataclass(frozen=True)
+class RefusalEnvelope:
+    phase: str
+    code: str
+    return_code: int | None
+    target_candidates: int | str
+    device_opened: int | str
+    scan_a_started: int
+    scan_a_tck_emitted: int
+    scan_b_started: int
+    scan_b_tck_emitted: int
+    transport_closed: int
+    permit_consumed: int | str
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "status": "REFUSED", "phase": self.phase, "code": self.code,
+            "evidence_path": "none", "signature_verified": False,
+            "return_code": self.return_code, "target_candidates": self.target_candidates,
+            "device_opened": self.device_opened, "scan_a_started": self.scan_a_started,
+            "scan_a_tck_emitted": self.scan_a_tck_emitted,
+            "scan_b_started": self.scan_b_started,
+            "scan_b_tck_emitted": self.scan_b_tck_emitted,
+            "transport_closed": self.transport_closed,
+            "permit_consumed": self.permit_consumed,
+        }
+
+
+class _AttemptTrace:
+    def __init__(self):
+        self.phase = "PRELIVE_VALIDATION"
+        self.return_code = None
+        self.target_candidates: int | str = "unknown"
+        self.device_opened: int | str = 0
+        self.scan_a_started = 0
+        self.scan_a_tck_emitted = 0
+        self.scan_b_started = 0
+        self.scan_b_tck_emitted = 0
+        self.transport_closed = 0
+        self.permit_consumed: int | str = "unknown"
+        self.code_override: str | None = None
+
+    def refuse(self, *, code: str | None = None, phase: str | None = None) -> Refusal:
+        selected_phase = phase or self.phase
+        selected_code = code or self.code_override or _DEFAULT_REFUSAL_CODE.get(
+            selected_phase, "INTERNAL_REFUSAL")
+        if selected_phase not in REFUSAL_PHASES or selected_code not in REFUSAL_CODES:
+            selected_phase, selected_code = "INTERNAL_REFUSAL", "INTERNAL_REFUSAL"
+        return Refusal(envelope=RefusalEnvelope(
+            selected_phase, selected_code, _bounded_return_code(self.return_code),
+            _bounded_count(self.target_candidates), self.device_opened,
+            self.scan_a_started, _bounded_count(self.scan_a_tck_emitted),
+            self.scan_b_started, _bounded_count(self.scan_b_tck_emitted),
+            self.transport_closed, self.permit_consumed))
+
+
+_DEFAULT_REFUSAL_CODE = {
+    "PRELIVE_VALIDATION": "TRANSACTION_PIN_MISMATCH",
+    "PERMIT_VALIDATION": "PERMIT_INVALID",
+    "LIBRARY_PROVENANCE": "LIBRARY_PIN_MISMATCH",
+    "FTDI_CONTEXT_CREATE": "FTDI_CONTEXT_FAILED",
+    "REMOTE_BOOTSTRAP": "REMOTE_BOOTSTRAP_FAILED",
+    "DEVICE_ENUMERATION": "ENUMERATION_FAILED",
+    "DEVICE_SELECTION": "CANDIDATE_IDENTITY_MISMATCH",
+    "DEVICE_OPEN": "DEVICE_OPEN_FAILED",
+    "MPSSE_INIT": "MPSSE_INIT_FAILED",
+    "SCAN_A_WRITE": "SCAN_A_WRITE_FAILED",
+    "SCAN_A_READ": "SCAN_A_READ_FAILED",
+    "SCAN_B_WRITE": "SCAN_B_WRITE_FAILED",
+    "SCAN_B_READ": "SCAN_B_READ_FAILED",
+    "TRANSPORT_CLOSE": "TRANSPORT_CLOSE_FAILED",
+    "LOCAL_VALIDATION": "LOCAL_VALIDATION_FAILED",
+    "LOCAL_SIGNING": "LOCAL_SIGNING_FAILED",
+    "INTERNAL_REFUSAL": "INTERNAL_REFUSAL",
+}
+
+
+def _bounded_count(value: Any) -> int | str:
+    if value == "unknown":
+        return "unknown"
+    if type(value) is int and 0 <= value <= 1177:
+        return value
+    return "unknown"
+
+
+def _bounded_return_code(value: Any) -> int | None:
+    return value if type(value) is int and -255 <= value <= 255 else None
+
+
+def _mpsse_tcks_in_prefix(command: bytes, sent: int) -> int:
+    if not command:
+        return 0
+    opcode = command[0]
+    if opcode in (0x4B, 0x6B):
+        return ((command[1] & 0x07) + 1) if len(command) >= 3 and sent >= 3 else 0
+    if opcode == 0x39 and len(command) >= 3:
+        declared = ((command[2] << 8) | command[1]) + 1
+        return min(declared, max(0, sent - 3)) * 8
+    if opcode == 0x3B and len(command) >= 3:
+        return ((command[1] & 0x07) + 1) if sent >= len(command) else 0
+    return 0
+
+
+def _diagnostic_refusal(exc: BaseException, trace: _AttemptTrace,
+                        *, code: str | None = None, phase: str | None = None) -> Refusal:
+    if isinstance(exc, Refusal) and exc.envelope is not None:
+        return exc
+    return trace.refuse(code=code, phase=phase)
+
+
+def _permit_consumption_state(permit: Any) -> int | str:
+    if not isinstance(permit, topology.DiscoveryPermit):
+        return "unknown"
+    with topology._PERMIT_LOCK:
+        if permit._token in topology._CONSUMED:
+            return 1
+        if permit._token in topology._ACTIVE:
+            return 0
+    return "unknown"
+
+
+def _trace_from_sealed_result(trace: _AttemptTrace, result: Any) -> None:
+    if not isinstance(result, TransportObservation):
+        return
+    with _RESULT_LOCK:
+        expected = _SEALED_RESULTS.get(result._proof)
+    if expected is None or expected != hashlib.sha256(_observation_payload(result)).hexdigest():
+        return
+    trace.device_opened = 1
+    trace.scan_a_started = 1
+    trace.scan_b_started = 1
+    trace.scan_a_tck_emitted = min(result.scan_a_tck_count, EXPECTED_SCAN_A_TCK)
+    trace.scan_b_tck_emitted = min(result.scan_b_tck_count, EXPECTED_SCAN_B_TCK)
+    trace.transport_closed = 1
 
 
 class _FtdiDeviceList(ctypes.Structure):
@@ -432,12 +593,17 @@ def _identity_from_sysfs(path_text: str, descriptor: _UsbDeviceDescriptor) -> to
 
 class _NativeLibFtdi:
     """libftdi wrapper that enumerates without string-opening candidates."""
-    def __init__(self):
+    def __init__(self, trace: _AttemptTrace | None = None):
+        self._trace = trace
+        if self._trace is not None:
+            self._trace.phase = "LIBRARY_PROVENANCE"
         self._runtime = _load_approved_runtime()
         self._usb = self._runtime["libusb"].handle
         self._ftdi = self._runtime["libftdi"].handle
         try:
             self._bind_functions()
+            if self._trace is not None:
+                self._trace.phase = "FTDI_CONTEXT_CREATE"
             self._ctx = self._ftdi.ftdi_new()
             if not self._ctx:
                 raise Refusal("libftdi context allocation failed")
@@ -495,8 +661,19 @@ class _NativeLibFtdi:
         u.libusb_get_port_numbers.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint8), ctypes.c_int]
 
     def enumerate_candidates(self) -> tuple[topology.Candidate, ...]:
+        trace = getattr(self, "_trace", None)
+        if trace is not None:
+            trace.phase = "DEVICE_ENUMERATION"
         count = self._ftdi.ftdi_usb_find_all(self._ctx, ctypes.byref(self._list), FTDI_VID, FTDI_PID)
+        if trace is not None:
+            trace.target_candidates = max(0, min(int(count), 256)) if count >= 0 else "unknown"
+            if count == 0:
+                trace.code_override = "NO_TARGET_CANDIDATE"
+            elif count > 1:
+                trace.code_override = "MULTIPLE_TARGET_CANDIDATES"
         if count < 0:
+            if trace is not None:
+                trace.return_code = int(count)
             raise Refusal("libftdi descriptor enumeration failed")
         if count == 0:
             raise Refusal("no approved FTDI candidate found")
@@ -519,6 +696,8 @@ class _NativeLibFtdi:
         if port_count <= 0 or port_count > 8:
             raise Refusal("selected libusb topology path unavailable")
         usb_path = _format_usb_path(bus, tuple(int(ports[i]) for i in range(port_count)))
+        if trace is not None:
+            trace.phase = "DEVICE_SELECTION"
         identity = _identity_from_sysfs(usb_path, descriptor)
         candidate = topology.Candidate(identity, object())
         self._candidate = candidate
@@ -526,19 +705,33 @@ class _NativeLibFtdi:
         return (candidate,)
 
     def open_exact(self, candidate: topology.Candidate) -> None:
+        trace = getattr(self, "_trace", None)
+        if trace is not None:
+            trace.phase = "DEVICE_OPEN"
         if candidate is not self._candidate or candidate.handle_token is None or not self._selected_dev:
             raise Refusal("attempt to substitute a non-selected FTDI candidate")
         if candidate.identity.interface != FTDI_INTERFACE_NAME:
             raise Refusal("selected FTDI channel differs from fixed interface A")
         # Channel A is selected before opening, and the exact libusb_device
         # pointer from the descriptor-only list is passed to libftdi.
-        if self._ftdi.ftdi_set_interface(self._ctx, FTDI_INTERFACE_A) != 0:
+        rc = self._ftdi.ftdi_set_interface(self._ctx, FTDI_INTERFACE_A)
+        if rc != 0:
+            if trace is not None:
+                trace.return_code = int(rc)
             raise Refusal("libftdi interface A selection failed")
-        if self._ftdi.ftdi_usb_open_dev(self._ctx, self._selected_dev) != 0:
+        rc = self._ftdi.ftdi_usb_open_dev(self._ctx, self._selected_dev)
+        if rc != 0:
+            if trace is not None:
+                trace.return_code = int(rc)
             raise Refusal("libftdi exact-device open failed")
         self._opened = True
+        if trace is not None:
+            trace.device_opened = 1
 
     def initialize_mpsse(self) -> None:
+        trace = getattr(self, "_trace", None)
+        if trace is not None:
+            trace.phase = "MPSSE_INIT"
         if not self._opened:
             raise Refusal("MPSSE initialization before exact-device open")
         operations = (
@@ -552,6 +745,8 @@ class _NativeLibFtdi:
         for operation, phase in operations:
             rc = operation()
             if rc < 0:
+                if trace is not None:
+                    trace.return_code = int(rc)
                 raise Refusal(phase + " failed")
         self.write_exact(topology.MPSSE_SYNC)
         if self.read_exact(2) != topology.MPSSE_SYNC_REPLY:
@@ -562,12 +757,20 @@ class _NativeLibFtdi:
         if not self._opened or not data:
             raise Refusal("FTDI write outside open transport or empty command")
         offset = 0
+        trace = getattr(self, "_trace", None)
         while offset < len(data):
             # FTDI API accepts a buffer and byte count; require complete writes.
             part = (ctypes.c_ubyte * (len(data) - offset)).from_buffer_copy(data[offset:])
             written = self._ftdi.ftdi_write_data(self._ctx, part, len(data) - offset)
             if written <= 0 or written > len(data) - offset:
+                if trace is not None:
+                    trace.return_code = int(written)
                 raise Refusal("short or invalid FTDI write")
+            if trace is not None and trace.phase in ("SCAN_A_WRITE", "SCAN_B_WRITE") and written > 0:
+                before = _mpsse_tcks_in_prefix(data, offset)
+                after = _mpsse_tcks_in_prefix(data, min(len(data), offset + written))
+                attr = "scan_a_tck_emitted" if trace.phase == "SCAN_A_WRITE" else "scan_b_tck_emitted"
+                setattr(trace, attr, getattr(trace, attr) + max(0, after - before))
             offset += written
 
     def read_exact(self, size: int) -> bytes:
@@ -579,6 +782,9 @@ class _NativeLibFtdi:
             buf = (ctypes.c_ubyte * remaining)()
             count = self._ftdi.ftdi_read_data(self._ctx, buf, remaining)
             if count <= 0 or count > remaining:
+                trace = getattr(self, "_trace", None)
+                if trace is not None:
+                    trace.return_code = int(count)
                 raise Refusal("short or invalid FTDI read")
             received.extend(bytes(buf[:count]))
         return bytes(received)
@@ -588,8 +794,12 @@ class _NativeLibFtdi:
             return
         self._closed = True
         failed = False
+        trace = getattr(self, "_trace", None)
         if self._opened:
-            failed = self._ftdi.ftdi_usb_close(self._ctx) < 0
+            rc = self._ftdi.ftdi_usb_close(self._ctx)
+            failed = rc < 0
+            if failed and trace is not None:
+                trace.return_code = int(rc)
             self._opened = False
         if self._list:
             self._ftdi.ftdi_list_free(ctypes.byref(self._list))
@@ -602,16 +812,32 @@ class _NativeLibFtdi:
                 os.close(library.fd)
             except OSError:
                 pass
+        if not failed and trace is not None:
+            trace.transport_closed = 1
         if failed:
             raise Refusal("libftdi close failed")
 
 
-def _execute_scan(backend: Any, commands: tuple[topology.Command, ...], scan: str) -> bytes:
+def _execute_scan(backend: Any, commands: tuple[topology.Command, ...], scan: str,
+                  trace: _AttemptTrace | None = None) -> bytes:
     byte_result = None
     final_result = None
+    if trace is not None:
+        if scan == "A":
+            trace.scan_a_started = 1
+        else:
+            trace.scan_b_started = 1
     for command in commands:
+        if trace is not None:
+            trace.phase = f"SCAN_{scan}_WRITE"
         backend.write_exact(command.write)
+        if trace is not None:
+            attr = "scan_a_tck_emitted" if scan == "A" else "scan_b_tck_emitted"
+            if not isinstance(backend, _NativeLibFtdi):
+                setattr(trace, attr, getattr(trace, attr) + command.tck_count)
         if command.read_bytes:
+            if trace is not None:
+                trace.phase = f"SCAN_{scan}_READ"
             data = backend.read_exact(command.read_bytes)
             if not isinstance(data, bytes) or len(data) != command.read_bytes:
                 raise Refusal("fixed scan returned a short/oversized FTDI read")
@@ -648,14 +874,18 @@ def _make_observation(permit: topology.DiscoveryPermit, identity: topology.Descr
 
 
 def _run_consumed_permit(permit: topology.DiscoveryPermit, backend: Any,
-                          source_sha256_before: str | None = None) -> TransportObservation:
+                          source_sha256_before: str | None = None,
+                          trace: _AttemptTrace | None = None) -> TransportObservation:
     opened = False
     closed = False
     result = None
     failure: BaseException | None = None
+    failure_phase = None
     selected_identity = None
     source_sha = source_sha256_before or transport_source_sha256()
     try:
+        if trace is not None:
+            trace.phase = "PRELIVE_VALIDATION"
         plan = topology.build_plan()
         if (plan.scan_a_tck_count, plan.scan_b_tck_count, plan.tck_count) != (
             EXPECTED_SCAN_A_TCK, EXPECTED_SCAN_B_TCK, EXPECTED_TOTAL_TCK):
@@ -672,28 +902,50 @@ def _run_consumed_permit(permit: topology.DiscoveryPermit, backend: Any,
             hashlib.sha256(bytes(plan.tdi_scans[1])).hexdigest() != GOLDEN_TDI_B_SHA256 or
             topology.MPSSE_SETUP != bytes.fromhex("97 8a 86 2b 01 85 80 08 0b")):
             raise Refusal("fixed audited transaction bytes changed")
+        if trace is not None:
+            trace.phase = "DEVICE_ENUMERATION"
         candidates = backend.enumerate_candidates()
+        if trace is not None:
+            trace.target_candidates = min(len(candidates), 256)
+            trace.code_override = ("NO_TARGET_CANDIDATE" if len(candidates) == 0 else
+                                   "MULTIPLE_TARGET_CANDIDATES" if len(candidates) > 1 else None)
+            trace.phase = "DEVICE_SELECTION"
         selected = topology.validate_candidates(permit, candidates)
         selected_identity = selected.identity
+        if trace is not None:
+            trace.phase = "DEVICE_OPEN"
         backend.open_exact(selected)
         opened = True
+        if trace is not None:
+            trace.device_opened = 1
+            trace.phase = "MPSSE_INIT"
         backend.initialize_mpsse()
-        raw_a = _execute_scan(backend, plan.scan_a_commands, "A")
-        raw_b = _execute_scan(backend, plan.scan_b_commands, "B")
+        raw_a = _execute_scan(backend, plan.scan_a_commands, "A", trace)
+        raw_b = _execute_scan(backend, plan.scan_b_commands, "B", trace)
     except BaseException as exc:
         failure = exc
+        failure_phase = trace.phase if trace is not None else None
     try:
+        if trace is not None:
+            trace.phase = "TRANSPORT_CLOSE"
         backend.close_checked()
         closed = True
+        if trace is not None:
+            trace.transport_closed = 1
     except BaseException as exc:
         if failure is None:
             failure = exc
+            failure_phase = "TRANSPORT_CLOSE"
     if failure is not None:
+        if trace is not None and failure_phase is not None:
+            trace.phase = failure_phase
         if isinstance(failure, Refusal):
             raise failure
         raise Refusal("fixed topology transport failed; permit consumed and adapter closed") from failure
     if not opened or not closed or selected_identity is None:
         raise Refusal("transport lifecycle did not complete")
+    if trace is not None:
+        trace.phase = "LIBRARY_PROVENANCE"
     if transport_source_sha256() != source_sha:
         raise Refusal("transport source/native library bytes changed during operation")
     runtime = getattr(backend, "_runtime", None)
@@ -704,20 +956,40 @@ def _run_consumed_permit(permit: topology.DiscoveryPermit, backend: Any,
 
 
 def _run_with_backend(permit: topology.DiscoveryPermit, backend: Any) -> TransportObservation:
-    topology._consume(permit)
-    return _run_consumed_permit(permit, backend)
+    trace = _AttemptTrace()
+    try:
+        trace.phase = "PERMIT_VALIDATION"
+        topology._consume(permit)
+        trace.permit_consumed = 1
+        return _run_consumed_permit(permit, backend, trace=trace)
+    except BaseException as exc:
+        trace.permit_consumed = _permit_consumption_state(permit)
+        raise _diagnostic_refusal(exc, trace) from None
 
 
 def run_fk0957_topology_discovery(authorized_permit: topology.DiscoveryPermit) -> TransportObservation:
     """Run exactly the reviewed two-scan topology census; accepts no overrides."""
-    topology._consume(authorized_permit)
-    source_sha = transport_source_sha256()
-    backend = _NativeLibFtdi()
-    return _run_consumed_permit(authorized_permit, backend, source_sha)
+    trace = _AttemptTrace()
+    try:
+        trace.phase = "PERMIT_VALIDATION"
+        topology._consume(authorized_permit)
+        trace.permit_consumed = 1
+        trace.phase = "LIBRARY_PROVENANCE"
+        source_sha = transport_source_sha256()
+        backend = _NativeLibFtdi(trace)
+        return _run_consumed_permit(authorized_permit, backend, source_sha, trace)
+    except BaseException as exc:
+        with topology._PERMIT_LOCK:
+            if isinstance(authorized_permit, topology.DiscoveryPermit):
+                if authorized_permit._token in topology._CONSUMED:
+                    trace.permit_consumed = 1
+                elif authorized_permit._token in topology._ACTIVE:
+                    trace.permit_consumed = 0
+        raise _diagnostic_refusal(exc, trace) from None
 
 
-def validate_transport_observation(permit: topology.DiscoveryPermit,
-                                   result: TransportObservation) -> topology.ParsedTopology:
+def _validate_transport_observation(permit: topology.DiscoveryPermit,
+                                    result: TransportObservation) -> topology.ParsedTopology:
     if not isinstance(result, TransportObservation):
         raise Refusal("transport result type is not trusted")
     with _RESULT_LOCK:
@@ -773,6 +1045,18 @@ def validate_transport_observation(permit: topology.DiscoveryPermit,
     return parsed
 
 
+def validate_transport_observation(permit: topology.DiscoveryPermit,
+                                   result: TransportObservation) -> topology.ParsedTopology:
+    trace = _AttemptTrace()
+    trace.phase = "LOCAL_VALIDATION"
+    trace.permit_consumed = _permit_consumption_state(permit)
+    _trace_from_sealed_result(trace, result)
+    try:
+        return _validate_transport_observation(permit, result)
+    except BaseException as exc:
+        raise _diagnostic_refusal(exc, trace) from None
+
+
 def _read_local_private_key(path: Path) -> bytes:
     parent_fd, name = orchestrator._open_path_parent(path)
     try:
@@ -794,8 +1078,8 @@ def _read_local_private_key(path: Path) -> bytes:
         os.close(parent_fd)
 
 
-def sign_local_discovery_record(permit: topology.DiscoveryPermit,
-                                result: TransportObservation) -> dict[str, Any]:
+def _sign_local_discovery_record(permit: topology.DiscoveryPermit,
+                                 result: TransportObservation) -> dict[str, Any]:
     """Validate the complete raw observation, then sign locally on RGB only."""
     parsed = validate_transport_observation(permit, result)
     with _RESULT_LOCK:
@@ -870,4 +1154,58 @@ def sign_local_discovery_record(permit: topology.DiscoveryPermit,
     return {"payload": record, "payload_sha256": hashlib.sha256(payload_bytes).hexdigest(),
             "signature_algorithm": "Ed25519", "signature_hex": signature.hex(),
             "signer_fingerprint": permit.trusted_signer_fingerprint}
+
+
+def sign_local_discovery_record(permit: topology.DiscoveryPermit,
+                                result: TransportObservation) -> dict[str, Any]:
+    trace = _AttemptTrace()
+    trace.phase = "LOCAL_SIGNING"
+    trace.permit_consumed = _permit_consumption_state(permit)
+    _trace_from_sealed_result(trace, result)
+    try:
+        return _sign_local_discovery_record(permit, result)
+    except BaseException as exc:
+        if isinstance(exc, Refusal) and exc.envelope is not None:
+            raise
+        raise _diagnostic_refusal(exc, trace) from None
+
+
+def issue_fk0957_topology_permit(descriptor_evidence: bytes, expected_sha256: str,
+                                  *, lifetime_seconds: int = 120) -> topology.DiscoveryPermit:
+    """Issue the one-shot permit with a bounded descriptor-refusal envelope."""
+    trace = _AttemptTrace()
+    trace.phase = "PERMIT_VALIDATION"
+    trace.permit_consumed = 0
+    try:
+        return topology.issue_permit(descriptor_evidence, expected_sha256,
+                                     lifetime_seconds=lifetime_seconds)
+    except BaseException as exc:
+        if isinstance(exc, identity_gate.Refusal):
+            code, phase = "DESCRIPTOR_STALE", "PERMIT_VALIDATION"
+        elif isinstance(exc, topology.Refusal):
+            code, phase = "PERMIT_INVALID", "PERMIT_VALIDATION"
+        else:
+            code, phase = "INTERNAL_REFUSAL", "INTERNAL_REFUSAL"
+        raise _diagnostic_refusal(exc, trace, code=code, phase=phase) from None
+
+
+def perform_fk0957_topology_discovery_once(descriptor_evidence: bytes,
+                                            expected_sha256: str) -> dict[str, Any]:
+    """One-shot local workflow: authorize, acquire, validate, then sign; never writes a file."""
+    trace = _AttemptTrace()
+    trace.phase = "PERMIT_VALIDATION"
+    trace.permit_consumed = 0
+    try:
+        permit = issue_fk0957_topology_permit(descriptor_evidence, expected_sha256)
+        trace.phase = "PERMIT_VALIDATION"
+        result = run_fk0957_topology_discovery(permit)
+        trace.permit_consumed = 1
+        _trace_from_sealed_result(trace, result)
+        trace.phase = "LOCAL_VALIDATION"
+        validate_transport_observation(permit, result)
+        trace.phase = "LOCAL_SIGNING"
+        return sign_local_discovery_record(permit, result)
+    except BaseException as exc:
+        trace.permit_consumed = _permit_consumption_state(locals().get("permit"))
+        raise _diagnostic_refusal(exc, trace) from None
 
