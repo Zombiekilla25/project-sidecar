@@ -63,6 +63,7 @@ class SafeLauncherTests(unittest.TestCase):
             bootstrap = root / "installed" / "fk0957_safe_bootstrap.py"
             bootstrap.parent.mkdir(mode=0o700)
             bootstrap.write_bytes((TOOLS / "fk0957_safe_bootstrap.py").read_bytes())
+            bootstrap.chmod(0o400)
             subprocess.run([
                 "/usr/bin/python3", str(TOOLS / "build_fk0957_safe_launcher.py"),
                 "--output", str(output), "--bootstrap-path", str(bootstrap),
@@ -112,6 +113,32 @@ class SafeLauncherTests(unittest.TestCase):
             self.assertEqual(report["environment_keys"],
                              ["FK0957_TRUSTED_LAUNCHER", "LANG", "PATH"])
             self.assertFalse(marker.exists())
+
+    def test_bootstrap_replacement_is_refused_before_python(self):
+        with tempfile.TemporaryDirectory(prefix="fk0957-bootstrap-pin-test-") as raw:
+            root = Path(raw)
+            bootstrap = root / "installed" / "fk0957_safe_bootstrap.py"
+            bootstrap.parent.mkdir(mode=0o700)
+            bootstrap.write_bytes((TOOLS / "fk0957_safe_bootstrap.py").read_bytes())
+            bootstrap.chmod(0o400)
+            launcher = root / "launcher"
+            subprocess.run([
+                "/usr/bin/python3", str(TOOLS / "build_fk0957_safe_launcher.py"),
+                "--output", str(launcher), "--bootstrap-path", str(bootstrap),
+            ], check=True, env={"PATH": "/usr/bin:/bin", "LANG": "C"})
+            bootstrap.chmod(0o600)
+            injected_marker = root / "bootstrap-injected"
+            bootstrap.write_text(
+                f"from pathlib import Path; Path({str(injected_marker)!r}).touch()\n")
+            run = subprocess.run([str(launcher), "--launcher-self-test"], check=False,
+                                 text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                 env={"PATH": "/bad/path", "PYTHONPATH": "/bad/path"}, timeout=10)
+            self.assertEqual(run.returncode, 126)
+            self.assertEqual(run.stdout,
+                '{"status":"REFUSED","phase":"PRESTART_VALIDATION",'
+                '"code":"NATIVE_RUNTIME_PIN_MISMATCH"}\n')
+            self.assertEqual(run.stderr, "")
+            self.assertFalse(injected_marker.exists())
 
     def test_direct_python_cli_fails_closed_without_running_operation(self):
         run = subprocess.run([

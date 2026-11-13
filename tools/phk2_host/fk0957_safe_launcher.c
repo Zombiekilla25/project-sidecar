@@ -15,6 +15,9 @@
 #ifndef FK0957_BOOTSTRAP_PATH
 #define FK0957_BOOTSTRAP_PATH "/usr/local/lib/sidecar/fk0957/fk0957_safe_bootstrap.py"
 #endif
+#ifndef FK0957_BOOTSTRAP_SHA256
+#define FK0957_BOOTSTRAP_SHA256 ""
+#endif
 
 #define PIN(path_, sha_, build_) { (path_), (sha_), (build_) }
 struct runtime_pin { const char *path; const char *sha256; const char *build_id; };
@@ -123,6 +126,26 @@ static int verify_runtime_pin(const struct runtime_pin *pin) {
     return ok;
 }
 
+static int open_verified_bootstrap(void) {
+    char resolved[4096], digest[65];
+    if (strlen(FK0957_BOOTSTRAP_SHA256) != 64 ||
+        !realpath(FK0957_BOOTSTRAP_PATH, resolved) ||
+        strcmp(resolved, FK0957_BOOTSTRAP_PATH) != 0) return -1;
+    int fd = open(FK0957_BOOTSTRAP_PATH, O_RDONLY | O_NOFOLLOW | O_NOCTTY);
+    if (fd < 0) return -1;
+    struct stat before, after;
+    int ok = fstat(fd, &before) == 0 && S_ISREG(before.st_mode) &&
+             (before.st_uid == 0 || before.st_uid == geteuid()) && before.st_nlink == 1 &&
+             !(before.st_mode & 0022) && before.st_size > 0 && before.st_size <= 1024 * 1024 &&
+             hash_fd(fd, digest) && strcmp(digest, FK0957_BOOTSTRAP_SHA256) == 0 &&
+             fstat(fd, &after) == 0 && before.st_dev == after.st_dev &&
+             before.st_ino == after.st_ino && before.st_size == after.st_size &&
+             before.st_mtim.tv_sec == after.st_mtim.tv_sec &&
+             before.st_mtim.tv_nsec == after.st_mtim.tv_nsec;
+    if (!ok) { close(fd); return -1; }
+    return fd;
+}
+
 static int refuse_runtime(void) {
     static const char message[] = "{\"status\":\"REFUSED\",\"phase\":\"PRESTART_VALIDATION\",\"code\":\"NATIVE_RUNTIME_PIN_MISMATCH\"}\n";
     size_t offset = 0;
@@ -138,13 +161,17 @@ static int refuse_runtime(void) {
 int main(int argc, char **argv) {
     for (size_t i = 0; i < sizeof(runtime_pins) / sizeof(runtime_pins[0]); ++i)
         if (!verify_runtime_pin(&runtime_pins[i])) return refuse_runtime();
+    int bootstrap_fd = open_verified_bootstrap();
+    if (bootstrap_fd < 0) return refuse_runtime();
 
-    char **child_argv = calloc((size_t)argc + 4, sizeof(char *));
-    if (child_argv == NULL) return 126;
+    char **child_argv = calloc((size_t)argc + 5, sizeof(char *));
+    if (child_argv == NULL) { close(bootstrap_fd); return 126; }
+    char bootstrap_fd_path[64];
+    snprintf(bootstrap_fd_path, sizeof(bootstrap_fd_path), "/proc/self/fd/%d", bootstrap_fd);
     child_argv[0] = "/usr/bin/python3.12";
     child_argv[1] = "-I";
     child_argv[2] = "-S";
-    child_argv[3] = FK0957_BOOTSTRAP_PATH;
+    child_argv[3] = bootstrap_fd_path;
     for (int i = 1; i < argc; ++i) child_argv[i + 3] = argv[i];
     child_argv[argc + 3] = NULL;
 

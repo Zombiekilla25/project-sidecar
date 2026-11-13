@@ -22,10 +22,13 @@ an explicit absolute bootstrap path; it never embeds a checkout or detached
 worktree path. An administrator deployment builds the launcher with
 `--bootstrap-path /usr/local/lib/sidecar/fk0957/fk0957_safe_bootstrap.py`
 after placing the reviewed bootstrap there, then installs the launcher and
-bootstrap under a root-owned, non-writable directory. Offline tests use a
-temporary installed-path fixture and verify environment sanitization plus
-prestart runtime pin refusal. The launcher has not been deployed on the
-production host; this does not authorize hardware access.
+bootstrap under a root-owned, non-writable directory. The static launcher
+pins the bootstrap SHA256 and passes the already-verified open descriptor to
+Python, avoiding a pathname reopen between verification and execution.
+Offline tests use a temporary installed-path fixture and verify bootstrap
+replacement refusal, environment sanitization, and prestart runtime pin
+refusal. The launcher has not been deployed on the production host; this does
+not authorize hardware access.
 
 The launcher has not been installed or protected on the production host. Until
 an administrator deploys it at a reviewed absolute path, direct Python
