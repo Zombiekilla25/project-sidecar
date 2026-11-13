@@ -211,13 +211,14 @@ def filesystem_path_attack_matrix(cli: Any, transport: Any) -> dict[str, bool]:
         key_link = root / "key-symlink"
         key_link.symlink_to(key)
         try:
-            transport._read_local_private_key(key_link)
+            import phk2_fk0957_topology_signing as signing
+            signing._read_local_private_key(key_link)
         except OSError:
             outcomes["signing_key_symlink_refused"] = True
         key_hardlink = root / "key-hardlink"
         os.link(key, key_hardlink)
         try:
-            transport._read_local_private_key(key_hardlink)
+            signing._read_local_private_key(key_hardlink)
         except Exception:
             outcomes["signing_key_hardlink_refused"] = True
         key_parent = root / "key-parent"
@@ -228,7 +229,7 @@ def filesystem_path_attack_matrix(cli: Any, transport: Any) -> dict[str, bool]:
         key_parent_alias = root / "key-parent-alias"
         key_parent_alias.symlink_to(key_parent, target_is_directory=True)
         try:
-            transport._read_local_private_key(key_parent_alias / "key.pem")
+            signing._read_local_private_key(key_parent_alias / "key.pem")
         except OSError:
             outcomes["signing_key_parent_symlink_refused"] = True
     return outcomes

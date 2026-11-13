@@ -455,6 +455,7 @@ def bridge_gate_attack(repo: Path) -> dict[str, Any]:
     sys.path.insert(0, str(repo / "tools/phk2_host"))
     import phk2_fk0957_topology_live_cli as cli
     import phk2_fk0957_topology_transport as transport
+    import phk2_fk0957_topology_signing as signing
     cases = ("missing_handoff", "stale_handoff", "wrong_bridge_identity",
              "competing_owner", "unknown_owner", "different_permit", "different_target")
     reached = []
@@ -463,7 +464,7 @@ def bridge_gate_attack(repo: Path) -> dict[str, Any]:
         for case in cases:
             output = root / f"{case}.json"
             with mock.patch.object(cli, "_read_descriptor", return_value=b"mock descriptor"), \
-                    mock.patch.object(cli.transport,
+                    mock.patch.object(signing,
                                       "perform_fk0957_topology_discovery_once",
                                       side_effect=transport.Refusal("sentinel stop")) as acquire:
                 _, status = cli.run_once(Path("synthetic-descriptor.json"), output)
@@ -479,8 +480,10 @@ def remote_signing_and_handoff_gates(repo: Path) -> dict[str, Any]:
     host = repo / "tools/phk2_host"
     cli = (host / "phk2_fk0957_topology_live_cli.py").read_text(encoding="utf-8")
     transport = (host / "phk2_fk0957_topology_transport.py").read_text(encoding="utf-8")
+    signing = (host / "phk2_fk0957_topology_signing.py").read_text(encoding="utf-8") \
+        if (host / "phk2_fk0957_topology_signing.py").is_file() else ""
     discovery = (host / "phk2_fk0957_topology_discovery.py").read_text(encoding="utf-8")
-    code = cli + transport + discovery
+    code = cli + transport + signing + discovery
     key_path = "/home/rmann/.local/share/sidecar/operator-keys/"
     ssh_present = bool(re.search(r"\bssh\b|SSH_AUTH_SOCK", code))
     handoff_present = any(word in code for word in (
@@ -490,14 +493,14 @@ def remote_signing_and_handoff_gates(repo: Path) -> dict[str, Any]:
         "ssh_auth_sock_consumed": "SSH_AUTH_SOCK" in code,
         "ssh_agent_forwarding_path": ssh_present,
         "remote_acquisition_path": ssh_present,
-        "local_key_path_is_hardcoded": key_path in transport,
+        "local_key_path_is_hardcoded": key_path in signing,
         "private_key_transmission_code_present": bool(re.search(
             r"(ssh|stdin|bundle|remote).{0,100}(private.key|LOCAL_SIGNING_KEY_PATH)|"
             r"(private.key|LOCAL_SIGNING_KEY_PATH).{0,100}(ssh|stdin|bundle|remote)",
             code, re.I | re.S)),
         "remote_signing_protocol_present": bool(re.search(r"remote.{0,40}sign|sign.{0,40}remote", code, re.I)),
-        "fixed_local_signing_flow_present": "perform_fk0957_topology_discovery_once" in transport and
-                                             "sign_local_discovery_record" in transport,
+        "fixed_local_signing_flow_present": "perform_fk0957_topology_discovery_once" in signing and
+                                             "sign_local_discovery_record" in signing,
         "handoff_issuer_or_authentication_present": handoff_present,
         "operation_id_binding_present": "operation_id" in code,
         "permit_nonce_binding_present": "permit_nonce" in transport and "nonce" in discovery,
