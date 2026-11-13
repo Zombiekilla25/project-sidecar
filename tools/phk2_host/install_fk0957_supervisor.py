@@ -9,6 +9,8 @@ from pathlib import Path
 import stat
 import sys
 
+from phk2_fk0957_remote_topology_endpoint import REMOTE_SOURCE_PATHS
+
 ROOT = Path(__file__).resolve().parents[2]
 UNIT = ROOT / "ops/phk2/fk0957-supervisor.service"
 SOURCE = ROOT / "tools/phk2_host/fk0957_supervisor.py"
@@ -39,12 +41,26 @@ INSTALLS = {
     "/var/lib/sidecar/fk0957/consumed-release-authorizations": ("root", "root", 0o700),
 }
 
+# Install the entire source closure the remote endpoint verifies and imports.
+# Keep the repository-relative layout below the immutable release root so its
+# signed source manifest paths have one unambiguous mapping.
+for relative in REMOTE_SOURCE_PATHS:
+    INSTALLS.setdefault(
+        f"/usr/local/lib/sidecar/fk0957/{relative}", ("root", "root", 0o644))
+
 
 def verify_source_package() -> None:
     if not SOURCE.is_file() or not UNIT.is_file():
         raise ValueError("supervisor package source or unit is missing")
+    missing = [relative for relative in REMOTE_SOURCE_PATHS
+               if not (ROOT / relative).is_file()]
+    if missing:
+        raise ValueError("remote source closure is incomplete")
     text = UNIT.read_text(encoding="utf-8")
-    if "Restart=no" not in text or "User=root" not in text:
+    supervisor_text = SOURCE.read_text(encoding="utf-8")
+    if ("Restart=no" not in text or "User=root" not in text or
+            'LAUNCHER = "/usr/local/bin/fk0957-safe-launcher"' not in supervisor_text or
+            "ExecStart=/usr/local/bin/fk0957-safe-launcher --supervisor" not in text):
         raise ValueError("service security policy is incomplete")
 
 

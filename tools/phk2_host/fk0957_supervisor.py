@@ -34,7 +34,7 @@ import phk2_fk0957_remote_topology_endpoint as endpoint
 
 SOCKET_PATH = "/run/sidecar/fk0957-supervisor.sock"
 STATE_ROOT = "/var/lib/sidecar/fk0957/supervisor"
-LAUNCHER = "/usr/local/sbin/fk0957-safe-launcher"
+LAUNCHER = "/usr/local/bin/fk0957-safe-launcher"
 ENDPOINT_MODE = "--supervisor-remote-endpoint"
 MAX_MESSAGE = 600 * 1024
 MAX_OUTPUT = 600 * 1024

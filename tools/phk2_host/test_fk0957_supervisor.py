@@ -6,6 +6,7 @@ import socket
 import base64
 import tempfile
 import unittest
+from unittest import mock
 
 import fk0957_supervisor as supervisor
 import fk0957_supervisor_client as client
@@ -94,7 +95,7 @@ class SupervisorProtocolTests(unittest.TestCase):
         raw = endpoint.canonical(request)
         refused = {"schema": supervisor.RESPONSE_SCHEMA,
                    "operation_id": "a" * 32, "state": "UNKNOWN"}
-        with unittest.mock.patch.object(client, "request_supervisor", return_value=refused):
+        with mock.patch.object(client, "request_supervisor", return_value=refused):
             with self.assertRaises(ValueError):
                 client.run_once(raw)
 
@@ -114,19 +115,19 @@ class SupervisorProtocolTests(unittest.TestCase):
                         "executable_sha256": "1" * 64, "argv_sha256": "2" * 64},
             "result_b64": base64.b64encode(b'{"ok":true}\n').decode(),
         }
-        with unittest.mock.patch.object(client, "request_supervisor", return_value=response):
+        with mock.patch.object(client, "request_supervisor", return_value=response):
             result, status = client.run_once(raw)
         self.assertEqual((result, status), (b'{"ok":true}\n', 0))
         response["exit_code"] = 2
-        with unittest.mock.patch.object(client, "request_supervisor", return_value=response):
+        with mock.patch.object(client, "request_supervisor", return_value=response):
             with self.assertRaises(ValueError):
                 client.run_once(raw)
 
     def test_supervisor_failure_does_not_emit_valid_refusal_or_confirm_exit(self):
         import io
         output = io.BytesIO()
-        with unittest.mock.patch.object(client, "run_once", side_effect=OSError("secret path")), \
-             unittest.mock.patch.object(client.sys, "stdout", type("Stdout", (), {"buffer": output})()):
+        with mock.patch.object(client, "run_once", side_effect=OSError("secret path")), \
+             mock.patch.object(client.sys, "stdout", type("Stdout", (), {"buffer": output})()):
             status = client.main(["run"])
         self.assertEqual(status, 3)
         envelope = supervisor.parse_message(output.getvalue())
