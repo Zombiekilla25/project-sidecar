@@ -73,7 +73,7 @@ class RGBTopologyOrchestratorTests(unittest.TestCase):
              mock.patch.object(ssh_policy, "_probe_local_ssh_agent"), \
              mock.patch.object(ssh_policy, "_revalidate_local_ssh_auth_sock"), \
              mock.patch.object(ssh_policy, "_validate_private_pin"):
-            with self.assertRaisesRegex(rgb.Refusal, "remote state unknown") as caught:
+            with self.assertRaisesRegex(rgb.Refusal, "process state unknown") as caught:
                 rgb._pinned_ssh(b"request", runner=runner)
         self.assertEqual(caught.exception.remote_state, "REMOTE_STATE_UNKNOWN")
         self.assertEqual(len(calls), 1)
@@ -107,9 +107,56 @@ class RGBTopologyOrchestratorTests(unittest.TestCase):
              mock.patch.object(ssh_policy, "_probe_local_ssh_agent"), \
              mock.patch.object(ssh_policy, "_revalidate_local_ssh_auth_sock"), \
              mock.patch.object(ssh_policy, "_validate_private_pin"):
-            with self.assertRaisesRegex(rgb.Refusal, "cleanup must be confirmed") as caught:
+            with self.assertRaisesRegex(rgb.Refusal, "state unknown after SSH loss") as caught:
                 rgb._pinned_ssh(b"request", runner=runner)
         self.assertEqual(caught.exception.remote_state, "REMOTE_STATE_UNKNOWN")
+
+    def test_ssh_255_requires_fresh_supervisor_terminal_receipt(self):
+        operation = "a" * 32
+        auth_id = "b" * 64
+        manifest_payload = {"schema": "test-manifest", "production_head": "f" * 40,
+                            "transaction_profile_sha256": "9" * 64}
+        request = endpoint.canonical({
+            "operation_id": operation,
+            "release_authorization": {"payload": {"authorization_id": auth_id}},
+            "handoff": {"payload": {"handoff_id": "c" * 64}},
+            "runtime_manifest": {"payload": manifest_payload},
+        })
+        handoff_payload = {"handoff_id": "c" * 64}
+        result_record = endpoint.canonical({"schema": "unused-test-result"})
+        status = endpoint.canonical({
+            "schema": "fk0957-supervisor-status-v1", "operation_id": operation,
+            "authorization_id": auth_id, "authorization_sha256": hashlib.sha256(
+                endpoint.canonical({"authorization_id": auth_id})).hexdigest(),
+            "handoff_sha256": hashlib.sha256(endpoint.canonical(handoff_payload)).hexdigest(),
+            "manifest_sha256": hashlib.sha256(endpoint.canonical(manifest_payload)).hexdigest(),
+            "production_head": manifest_payload.get("production_head"),
+            "transaction_profile_sha256": manifest_payload.get("transaction_profile_sha256"),
+            "target": "FK0957", "one_shot": True,
+            "state": "EXITED_SUCCESS", "exit_code": 0, "reaped_ns": 123,
+            "process": {"operation_id": operation, "authorization_id": auth_id,
+                        "pid": 100, "parent_pid": 50, "start_identity": "12345",
+                        "executable_sha256": "1" * 64, "argv_sha256": "2" * 64,
+                        "executable": "/usr/local/bin/fk0957-safe-launcher"},
+            "result_b64": __import__("base64").b64encode(result_record).decode(),
+        })
+        calls = []
+        def runner(command, **_kwargs):
+            calls.append(command)
+            if len(calls) == 1:
+                return SimpleNamespace(returncode=255, stdout=b"partial", stderr=b"private")
+            return SimpleNamespace(returncode=0, stdout=status, stderr=b"private")
+        host = {"algorithm": "ssh-ed25519", "fingerprint": "SHA256:" + "A" * 43}
+        with mock.patch.object(ssh_policy, "_read_pinned_source", return_value=(b"pin\n", host, (1, 2))), \
+             mock.patch.object(ssh_policy, "_validated_local_ssh_auth_sock", return_value=("/agent", (3, 4))), \
+             mock.patch.object(ssh_policy, "_probe_local_ssh_agent"), \
+             mock.patch.object(ssh_policy, "_revalidate_local_ssh_auth_sock"), \
+             mock.patch.object(ssh_policy, "_validate_private_pin"):
+            output, provenance = rgb._pinned_ssh(request, runner=runner)
+        self.assertEqual(output, result_record)
+        self.assertEqual(len(calls), 2)  # one acquisition, one read-only status query
+        self.assertIn(operation, calls[1][-1])
+        self.assertEqual(provenance["remote_process_state"], "REMOTE_PROCESS_CONFIRMED_EXITED")
 
     def test_rejected_or_malformed_remote_output_never_reaches_signing(self):
         context = {"operation_id": "1" * 32}

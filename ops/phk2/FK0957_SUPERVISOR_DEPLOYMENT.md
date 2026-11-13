@@ -1,0 +1,48 @@
+# FK0957 supervisor deployment package (not installed)
+
+This package defines the authority boundary; no issuer keys or live release
+authorization are included. Production remains fail-closed until administrators
+provision the independently approved trust material and install the files.
+
+## Layout and ownership
+
+| Path | Owner:group | Mode | Purpose |
+| --- | --- | --- | --- |
+| `/usr/local/bin/fk0957-safe-launcher` | `root:root` | `0755` | Static pre-start launcher |
+| `/usr/local/lib/sidecar/fk0957/tools/phk2_host/` | `root:root` | `0755` | Runtime modules, files `0644` or stricter |
+| `/usr/local/lib/sidecar/fk0957/ops/phk2/` | `root:root` | `0755` | Service template |
+| `/etc/systemd/system/fk0957-supervisor.service` | `root:root` | `0644` | Installed supervisor unit |
+| `/etc/sidecar/fk0957/` | `root:root` | `0750` | Provisioned trust/runtime configuration |
+| `/etc/udev/rules.d/90-sidecar-fk0957-supervised.rules` | `root:root` | `0644` | Exact serial USB ACL for non-login runner |
+| `/run/sidecar/` | `root:sidecar-acquire` | `0750` | IPC socket parent |
+| `/run/sidecar/fk0957-supervisor.sock` | `root:sidecar-acquire` | `0660` | Narrow local IPC |
+| `/var/lib/sidecar/fk0957/supervisor/` | `root:root` | `0700` | Authoritative operation journals |
+| `/var/lib/sidecar/fk0957/consumed-release-authorizations/` | `root:root` | `0700` | Single-use authorization ledger |
+
+The service is deliberately root-owned to retain exclusive authority over
+state and the authorization ledger. IPC callers use the unprivileged
+`sidecar-acquire` account; each acquisition child is dropped to the distinct
+non-login `sidecar-fk0957-runner` account and receives only the
+`fk0957-device` supplementary group. The proposed udev rule grants that group
+access only to the exact USB descriptor serial. The runner cannot write root
+state. These accounts, rule, and service are not installed by this change.
+No `launch_closed`, exit, or restore claim is accepted from IPC.
+
+## Installer and verifier
+
+`tools/phk2_host/install_fk0957_supervisor.py --dry-run` prints the planned
+layout and verifies source/unit presence without writing. `--verify` checks an
+already installed layout. The script intentionally refuses `--apply`; package
+installation requires a separately reviewed administrator deployment.
+
+The service unit has `Restart=no`: a daemon restart cannot reinterpret an
+incomplete journal as a confirmed terminal result. Unknown or missing state
+must be handled as manual recovery. A successful run is only confirmed after
+the supervisor's exact `Popen` child is waited/reaped and its exit is journaled.
+
+## Current provisioning state
+
+The issuer pin is unset in the remote endpoint source and the root-owned
+configuration/issuer keys are not provisioned. Therefore supervisor requests
+currently fail before child launch. This is intentional; do not generate
+replacement keys as part of this software package.

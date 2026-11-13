@@ -14,7 +14,9 @@ import json
 import os
 from pathlib import Path
 import re
+import socket
 import stat
+import struct
 import subprocess
 import sys
 from typing import Any
@@ -63,7 +65,13 @@ MANIFEST_FIELDS = {
 }
 RELEASE_SOURCE_PATHS = {
     "tools/phk2_host/fk0957_safe_launcher.c",
+    "tools/phk2_host/build_fk0957_safe_launcher.py",
     "tools/phk2_host/fk0957_safe_bootstrap.py",
+    "tools/phk2_host/fk0957_supervisor.py",
+    "tools/phk2_host/fk0957_supervisor_client.py",
+    "tools/phk2_host/install_fk0957_supervisor.py",
+    "ops/phk2/fk0957-supervisor.service",
+    "ops/phk2/90-sidecar-fk0957-supervised.rules",
     "tools/phk2_host/phk2_fk0957_remote_orchestrator.py",
     "tools/phk2_host/phk2_fk0957_identity_observer.py",
     "tools/phk2_host/phk2_fk0957_remote_topology_endpoint.py",
@@ -76,11 +84,19 @@ RELEASE_SOURCE_PATHS = {
     "tools/phk2_host/phk2_fk0957_topology_signing.py",
 }
 REMOTE_SOURCE_PATHS = {
+    "tools/phk2_host/fk0957_safe_launcher.c",
+    "tools/phk2_host/fk0957_safe_bootstrap.py",
+    "tools/phk2_host/fk0957_supervisor.py",
+    "tools/phk2_host/fk0957_supervisor_client.py",
+    "ops/phk2/fk0957-supervisor.service",
+    "ops/phk2/90-sidecar-fk0957-supervised.rules",
     "tools/phk2_host/phk2_fk0957_remote_topology_endpoint.py",
     "tools/phk2_host/phk2_fk0957_topology_transport.py",
     "tools/phk2_host/phk2_fk0957_topology_discovery.py",
     "tools/phk2_host/phk2_fk0957_idcode_gate.py",
+    "tools/phk2_host/phk2_fk0957_remote_orchestrator.py",
 }
+_SUPERVISOR_ISSUERS: dict[str, bytes] | None = None
 
 
 class Refusal(ValueError):
@@ -127,6 +143,31 @@ def _strict_hex(value: Any, pattern: re.Pattern[str]) -> bool:
 
 def _load_trust_config() -> dict[str, bytes]:
     """Load immutable issuer keys; hashes are source-pinned, not CLI/env inputs."""
+    global _SUPERVISOR_ISSUERS
+    if supervisor_capability_valid():
+        if _SUPERVISOR_ISSUERS is not None:
+            return dict(_SUPERVISOR_ISSUERS)
+        try:
+            channel = socket.socket(fileno=os.dup(3))
+            try:
+                header = _recv_exact(channel, 4)
+                length = int.from_bytes(header, "big")
+                if not 1 <= length <= 64 * 1024:
+                    raise ValueError("issuer frame size invalid")
+                raw = _recv_exact(channel, length)
+                value = _parse_canonical(raw, 64 * 1024)
+            finally:
+                channel.close()
+            if set(value) != {"release", "handoff"}:
+                raise ValueError("issuer frame schema invalid")
+            keys = {name: base64.b64decode(value[name], validate=True)
+                    for name in ("release", "handoff")}
+            if any(type(key) is not bytes or len(key) != 32 for key in keys.values()):
+                raise ValueError("issuer key length invalid")
+            _SUPERVISOR_ISSUERS = keys
+            return dict(keys)
+        except BaseException:
+            raise Refusal("SUPERVISOR_ISSUER_HANDOFF_INVALID") from None
     if not _strict_hex(TRUST_CONFIG_SHA256, HEX64):
         raise Refusal("ISSUER_PINS_NOT_PROVISIONED")
     raw = _read_protected_file(TRUST_CONFIG, owner=0, mode=0o400,
@@ -150,6 +191,16 @@ def _load_trust_config() -> dict[str, bytes]:
     except (ValueError, base64.binascii.Error):
         raise Refusal("ISSUER_CONFIG_KEY_INVALID") from None
     return keys
+
+
+def _recv_exact(sock: socket.socket, count: int) -> bytes:
+    out = bytearray()
+    while len(out) < count:
+        block = sock.recv(count - len(out))
+        if not block:
+            raise ValueError("issuer handoff truncated")
+        out.extend(block)
+    return bytes(out)
 
 
 def _open_absolute_parent(path: Path) -> tuple[int, str]:
@@ -508,6 +559,35 @@ def execute_request(raw: bytes) -> bytes:
     if len(encoded) > MAX_RECORD_BYTES:
         raise Refusal("UNSIGNED_RECORD_OVERSIZED", "LOCAL_VALIDATION")
     return encoded
+
+
+def supervisor_capability_valid(fd: int = 3) -> bool:
+    """True only for the inherited connected socket created by the root supervisor.
+
+    This is a kernel peer-credential check, not an environment/token check. A
+    direct Python caller can create a socketpair, but its peer UID will be its
+    own UID rather than root. The descriptor is passed only by the supervisor
+    when it has validated and durably consumed the signed authorization.
+    """
+    if not hasattr(socket, "SO_PEERCRED"):
+        return False
+    try:
+        duplicate = socket.socket(fileno=os.dup(fd))
+        try:
+            if duplicate.family != socket.AF_UNIX:
+                return False
+            _pid, uid, _gid = __import__("struct").unpack(
+                "3i", duplicate.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
+            # The public supervisor IPC socket also has a root peer. It is
+            # pathname-connected and must never itself confer child capability.
+            # The capability is an unnamed socketpair created by the daemon
+            # specifically for the supervised child.
+            peer_name = duplicate.getpeername()
+            return uid == 0 and peer_name == ""
+        finally:
+            duplicate.close()
+    except (OSError, ValueError, struct.error):
+        return False
 
 
 def main() -> int:

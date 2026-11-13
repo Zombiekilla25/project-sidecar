@@ -1027,11 +1027,17 @@ def _run_consumed_permit(permit: topology.DiscoveryPermit,
         raise Refusal("physical transport requires a signed one-shot request")
     try:
         import phk2_fk0957_remote_topology_endpoint as endpoint
+        if not endpoint.supervisor_capability_valid():
+            raise Refusal("physical transport requires protected supervisor capability")
         issuers = endpoint._load_trust_config()
         context, authorization_bytes, authorization_id = endpoint._validate_request(request_raw, issuers)
         if permit.descriptor_evidence_sha256 != context["descriptor_sha256"]:
             raise Refusal("remote release authorization target does not match descriptor permit")
-        endpoint._consume_authorization(authorization_id, authorization_bytes)
+        # When launched through the protected root supervisor, the supervisor
+        # consumes this exact signed authorization before creating the child
+        # and supplies an inherited root-peer Unix socket capability. Direct
+        # Python callers cannot fabricate that kernel peer credential.
+        # The supervisor consumed this authorization before child launch.
     except Refusal:
         raise
     except Exception:

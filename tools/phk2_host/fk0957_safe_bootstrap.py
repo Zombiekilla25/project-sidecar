@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import socket
+import struct
 import sys
 
 _EXPECTED_ENV = {
@@ -33,6 +35,67 @@ def main(argv: list[str] | None = None) -> int:
             "usercustomize_loaded": "usercustomize" in sys.modules,
         }, sort_keys=True, separators=(",", ":")) + "\n")
         return 0
+    if args == ["--supervisor"]:
+        if os.geteuid() != 0:
+            return _refuse()
+        repo_root = Path(__file__).resolve().parents[2]
+        host_tools = repo_root / "tools" / "phk2_host"
+        if not host_tools.is_dir():
+            return _refuse()
+        sys.path.insert(0, str(host_tools))
+        try:
+            import fk0957_supervisor as supervisor
+        except Exception:
+            return _refuse()
+        return int(supervisor.main())
+    if args and args[0] == "--supervisor-client":
+        repo_root = Path(__file__).resolve().parents[2]
+        host_tools = repo_root / "tools" / "phk2_host"
+        if not host_tools.is_dir():
+            return _refuse()
+        sys.path.insert(0, str(host_tools))
+        try:
+            import fk0957_supervisor_client as client
+        except Exception:
+            return _refuse()
+        return int(client.main(args[1:]))
+    if args == ["--supervisor-remote-endpoint"]:
+        # The root supervisor passes an inherited Unix socket created while
+        # privileged. SO_PEERCRED is kernel-derived; an environment value or
+        # caller-created Python object cannot forge it.
+        try:
+            capability = socket.socket(fileno=os.dup(3))
+            try:
+                if capability.family != socket.AF_UNIX or not hasattr(socket, "SO_PEERCRED"):
+                    return _refuse()
+                _pid, peer_uid, _gid = struct.unpack(
+                    "3i", capability.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
+                if peer_uid != 0:
+                    return _refuse()
+            finally:
+                capability.close()
+        except (OSError, ValueError, struct.error):
+            return _refuse()
+        repo_root = Path(__file__).resolve().parents[2]
+        host_tools = repo_root / "tools" / "phk2_host"
+        if not host_tools.is_dir():
+            return _refuse()
+        system_packages = Path("/usr/lib/python3/dist-packages")
+        try:
+            info = system_packages.stat()
+            if info.st_uid != 0 or info.st_mode & 0o022:
+                return _refuse()
+        except OSError:
+            return _refuse()
+        sys.path[:] = [entry for entry in sys.path
+                       if entry and "site-packages" not in entry]
+        sys.path.append(str(system_packages))
+        sys.path.insert(0, str(host_tools))
+        try:
+            import phk2_fk0957_remote_topology_endpoint as remote_endpoint
+        except Exception:
+            return _refuse()
+        return int(remote_endpoint.main())
     bootstrap = Path(__file__).resolve()
     repo_root = bootstrap.parents[2]
     host_tools = repo_root / "tools" / "phk2_host"

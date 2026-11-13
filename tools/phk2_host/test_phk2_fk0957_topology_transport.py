@@ -56,6 +56,7 @@ def fake_release_request(permit, reconstructed_permit=None):
                                                                            "handoff": b"y" * 32}), \
          mock.patch.object(endpoint, "_validate_request", return_value=(context, b"auth", "2" * 64)), \
          mock.patch.object(endpoint, "_consume_authorization"), \
+         mock.patch.object(endpoint, "supervisor_capability_valid", return_value=True), \
          mock.patch.object(topology, "issue_permit", return_value=reconstructed_permit or permit):
         yield b"offline signed request fixture"
 
@@ -719,6 +720,14 @@ class TopologyTransportTests(unittest.TestCase):
         self.assertEqual((envelope["phase"], envelope["code"]),
                          ("PERMIT_VALIDATION", "PERMIT_INVALID"))
         self.assertEqual(envelope["permit_consumed"], 0)
+
+    def test_direct_transport_entry_requires_supervisor_kernel_capability(self):
+        permit = self.permit()
+        with mock.patch.object(endpoint, "supervisor_capability_valid", return_value=False), \
+             mock.patch.object(transport, "_NativeLibFtdi") as backend:
+            with self.assertRaises(transport.Refusal):
+                transport._run_consumed_permit(permit, request_raw=b"signed-request")
+        backend.assert_not_called()
 
         permit = self.permit()
         result = run_with_backend(permit, self.backend())

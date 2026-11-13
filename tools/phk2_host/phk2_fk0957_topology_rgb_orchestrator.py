@@ -1,6 +1,7 @@
 """RGB-side pinned-SSH orchestration and validation for unsigned FK0957 reads."""
 from __future__ import annotations
 
+import base64
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -20,7 +21,8 @@ import phk2_fk0957_topology_transport as transport
 import phk2_fk0957_remote_topology_endpoint as endpoint
 
 KNOWN_HOSTS_PATH = Path("/home/rmann/.local/share/sidecar/ssh/fk0957-testbench-known_hosts")
-REMOTE_ENDPOINT_COMMAND = "/usr/local/lib/sidecar/fk0957/fk0957_remote_topology_endpoint"
+REMOTE_ENDPOINT_COMMAND = "/usr/local/bin/fk0957-safe-launcher --supervisor-client run"
+REMOTE_STATUS_COMMAND = "/usr/local/bin/fk0957-safe-launcher --supervisor-client status"
 LOCAL_CONSUMED_AUTH_DIR = Path("/home/rmann/.local/share/sidecar/fk0957/consumed-authorizations")
 SSH_TIMEOUT_SECONDS = 150
 MAX_RESPONSE_BYTES = endpoint.MAX_RECORD_BYTES
@@ -150,17 +152,78 @@ def _pinned_ssh(request_raw: bytes, *, runner=None) -> tuple[bytes, dict[str, An
             result = runner(cmd, input=request_raw, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                             check=False, timeout=SSH_TIMEOUT_SECONDS, env=safe_env)
         except subprocess.TimeoutExpired:
-            raise Refusal("remote state unknown after SSH timeout; do not restore ownership",
-                          remote_state="REMOTE_STATE_UNKNOWN") from None
+            result = None
         except OSError:
             raise Refusal("SSH process did not start; remote acquisition was not invoked",
                           remote_state="REMOTE_PROCESS_CONFIRMED_EXITED") from None
-    stdout = getattr(result, "stdout", b"")
-    if isinstance(stdout, str):
-        stdout = stdout.encode("utf-8", "replace")
+        code = 255 if result is None else getattr(result, "returncode", 255)
+        if result is None or code == 255:
+            try:
+                request_value = endpoint._parse_canonical(request_raw, endpoint.MAX_REQUEST_BYTES)
+                operation_id = request_value.get("operation_id")
+                if type(operation_id) is not str or not re.fullmatch(r"[0-9a-f]{32}", operation_id):
+                    raise ValueError("operation id invalid")
+                status_cmd = [*cmd[:-1], f"{REMOTE_STATUS_COMMAND} {operation_id}"]
+                current, current_identity, current_inode = ssh_policy._read_pinned_source(KNOWN_HOSTS_PATH)
+                if (current != known_hosts or current_identity != host_identity or
+                        current_inode != source_identity):
+                    raise ValueError("host pin changed")
+                ssh_policy._validate_private_pin(pin_path, known_hosts, host_identity,
+                                                 pin_dir_identity, pin_file_identity)
+                ssh_policy._revalidate_local_ssh_auth_sock(agent_path, agent_identity)
+                status_result = runner(status_cmd, input=b"", stdout=subprocess.PIPE,
+                                       stderr=subprocess.PIPE, check=False,
+                                       timeout=SSH_TIMEOUT_SECONDS, env=safe_env)
+                if getattr(status_result, "returncode", 255) != 0:
+                    raise ValueError("status query unavailable")
+                status_raw = getattr(status_result, "stdout", b"")
+                if isinstance(status_raw, str):
+                    status_raw = status_raw.encode("utf-8", "strict")
+                status = endpoint._parse_canonical(status_raw, 1024 * 1024)
+                auth_payload = request_value.get("release_authorization", {}).get("payload", {})
+                handoff_payload = request_value.get("handoff", {}).get("payload", {})
+                manifest_payload = request_value.get("runtime_manifest", {}).get("payload", {})
+                auth_id = auth_payload.get("authorization_id")
+                auth_sha = hashlib.sha256(endpoint.canonical(auth_payload)).hexdigest()
+                handoff_sha = hashlib.sha256(endpoint.canonical(handoff_payload)).hexdigest()
+                manifest_sha = hashlib.sha256(endpoint.canonical(manifest_payload)).hexdigest()
+                if (status.get("schema") != "fk0957-supervisor-status-v1" or
+                        status.get("operation_id") != operation_id or
+                        status.get("authorization_id") != auth_id or
+                        status.get("authorization_sha256") != auth_sha or
+                        status.get("handoff_sha256") != handoff_sha or
+                        status.get("manifest_sha256") != manifest_sha or
+                        status.get("production_head") != manifest_payload.get("production_head") or
+                        status.get("transaction_profile_sha256") != manifest_payload.get("transaction_profile_sha256") or
+                        status.get("target") != "FK0957" or status.get("one_shot") is not True):
+                    raise ValueError("status binding mismatch")
+                if status.get("state") not in {"EXITED_SUCCESS", "EXITED_REFUSAL", "EXITED_FAILURE"}:
+                    raise ValueError("status is not terminal")
+                child_identity = status.get("process")
+                if (type(child_identity) is not dict or child_identity.get("operation_id") != operation_id or
+                        child_identity.get("authorization_id") != auth_id or
+                        type(child_identity.get("pid")) is not int or child_identity["pid"] <= 1 or
+                        type(child_identity.get("parent_pid")) is not int or child_identity["parent_pid"] <= 1 or
+                        not re.fullmatch(r"[1-9][0-9]{0,19}", str(child_identity.get("start_identity", ""))) or
+                        child_identity.get("executable") != "/usr/local/bin/fk0957-safe-launcher" or
+                        not re.fullmatch(r"[0-9a-f]{64}", str(child_identity.get("executable_sha256", ""))) or
+                        not re.fullmatch(r"[0-9a-f]{64}", str(child_identity.get("argv_sha256", "")))):
+                    raise ValueError("child identity binding invalid")
+                if type(status.get("reaped_ns")) is not int or type(status.get("exit_code")) is not int:
+                    raise ValueError("reap proof absent")
+                stdout = base64.b64decode(status.get("result_b64", ""), validate=True)
+                if not stdout or len(stdout) > MAX_RESPONSE_BYTES:
+                    raise ValueError("recovered result absent or oversized")
+                code = status["exit_code"]
+            except BaseException:
+                raise Refusal("remote process state unknown after SSH loss; do not restore ownership",
+                              remote_state="REMOTE_STATE_UNKNOWN") from None
+        else:
+            stdout = getattr(result, "stdout", b"")
+            if isinstance(stdout, str):
+                stdout = stdout.encode("utf-8", "replace")
     if len(stdout) > MAX_RESPONSE_BYTES:
         raise Refusal("remote result exceeded its size bound")
-    code = getattr(result, "returncode", 255)
     if code != 0:
         # A bounded refusal envelope may be returned with the endpoint's
         # documented nonzero status. Never expose stderr or arbitrary output.

@@ -1,0 +1,3 @@
+# Install only after administrator review. Raw USB access is limited to the
+# non-login acquisition child and its private device group.
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="0403", ATTR{idProduct}=="6010", ATTR{serial}=="153300000957", OWNER="sidecar-fk0957-runner", GROUP="fk0957-device", MODE="0660"

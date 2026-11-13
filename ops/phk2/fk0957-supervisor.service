@@ -1,0 +1,36 @@
+[Unit]
+Description=Project Sidecar FK0957 one-shot acquisition supervisor
+After=local-fs.target
+RequiresMountsFor=/var/lib/sidecar/fk0957
+
+[Service]
+Type=simple
+User=root
+Group=sidecar-acquire
+UMask=0077
+RuntimeDirectory=sidecar
+RuntimeDirectoryMode=0750
+StateDirectory=sidecar/fk0957/supervisor
+StateDirectoryMode=0700
+ExecStart=/usr/local/bin/fk0957-safe-launcher --supervisor
+Restart=no
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=no
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+ReadWritePaths=/run/sidecar /var/lib/sidecar/fk0957/supervisor /var/lib/sidecar/fk0957/consumed-release-authorizations
+CapabilityBoundingSet=CAP_SETUID CAP_SETGID CAP_CHOWN
+AmbientCapabilities=
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
