@@ -86,7 +86,7 @@
   ],
   "hardening_candidate": {
     "branch": "hardening/fk0957-production-20261113",
-    "head": "8725b15728ed0731ee47a81a9145e72e0c52b565",
+    "head": "fe94ef45e5b2ab5b3e4ed1ea8bc4f278751a67c0",
     "base_production_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
     "release_ready": false,
     "hardware_access": false,
@@ -97,7 +97,8 @@
       "administrator-controlled safe-launcher deployment",
       "authenticated release manifest for exact runtime sources and clean Git state",
       "native libc requalification after verified OS package update"
-    ]
+    ],
+    "runtime_source_hashes_match": true
   },
   "hardening_qualification": {
     "corrected_state_oracle_commit": "ea2104c55a1d4dafe6da91c6d5ac28447ec336c1",
@@ -119,9 +120,9 @@
     "unhashable_refusal_fields": "CANONICAL_REJECT",
     "mutation_counter_semantics": "write_count/reset_count/program_count=0; jtag_operation_count=1 for the fixed read-only two-scan transaction",
     "latest_focused_tests_passed": 115,
-    "latest_full_fk0957_tests_run": 199,
+    "latest_full_fk0957_tests_run": 200,
     "latest_full_fk0957_test_errors": 2,
-    "latest_full_fk0957_test_error_reason": "The two approved native-library tests refuse because installed libc SHA256/build-id differs from immutable pin; details in results/fk0957-native-library-requalification-required.json.",
+    "latest_full_fk0957_test_error_reason": "Both errors are native library tests refusing the changed installed libc SHA256/build-id; immutable pin intentionally remains unchanged.",
     "corrected_oracle_latest": "PASS: 28 valid accepted; 249572 invalid rejected; zero mismatches",
     "corrected_oracle_randomized_seeds": 20,
     "corrected_oracle_randomized_checks": "400 enumeration scenarios and 300 fault-order checks",
@@ -154,7 +155,9 @@
       "current_left_worktree": "in progress with uncommitted validator/profile changes",
       "latest_combined_contract_tests": "58 run; 1 error (NameError: tempfile not defined)",
       "agent_probe_reimplemented_locally": true
-    }
+    },
+    "production_main_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
+    "hardening_branch_tip_before_this_manifest_refresh": "fe94ef45e5b2ab5b3e4ed1ea8bc4f278751a67c0"
   },
   "runtime_source_hashes": {
     "tools/phk2_host/phk2_fk0957_topology_transport.py": "534e00f79eb6189e2dc265eabce2ff2cfb4fdfd2e374d4b5837ac473bbddc126",
@@ -213,7 +216,7 @@
   "maintenance_controller_reference": null,
   "hardening_milestone": {
     "branch": "hardening/fk0957-production-20261113",
-    "candidate_head": "8725b15728ed0731ee47a81a9145e72e0c52b565",
+    "candidate_head": "fe94ef45e5b2ab5b3e4ed1ea8bc4f278751a67c0",
     "production_main_head": "3226bfc1474d6afa873fce7327ded6dac548baae",
     "status": "WIP; not production ready",
     "wip_remote_publish_authorized": true,
