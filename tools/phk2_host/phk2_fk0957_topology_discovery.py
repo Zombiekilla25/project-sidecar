@@ -75,6 +75,7 @@ class DiscoveryPermit:
     expires_at: str
     trusted_signer_fingerprint: str
     _token: Any
+    authorization_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -117,11 +118,15 @@ def _now() -> datetime:
 
 
 def issue_permit(descriptor_evidence: bytes, expected_sha256: str,
-                 *, lifetime_seconds: int = 120, nonce: str | None = None) -> DiscoveryPermit:
+                 *, lifetime_seconds: int = 120, nonce: str | None = None,
+                 authorization_id: str | None = None) -> DiscoveryPermit:
     """Verify the already signed descriptor with the embedded signer pin."""
     if nonce is not None and (type(nonce) is not str or len(nonce) != 64 or
                               any(char not in "0123456789abcdef" for char in nonce)):
         raise Refusal("invalid authorized topology nonce")
+    if authorization_id is not None and (type(authorization_id) is not str or len(authorization_id) != 64 or
+                                          any(char not in "0123456789abcdef" for char in authorization_id)):
+        raise Refusal("invalid release authorization identity")
     base = identity_gate.authorize_descriptor(descriptor_evidence, expected_sha256=expected_sha256)
     # Retire the generic IDCODE-gate permit returned by descriptor validation;
     # only this separately scoped topology permit may authorize this operation.
@@ -138,10 +143,12 @@ def issue_permit(descriptor_evidence: bytes, expected_sha256: str,
     permit = DiscoveryPermit(base.descriptor_evidence_sha256, identity,
                              nonce, issued.astimezone(timezone.utc).isoformat(),
                              (issued + timedelta(seconds=lifetime_seconds)).astimezone(timezone.utc).isoformat(),
-                             identity_gate.TRUSTED_SIGNER_FINGERPRINT_SHA256, token)
+                             identity_gate.TRUSTED_SIGNER_FINGERPRINT_SHA256, token,
+                             authorization_id)
     with _PERMIT_LOCK:
         _ACTIVE[token] = (permit.descriptor_evidence_sha256, permit.identity, permit.nonce,
-                          permit.issued_at, permit.expires_at, permit.trusted_signer_fingerprint)
+                          permit.issued_at, permit.expires_at, permit.trusted_signer_fingerprint,
+                          permit.authorization_id)
     return permit
 
 
@@ -150,7 +157,8 @@ def _consume(permit: DiscoveryPermit, now: datetime | None = None) -> None:
         if not isinstance(permit, DiscoveryPermit) or permit._token not in _ACTIVE or permit._token in _CONSUMED:
             raise Refusal("invalid or replayed topology permit")
         binding = (permit.descriptor_evidence_sha256, permit.identity, permit.nonce,
-                   permit.issued_at, permit.expires_at, permit.trusted_signer_fingerprint)
+                   permit.issued_at, permit.expires_at, permit.trusted_signer_fingerprint,
+                   permit.authorization_id)
         if binding != _ACTIVE[permit._token]:
             raise Refusal("altered topology permit")
         _CONSUMED.add(permit._token)  # consume before any device/transport operation

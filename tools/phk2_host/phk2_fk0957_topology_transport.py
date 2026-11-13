@@ -338,6 +338,7 @@ class TransportObservation:
     product: str
     descriptor_evidence_sha256: str
     permit_nonce: str
+    authorization_id: str | None
     scan_a_transaction_sha256: str
     scan_a_tck_count: int
     scan_a_raw_tdo: bytes
@@ -1030,10 +1031,18 @@ def _run_consumed_permit(permit: topology.DiscoveryPermit,
         if not endpoint.supervisor_capability_valid():
             raise Refusal("physical transport requires protected supervisor capability")
         issuers = endpoint._load_trust_config()
-        context, authorization_bytes, authorization_id = endpoint._validate_request(request_raw, issuers)
+        context, _authorization_bytes, _authorization_id = endpoint._validate_request(request_raw, issuers)
         if (permit.descriptor_evidence_sha256 != context["descriptor_sha256"] or
-                permit.nonce != context["permit_nonce"]):
+                permit.nonce != context["permit_nonce"] or
+                permit.authorization_id != context["authorization_id"]):
             raise Refusal("release authorization descriptor/nonce does not match permit")
+        with topology._PERMIT_LOCK:
+            active = topology._ACTIVE.get(permit._token)
+            binding = (permit.descriptor_evidence_sha256, permit.identity, permit.nonce,
+                       permit.issued_at, permit.expires_at, permit.trusted_signer_fingerprint,
+                       permit.authorization_id)
+            if active != binding or permit._token in topology._CONSUMED:
+                raise Refusal("release authorization permit is not the original active token")
         # When launched through the protected root supervisor, the supervisor
         # consumes this exact signed authorization before creating the child
         # and supplies an inherited root-peer Unix socket capability. Direct
@@ -1043,12 +1052,16 @@ def _run_consumed_permit(permit: topology.DiscoveryPermit,
         raise
     except Exception:
         raise Refusal("remote release authorization validation failed") from None
-    # Reconstruct the permit from descriptor evidence revalidated above. Never
-    # trust mutable process-local permit registries or a caller-created
-    # DiscoveryPermit object as proof of descriptor identity.
-    permit = issue_fk0957_topology_permit(
-        context["descriptor"], context["descriptor_sha256"],
-        nonce=context["permit_nonce"])
+    # Keep the exact permit object issued from this signed request. Reissuing a
+    # descriptor permit here would create a second token and disconnect result
+    # validation from the token that passed the authorization gate.
+    with topology._PERMIT_LOCK:
+        active = topology._ACTIVE.get(permit._token)
+        binding = (permit.descriptor_evidence_sha256, permit.identity, permit.nonce,
+                   permit.issued_at, permit.expires_at, permit.trusted_signer_fingerprint,
+                   permit.authorization_id)
+        if active != binding or permit._token in topology._CONSUMED:
+            raise Refusal("release authorization permit identity changed before consume")
     topology._consume(permit)
     if trace is not None:
         trace.permit_consumed = 1
@@ -1150,6 +1163,7 @@ def _run_consumed_permit(permit: topology.DiscoveryPermit,
         selected_identity.usb_path, f"{FTDI_VID:04x}", f"{FTDI_PID:04x}",
         selected_identity.manufacturer, selected_identity.product,
         permit.descriptor_evidence_sha256, permit.nonce,
+        permit.authorization_id,
         topology.scan_transaction_sha256(plan.scan_a_commands), plan.scan_a_tck_count, raw_a,
         topology.scan_transaction_sha256(plan.scan_b_commands), plan.scan_b_tck_count, raw_b,
         plan.tck_count, source_sha, *_production_git_state(), runtime_provenance,
@@ -1183,14 +1197,16 @@ def run_fk0957_topology_discovery(authorized_permit: topology.DiscoveryPermit) -
 
 def issue_fk0957_topology_permit(descriptor_evidence: bytes, expected_sha256: str,
                                   *, lifetime_seconds: int = 120,
-                                  nonce: str | None = None) -> topology.DiscoveryPermit:
+                                  nonce: str | None = None,
+                                  authorization_id: str | None = None) -> topology.DiscoveryPermit:
     """Verify the signed descriptor and issue its one-use topology permit."""
     trace = _AttemptTrace()
     trace.phase = "PERMIT_VALIDATION"
     trace.permit_consumed = 0
     try:
         return topology.issue_permit(descriptor_evidence, expected_sha256,
-                                     lifetime_seconds=lifetime_seconds, nonce=nonce)
+                                     lifetime_seconds=lifetime_seconds, nonce=nonce,
+                                     authorization_id=authorization_id)
     except BaseException as exc:
         if isinstance(exc, identity_gate.Refusal):
             code, phase = "DESCRIPTOR_STALE", "PERMIT_VALIDATION"
@@ -1220,8 +1236,16 @@ def _authorize_remote_permit(permit: topology.DiscoveryPermit, *, request_raw: b
         issuers = endpoint._load_trust_config()
         context, _, _ = endpoint._validate_request(request_raw, issuers)
         if (permit.descriptor_evidence_sha256 != context["descriptor_sha256"] or
-                permit.nonce != context["permit_nonce"]):
+                permit.nonce != context["permit_nonce"] or
+                permit.authorization_id != context["authorization_id"]):
             raise Refusal("release authorization descriptor/nonce does not match permit")
+        with topology._PERMIT_LOCK:
+            active = topology._ACTIVE.get(permit._token)
+            binding = (permit.descriptor_evidence_sha256, permit.identity, permit.nonce,
+                       permit.issued_at, permit.expires_at, permit.trusted_signer_fingerprint,
+                       permit.authorization_id)
+            if active != binding or permit._token in topology._CONSUMED:
+                raise Refusal("release authorization permit is not the original active token")
     except Refusal:
         raise
     except Exception:
@@ -1243,7 +1267,7 @@ def _validate_transport_observation(permit: topology.DiscoveryPermit,
     plan = topology.build_plan()
     exact = (result.card_id, result.adapter_serial, result.usb_descriptor_serial,
              result.physical_interface, result.ftdi_vid, result.ftdi_pid,
-             result.descriptor_evidence_sha256, result.permit_nonce,
+             result.descriptor_evidence_sha256, result.permit_nonce, result.authorization_id,
              result.scan_a_transaction_sha256, result.scan_a_tck_count,
              result.scan_b_transaction_sha256, result.scan_b_tck_count,
              result.total_tck_count, result.transport_source_sha256,
@@ -1252,7 +1276,7 @@ def _validate_transport_observation(permit: topology.DiscoveryPermit,
              result.matched_device_count, result.opened_device_count, result.second_device_opened,
              result.write_count, result.reset_count, result.program_count)
     expected = (CARD_ID, ADAPTER_SERIAL, USB_DESCRIPTOR_SERIAL, "A", "0403", "6010",
-                permit.descriptor_evidence_sha256, permit.nonce,
+                permit.descriptor_evidence_sha256, permit.nonce, permit.authorization_id,
                 topology.scan_transaction_sha256(plan.scan_a_commands), 591,
                 topology.scan_transaction_sha256(plan.scan_b_commands), 586,
                 1177, transport_source_sha256(), *_production_git_state(),
@@ -1274,7 +1298,7 @@ def _validate_transport_observation(permit: topology.DiscoveryPermit,
         active_binding = topology._ACTIVE.get(permit._token)
         supplied_binding = (permit.descriptor_evidence_sha256, permit.identity, permit.nonce,
                             permit.issued_at, permit.expires_at,
-                            permit.trusted_signer_fingerprint)
+                            permit.trusted_signer_fingerprint, permit.authorization_id)
         if (active_binding is None or active_binding != supplied_binding or
             permit._token not in topology._CONSUMED):
             raise Refusal("transport result lacks the original consumed descriptor permit")

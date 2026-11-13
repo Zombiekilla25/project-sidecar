@@ -178,6 +178,7 @@ class RemoteTopologyEndpointTests(unittest.TestCase):
         result = SimpleNamespace(
             card_id="FK0957", adapter_serial="153300000957A", usb_descriptor_serial="153300000957",
             physical_interface="A", descriptor_evidence_sha256=self.descriptor_sha, permit_nonce=self.nonce,
+            authorization_id=self.auth_id,
             trusted_signer_fingerprint="f" * 64,
             transport_source_sha256="8" * 64, worktree_clean=True,
             runtime_library_provenance=(), scan_a_transaction_sha256="9" * 64,
@@ -189,7 +190,8 @@ class RemoteTopologyEndpointTests(unittest.TestCase):
              mock.patch.object(transport, "_production_git_state", return_value=("a" * 40, True)), \
              mock.patch.object(transport, "issue_fk0957_topology_permit",
                                side_effect=lambda *_a, **_k: events.append("permit") or SimpleNamespace(
-                                   trusted_signer_fingerprint="f" * 64, nonce=self.nonce)) as issue_permit, \
+                                   trusted_signer_fingerprint="f" * 64, nonce=self.nonce,
+                                   authorization_id=self.auth_id)) as issue_permit, \
              mock.patch.object(transport, "_authorize_remote_permit",
                                side_effect=lambda *_a, **_k: events.append("release-bound")), \
              mock.patch.object(transport, "run_fk0957_topology_discovery",
@@ -200,7 +202,8 @@ class RemoteTopologyEndpointTests(unittest.TestCase):
         record = json.loads(raw)
         self.assertEqual(events, ["permit", "release-bound", "physical", "validate"])
         issue_permit.assert_called_once_with(
-            self.descriptor, self.descriptor_sha, nonce=self.nonce)
+            self.descriptor, self.descriptor_sha, nonce=self.nonce,
+            authorization_id=self.auth_id)
         self.assertEqual(run.call_count, 1)
         self.assertEqual(record["status"], "ACQUIRED")
         self.assertNotIn("signature_hex", record)

@@ -45,12 +45,15 @@ _TEST_SOURCE_SHA256 = "a" * 64
 
 
 @contextmanager
-def fake_release_request(permit, reconstructed_permit=None, context_nonce=None):
+def fake_release_request(permit, reconstructed_permit=None, context_nonce=None,
+                         context_authorization_id=None):
     """Test-only signed-request validator substitute at the trust boundary."""
     context = {
         "descriptor_sha256": permit.descriptor_evidence_sha256,
         "authorization_sha256": "a" * 64, "handoff_sha256": "b" * 64,
         "manifest_sha256": "c" * 64, "descriptor": b"fixture-descriptor",
+        "authorization_id": (permit.authorization_id if context_authorization_id is None
+                             else context_authorization_id),
         "permit_nonce": permit.nonce if context_nonce is None else context_nonce,
     }
     with mock.patch.object(endpoint, "_load_trust_config", return_value={"release": b"x" * 32,
@@ -209,7 +212,7 @@ class TopologyTransportTests(unittest.TestCase):
         self.digest = hashlib.sha256(self.raw).hexdigest()
 
     def permit(self):
-        return topology.issue_permit(self.raw, self.digest)
+        return topology.issue_permit(self.raw, self.digest, authorization_id="2" * 64)
 
     def backend(self, **kwargs):
         return FakeBackend(**kwargs)
@@ -352,6 +355,21 @@ class TopologyTransportTests(unittest.TestCase):
         self.assertEqual(result.scan_b_transaction_sha256, transport.GOLDEN_SCAN_B_SHA256)
         self.assertEqual((backend.open_count, backend.close_count), (1, 1))
         self.assertEqual(backend.events[-1], "close")
+
+    def test_one_authorization_permit_token_survives_backend_result_validation(self):
+        permit = self.permit()
+        backend = self.backend()
+        with fake_release_request(permit) as request_raw:
+            permit_factory = topology.issue_permit
+            transport._authorize_remote_permit(permit, request_raw=request_raw)
+            with mock.patch.object(transport, "_NativeLibFtdi", return_value=backend):
+                result = transport.run_fk0957_topology_discovery(permit)
+            permit_factory.assert_not_called()
+        self.assertIs(result.authorization_id, permit.authorization_id)
+        self.assertIs(result.permit_nonce, permit.nonce)
+        self.assertIn(permit._token, topology._CONSUMED)
+        self.assertEqual(transport.validate_transport_observation(permit, result).status,
+                         "PARSED_RESET_DEFAULT_DR")
 
     def test_exact_candidate_binding_happens_before_open(self):
         backend = self.backend()
@@ -536,7 +554,7 @@ class TopologyTransportTests(unittest.TestCase):
                 run_with_backend(permit, backend)
             self.assertEqual(backend.close_count, 1)
             with self.assertRaises(transport.Refusal) as replay:
-                run_with_backend(permit, self.backend())
+                transport.run_fk0957_topology_discovery(permit)
             self.assertEqual(json.loads(replay.exception.canonical_envelope())["permit_consumed"], 1)
         backend = self.backend(short_read=True)
         with self.assertRaises(transport.Refusal):
@@ -682,7 +700,7 @@ class TopologyTransportTests(unittest.TestCase):
             self.assertEqual((envelope["phase"], envelope["code"]), (phase, code))
             self.assertNotIn("secret", caught.exception.canonical_envelope().decode())
             with self.assertRaises(transport.Refusal) as replay:
-                run_with_backend(permit, self.backend())
+                transport.run_fk0957_topology_discovery(permit)
             self.assertEqual(json.loads(replay.exception.canonical_envelope())["permit_consumed"], 1)
 
     def test_permit_library_descriptor_and_local_validation_refusals_are_bounded(self):
@@ -756,6 +774,7 @@ class TopologyTransportTests(unittest.TestCase):
                 transport._run_consumed_permit(permit, request_raw=request_raw)
             backend.assert_not_called()
         self.assertNotIn(permit._token, transport._REMOTE_AUTHORIZED_PERMITS)
+        self.assertNotIn(permit._token, topology._CONSUMED)
 
     def test_raw_digest_injection_cannot_authorize_remote_transport(self):
         permit = self.permit()
@@ -775,18 +794,34 @@ class TopologyTransportTests(unittest.TestCase):
                 transport.run_fk0957_topology_discovery(permit)
         backend.assert_not_called()
 
-    def test_mutated_process_local_permit_identity_is_reconstructed_from_signed_descriptor(self):
+    def test_mutated_process_local_permit_identity_refuses_before_backend(self):
         trusted_permit = self.permit()
         forged_permit = replace(
             trusted_permit,
             identity=replace(trusted_permit.identity, card_id="FK0000"))
         backend = self.backend()
         with fake_release_request(forged_permit, reconstructed_permit=trusted_permit) as request_raw:
-            transport._authorize_remote_permit(forged_permit, request_raw=request_raw)
-            with mock.patch.object(transport, "_NativeLibFtdi", return_value=backend):
-                result = transport.run_fk0957_topology_discovery(forged_permit)
-        self.assertEqual(result.card_id, "FK0957")
-        self.assertEqual(backend.open_count, 1)
+            with mock.patch.object(transport, "_NativeLibFtdi", return_value=backend) as backend_factory:
+                with self.assertRaises(transport.Refusal):
+                    transport._authorize_remote_permit(forged_permit, request_raw=request_raw)
+                with self.assertRaises(transport.Refusal):
+                    transport._run_consumed_permit(forged_permit, request_raw=request_raw)
+        backend_factory.assert_not_called()
+        self.assertEqual((backend.events, backend.open_count), ([], 0))
+        self.assertNotIn(forged_permit._token, topology._CONSUMED)
+
+    def test_authorization_id_mismatch_refuses_before_authorization_attachment_or_backend(self):
+        permit = self.permit()
+        backend = self.backend()
+        with fake_release_request(permit, context_authorization_id="3" * 64) as request_raw, \
+                mock.patch.object(transport, "_NativeLibFtdi", return_value=backend) as backend_factory:
+            with self.assertRaises(transport.Refusal):
+                transport._authorize_remote_permit(permit, request_raw=request_raw)
+            with self.assertRaises(transport.Refusal):
+                transport._run_consumed_permit(permit, request_raw=request_raw)
+        backend_factory.assert_not_called()
+        self.assertNotIn(permit._token, transport._REMOTE_AUTHORIZED_PERMITS)
+        self.assertNotIn(permit._token, topology._CONSUMED)
 
     def test_operation_state_transitions_are_monotonic(self):
         trace = transport._AttemptTrace()

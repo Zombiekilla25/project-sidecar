@@ -62,6 +62,25 @@ incomplete, or unavailable status is projected to `state=UNKNOWN`,
 USB ownership only when the operation ID matches and `restore_eligible` is
 exactly `true`; all other states require manual recovery.
 
+## Authorization identity and consumption
+
+The signed release authorization's `authorization_id` and `nonce` are copied
+unchanged into the immutable topology permit. The permit also binds the signed
+descriptor digest and is checked against the supervisor-validated request
+before it is attached to the one-shot transport call. The transport consumes
+that same permit object once before constructing its native backend; it does
+not issue a replacement permit. The transport observation and unsigned
+acquisition record carry the same authorization ID and nonce, which RGB
+validates against its original signed request before signing.
+
+The release authorization ledger has one consumption point: the protected
+supervisor's exclusive ledger create, after full request, handoff, target,
+manifest, profile, and freshness validation and before child launch. Endpoint
+and transport validation are non-consuming checks. A mismatch at those
+boundaries refuses before native backend construction/open. The local
+descriptor/topology permit is a single-use execution capability derived from
+the same release authorization, not a second release authorization.
+
 ## Current provisioning state
 
 The issuer pin is unset in the remote endpoint source and the root-owned
