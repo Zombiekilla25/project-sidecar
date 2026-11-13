@@ -44,9 +44,11 @@ _TEST_SOURCE_SHA256 = "a" * 64
 
 def run_with_backend(permit, backend):
     """Test-only backend injection through the concrete production entrypoint."""
-    transport._authorize_remote_permit(permit, authorization_sha256="a" * 64,
-                                       handoff_sha256="b" * 64, manifest_sha256="c" * 64,
-                                       descriptor_sha256=permit.descriptor_evidence_sha256)
+    # Test-only fake release binding; production callers cannot provide these
+    # digests to the transport authorizer anymore.
+    with transport._REMOTE_AUTH_LOCK:
+        transport._REMOTE_AUTHORIZED_PERMITS[permit._token] = (
+            "a" * 64, "b" * 64, "c" * 64, permit.descriptor_evidence_sha256)
     with mock.patch.object(transport, "_NativeLibFtdi", return_value=backend):
         return transport.run_fk0957_topology_discovery(permit)
 
@@ -674,9 +676,9 @@ class TopologyTransportTests(unittest.TestCase):
         self.assertEqual(env["permit_consumed"], 0)
 
         permit = self.permit()
-        transport._authorize_remote_permit(permit, authorization_sha256="a" * 64,
-                                           handoff_sha256="b" * 64, manifest_sha256="c" * 64,
-                                           descriptor_sha256=permit.descriptor_evidence_sha256)
+        with transport._REMOTE_AUTH_LOCK:
+            transport._REMOTE_AUTHORIZED_PERMITS[permit._token] = (
+                "a" * 64, "b" * 64, "c" * 64, permit.descriptor_evidence_sha256)
         with mock.patch.object(transport, "transport_source_sha256",
                                side_effect=transport.Refusal("secret path /private/native.so")):
             with self.assertRaises(transport.Refusal) as library:
@@ -713,6 +715,15 @@ class TopologyTransportTests(unittest.TestCase):
         result = run_with_backend(permit, self.backend())
         with self.assertRaisesRegex(signing.Refusal, "disabled"):
             signing.sign_local_discovery_record(permit, result)
+
+    def test_raw_digest_injection_cannot_authorize_remote_transport(self):
+        permit = self.permit()
+        with self.assertRaises(transport.Refusal):
+            transport._authorize_remote_permit(
+                permit, authorization_sha256="a" * 64, handoff_sha256="b" * 64,
+                manifest_sha256="c" * 64,
+                descriptor_sha256=permit.descriptor_evidence_sha256)
+        self.assertNotIn(permit._token, transport._REMOTE_AUTHORIZED_PERMITS)
 
     def test_operation_state_transitions_are_monotonic(self):
         trace = transport._AttemptTrace()

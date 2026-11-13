@@ -494,14 +494,13 @@ def _unsigned_record(context: dict[str, Any], permit: Any,
 def execute_request(raw: bytes) -> bytes:
     """Fixed production route. The only substitution point is native transport itself."""
     issuers = _load_trust_config()
-    context, authorization_bytes, auth_id = _validate_request(raw, issuers)
-    _consume_authorization(auth_id, authorization_bytes)
+    context, _, _ = _validate_request(raw, issuers)
     permit = transport.issue_fk0957_topology_permit(
         context["descriptor"], context["descriptor_sha256"])
-    transport._authorize_remote_permit(
-        permit, authorization_sha256=context["authorization_sha256"],
-        handoff_sha256=context["handoff_sha256"], manifest_sha256=context["manifest_sha256"],
-        descriptor_sha256=context["descriptor_sha256"])
+    # The transport gate independently revalidates the signed request and
+    # consumes its authorization. This prevents raw digest injection through
+    # direct internal transport calls.
+    transport._authorize_remote_permit(permit, request_raw=raw)
     result = transport.run_fk0957_topology_discovery(permit)
     parsed = transport.validate_transport_observation(permit, result)
     record = _unsigned_record(context, permit, result, parsed)

@@ -1171,17 +1171,32 @@ def issue_fk0957_topology_permit(descriptor_evidence: bytes, expected_sha256: st
         raise _diagnostic_refusal(exc, trace, code=code, phase=phase) from None
 
 
-def _authorize_remote_permit(permit: topology.DiscoveryPermit, *, authorization_sha256: str,
-                             handoff_sha256: str, manifest_sha256: str,
-                             descriptor_sha256: str) -> None:
-    """Attach verified release bindings to the one physical call that follows."""
-    digests = (authorization_sha256, handoff_sha256, manifest_sha256, descriptor_sha256)
-    if (not isinstance(permit, topology.DiscoveryPermit) or
-            any(type(value) is not str or len(value) != 64 or
-                any(ch not in "0123456789abcdef" for ch in value) for value in digests)):
+def _authorize_remote_permit(permit: topology.DiscoveryPermit, *, request_raw: bytes | None = None,
+                             **untrusted_digests: Any) -> None:
+    """Bind a permit only after revalidating and consuming the signed request.
+
+    Raw caller-supplied digests are not authority. This internal transport
+    gate independently verifies release authorization, handoff, target,
+    manifest and freshness through the endpoint's pinned trust configuration,
+    then durably consumes the authorization before registering the permit.
+    """
+    if (not isinstance(permit, topology.DiscoveryPermit) or type(request_raw) is not bytes or
+            untrusted_digests):
         raise Refusal("remote release authorization context is invalid")
-    if permit.descriptor_evidence_sha256 != descriptor_sha256:
-        raise Refusal("remote release authorization target does not match descriptor permit")
+    try:
+        import phk2_fk0957_remote_topology_endpoint as endpoint
+        issuers = endpoint._load_trust_config()
+        context, authorization_bytes, authorization_id = endpoint._validate_request(request_raw, issuers)
+        if (permit.descriptor_evidence_sha256 != context["descriptor_sha256"] or
+                context["descriptor_sha256"] != hashlib.sha256(context["descriptor"]).hexdigest()):
+            raise Refusal("remote release authorization target does not match descriptor permit")
+        endpoint._consume_authorization(authorization_id, authorization_bytes)
+    except Refusal:
+        raise
+    except Exception:
+        raise Refusal("remote release authorization validation failed") from None
+    digests = (context["authorization_sha256"], context["handoff_sha256"],
+               context["manifest_sha256"], context["descriptor_sha256"])
     with _REMOTE_AUTH_LOCK:
         if permit._token in _REMOTE_AUTHORIZED_PERMITS:
             raise Refusal("remote release authorization context was already attached")
