@@ -15,6 +15,14 @@ from typing import Iterator
 SCAN_A_TCK_COUNT = 591
 SCAN_B_TCK_COUNT = 586
 TOTAL_TCK_COUNT = 1177
+MAX_REPORTED_TARGET_CANDIDATES = 256
+
+
+def bounded_candidate_count(raw_count: int) -> int:
+    """Map an observed count to the envelope's saturating bounded counter."""
+    if type(raw_count) is not int or raw_count < 0:
+        raise ValueError("candidate count must be a nonnegative integer")
+    return min(raw_count, MAX_REPORTED_TARGET_CANDIDATES)
 
 
 class Stage(IntEnum):
@@ -125,7 +133,10 @@ def legal_snapshot(s: Snapshot) -> bool:
     """Return whether a snapshot is reachable under the independent model."""
     if type(s.stage) is not Stage:
         return False
-    if (type(s.target_candidates) is not int or not 0 <= s.target_candidates <= 300 or
+    # This is the bounded envelope value, not the unbounded raw count. Raw
+    # counts above the bound are represented by 256 and a multiple-target code.
+    if (type(s.target_candidates) is not int or
+            not 0 <= s.target_candidates <= MAX_REPORTED_TARGET_CANDIDATES or
             type(s.scan_a_tck_emitted) is not int or
             not 0 <= s.scan_a_tck_emitted <= SCAN_A_TCK_COUNT or
             type(s.scan_b_tck_emitted) is not int or
@@ -195,6 +206,7 @@ def legal_snapshot(s: Snapshot) -> bool:
                 not s.signing_staged and not s.final_evidence_exists)
     if phase == Stage.OPEN:
         return (s.permit_consumed and s.target_candidates == 1 and
+                not s.device_opened and
                 not s.scan_a_started and s.scan_a_tck_emitted == 0 and
                 not s.scan_b_started and s.scan_b_tck_emitted == 0 and
                 not s.transport_closed and not s.local_validation_passed and
@@ -255,9 +267,9 @@ def advance(previous: Snapshot, following: Snapshot) -> bool:
         return False
     cleanup_transition = (
         following.stage == Stage.TRANSPORT_CLOSE and
-        previous.stage >= Stage.MPSSE_INIT and
+        previous.stage >= Stage.OPEN and
         previous.stage < Stage.TRANSPORT_CLOSE and
-        previous.device_opened and
+        (previous.stage == Stage.OPEN or previous.device_opened) and
         following.failure_origin == previous.stage and
         following.terminal_status == REFUSED)
     normal_transition = (
@@ -288,8 +300,9 @@ def advance(previous: Snapshot, following: Snapshot) -> bool:
 
 def close_after_failure(previous: Snapshot, *, closed: bool) -> Snapshot:
     """Model deterministic cleanup while retaining the original progress."""
-    if (not legal_snapshot(previous) or previous.stage < Stage.MPSSE_INIT or
-            previous.stage >= Stage.TRANSPORT_CLOSE or not previous.device_opened):
+    if (not legal_snapshot(previous) or previous.stage < Stage.OPEN or
+            previous.stage >= Stage.TRANSPORT_CLOSE or
+            (previous.stage > Stage.OPEN and not previous.device_opened)):
         raise ValueError("failure origin is not a closable operation stage")
     return replace(previous, stage=Stage.TRANSPORT_CLOSE, transport_closed=closed,
                    failure_origin=previous.stage, terminal_status=REFUSED)

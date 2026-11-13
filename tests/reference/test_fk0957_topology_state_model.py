@@ -80,6 +80,18 @@ class IndependentTopologyStateModelTests(unittest.TestCase):
             self.assertFalse(item.final_evidence_exists)
             self.assertEqual(item.terminal_status, model.REFUSED)
 
+    def test_open_failure_cleanup_preserves_unopened_handle_state(self):
+        open_failure = state(model.Stage.OPEN, target_candidates=1,
+                             permit_consumed=True, device_opened=False)
+        closed = model.close_after_failure(open_failure, closed=True)
+        failed_close = model.close_after_failure(open_failure, closed=False)
+        for item in (closed, failed_close):
+            self.assertTrue(model.legal_snapshot(item))
+            self.assertTrue(model.advance(open_failure, item))
+            self.assertEqual(item.failure_origin, model.Stage.OPEN)
+            self.assertFalse(item.device_opened)
+            self.assertFalse(item.final_evidence_exists)
+
     def test_close_after_complete_scan_is_valid_for_success_or_close_failure(self):
         common = opened(scan_a_started=True, scan_a_tck_emitted=591,
                         scan_b_started=True, scan_b_tck_emitted=586)
@@ -103,6 +115,21 @@ class IndependentTopologyStateModelTests(unittest.TestCase):
         for item in cases:
             with self.subTest(stage=item.stage):
                 self.assertFalse(model.legal_snapshot(item))
+
+    def test_open_stage_means_open_not_yet_completed_and_candidate_count_is_bounded(self):
+        opened_in_open_stage = state(model.Stage.OPEN, target_candidates=1,
+                                     permit_consumed=True, device_opened=True)
+        self.assertFalse(model.legal_snapshot(opened_in_open_stage))
+        for stage in (model.Stage.ENUMERATION, model.Stage.SELECTION):
+            self.assertTrue(model.legal_snapshot(state(stage, target_candidates=256,
+                                                        permit_consumed=True)))
+            self.assertFalse(model.legal_snapshot(state(stage, target_candidates=300,
+                                                         permit_consumed=True)))
+        self.assertEqual(
+            [model.bounded_candidate_count(value) for value in (0, 1, 2, 255, 256, 300)],
+            [0, 1, 2, 255, 256, 256])
+        with self.assertRaises(ValueError):
+            model.bounded_candidate_count(-1)
 
     def test_rejects_scan_b_before_a_complete_and_all_overflow_counts(self):
         incomplete_a = state(model.Stage.SCAN_B_NAV_WRITE,
