@@ -25,7 +25,9 @@ UNKNOWN = "UNKNOWN"
 STATUSES = {NOT_STARTED, RUNNING_EXPECTED_PROCESS, EXITED_SUCCESS,
             EXITED_REFUSAL, EXITED_FAILURE, IDENTITY_MISMATCH,
             STATUS_INSPECTION_FAILED, TRANSPORT_FAILED, UNKNOWN}
-RESTORABLE = {NOT_STARTED, EXITED_SUCCESS, EXITED_REFUSAL, EXITED_FAILURE}
+# This legacy same-UID receipt protocol is not an authoritative child reaper.
+# Only the separately protected supervisor may authorize shared-owner restore.
+RESTORABLE: set[str] = set()
 RECEIPT_STATE_FOR_STATUS = {
     EXITED_SUCCESS: "EXITED_SUCCESS",
     EXITED_REFUSAL: "EXITED_REFUSAL",
@@ -38,7 +40,7 @@ RECEIPT_ID = re.compile(r"[0-9a-f]{32}\Z")
 START_ID = re.compile(r"[1-9][0-9]{0,19}\Z")
 SAFE_AUTH_ID = re.compile(r"[A-Za-z0-9._:-]{1,128}\Z")
 RECEIPT_SCHEMA = "fk0957-remote-process-receipt-v1"
-STATUS_SCHEMA = "fk0957-remote-process-status-v1"
+STATUS_SCHEMA = "fk0957-remote-process-status-v2"
 RECEIPT_KEYS = {
     "schema", "operation_id", "release_authorization_id",
     "release_authorization_sha256", "target_selector", "usb_descriptor_serial",
@@ -53,7 +55,7 @@ STATUS_KEYS = {
     "schema", "operation_id", "query_nonce", "observed_utc",
     "release_authorization_id", "release_authorization_sha256",
     "target_selector", "release_manifest_sha256", "remote_host", "remote_user",
-    "launch_closed", "status", "receipt_sha256", "receipt", "process_identity",
+    "status", "receipt_sha256", "receipt", "process_identity",
 }
 
 
@@ -224,7 +226,6 @@ def validate_status(raw: bytes, *, operation_id: str, query_nonce: str,
                 status["release_manifest_sha256"] != release_manifest_sha256 or
                 status["target_selector"] != "FK0957" or
                 status["remote_host"] != expected_host or status["remote_user"] != expected_user or
-                status["launch_closed"] is not True or
                 not _timestamp(status["observed_utc"], now=now, max_age_seconds=max_age_seconds) or
                 status["status"] not in STATUSES):
             return UNKNOWN
@@ -249,7 +250,7 @@ def validate_status(raw: bytes, *, operation_id: str, query_nonce: str,
             expected_cwd=expected_cwd, now=now, max_age_seconds=120)
         claimed = status["status"]
         if claimed == NOT_STARTED:
-            return NOT_STARTED if receipt["state"] == "PREPARED" and status["process_identity"] is None else UNKNOWN
+            return UNKNOWN
         if claimed == RUNNING_EXPECTED_PROCESS:
             expected_process = receipt["process"]
             actual = status["process_identity"]
@@ -263,10 +264,9 @@ def validate_status(raw: bytes, *, operation_id: str, query_nonce: str,
                 return IDENTITY_MISMATCH if isinstance(actual, dict) else UNKNOWN
             return RUNNING_EXPECTED_PROCESS if receipt["state"] == "RUNNING" else UNKNOWN
         if claimed in {EXITED_SUCCESS, EXITED_REFUSAL, EXITED_FAILURE}:
-            if (receipt["state"] != RECEIPT_STATE_FOR_STATUS[claimed] or
-                    status["process_identity"] != receipt["process"]):
-                return UNKNOWN
-            return claimed
+            # Caller-writable receipt state plus PID absence is not proof the
+            # authoritative supervisor reaped the exact child.
+            return UNKNOWN
         if claimed == IDENTITY_MISMATCH:
             return IDENTITY_MISMATCH
         if claimed == STATUS_INSPECTION_FAILED:
@@ -277,13 +277,8 @@ def validate_status(raw: bytes, *, operation_id: str, query_nonce: str,
 
 
 def restore_allowed(status: str) -> bool:
-    """Only a strict confirmed terminal string permits automatic restore.
-
-    Query/transport failures and malformed values are deliberately nonterminal.
-    The explicit type check also prevents unhashable hostile values from
-    escaping as an exception in a cleanup decision path.
-    """
-    return type(status) is str and status in RESTORABLE
+    """Legacy receipts can never authorize ownership restoration."""
+    return False
 
 
 def classify_status_query(*, transport_return_code: Any, response_bytes: Any,
@@ -319,10 +314,8 @@ def receipt_transition_allowed(old_state: str, new_state: str) -> bool:
     allowed = {
         "PREPARED": {"PREPARED", "CLAIMED"},
         "CLAIMED": {"CLAIMED", "RUNNING"},
-        "RUNNING": {"RUNNING", "EXITED_SUCCESS", "EXITED_REFUSAL", "EXITED_FAILURE"},
-        "EXITED_SUCCESS": {"EXITED_SUCCESS"},
-        "EXITED_REFUSAL": {"EXITED_REFUSAL"},
-        "EXITED_FAILURE": {"EXITED_FAILURE"},
+        # Only the protected supervisor may write terminal process states.
+        "RUNNING": {"RUNNING"},
     }
     return new_state in allowed.get(old_state, set())
 

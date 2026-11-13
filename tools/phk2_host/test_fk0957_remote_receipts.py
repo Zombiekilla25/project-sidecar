@@ -48,22 +48,27 @@ class RemoteReceiptStoreTests(unittest.TestCase):
         import shutil
         shutil.rmtree(self.parent, ignore_errors=True)
 
-    def test_create_is_exclusive_and_status_requires_explicit_launcher_closure(self):
+    def test_legacy_store_never_claims_launch_closed_or_not_started(self):
         self.store.create(self.payload)
         with self.assertRaises(FileExistsError):
             self.store.create(self.payload)
         nonce = "c" * 64
         self.assertEqual(self.store.status(operation_id=self.operation_id,
                                            query_nonce=nonce)["status"], protocol.UNKNOWN)
-        response = self.store.status(operation_id=self.operation_id,
-                                     query_nonce=nonce, launch_closed=True)
-        self.assertEqual(response["status"], protocol.NOT_STARTED)
-        self.assertTrue(protocol.restore_allowed(response["status"]))
+        with self.assertRaises(TypeError):
+            self.store.status(operation_id=self.operation_id,
+                              query_nonce=nonce, launch_closed=True)
+        self.assertNotIn("launch_closed", self.store.status(
+            operation_id=self.operation_id, query_nonce=nonce))
+        self.assertFalse(protocol.restore_allowed(protocol.NOT_STARTED))
 
-    def test_invalid_status_nonce_and_default_launch_state_fail_closed(self):
+    def test_invalid_nonce_and_removed_launch_closed_argument_fail_closed(self):
         self.store.create(self.payload)
         with self.assertRaises(ValueError):
-            self.store.status(operation_id=self.operation_id, query_nonce="x", launch_closed=True)
+            self.store.status(operation_id=self.operation_id, query_nonce="x")
+        with self.assertRaises(TypeError):
+            self.store.status(operation_id=self.operation_id, query_nonce="c" * 64,
+                              launch_closed=True)
         self.assertFalse(protocol.restore_allowed(
             self.store.status(operation_id=self.operation_id,
                               query_nonce="c" * 64)["status"]))
@@ -72,8 +77,7 @@ class RemoteReceiptStoreTests(unittest.TestCase):
         self.store.create(self.payload)
         self.store.transition(self.operation_id, "CLAIMED", process=None, exit_code=None)
         self.assertEqual(self.store.status(operation_id=self.operation_id,
-                                           query_nonce="c" * 64,
-                                           launch_closed=True)["status"], protocol.UNKNOWN)
+                                           query_nonce="c" * 64)["status"], protocol.UNKNOWN)
         process = {
             "pid": os.getpid(), "start_identity": "123", "uid": os.getuid(),
             "executable": "/usr/bin/python3", "executable_sha256": "5" * 64,
@@ -82,7 +86,7 @@ class RemoteReceiptStoreTests(unittest.TestCase):
         with mock.patch.object(receipts, "process_start_identity", return_value="123"):
             self.store.transition(self.operation_id, "RUNNING", process=process, exit_code=None)
             status = self.store.status(operation_id=self.operation_id,
-                                       query_nonce="c" * 64, launch_closed=True)["status"]
+                                       query_nonce="c" * 64)["status"]
         self.assertEqual(status, protocol.RUNNING_EXPECTED_PROCESS)
         self.assertFalse(protocol.restore_allowed(status))
 
@@ -98,8 +102,7 @@ class RemoteReceiptStoreTests(unittest.TestCase):
             self.store.transition(self.operation_id, "RUNNING", process=process, exit_code=None)
         with mock.patch.object(receipts, "process_start_identity", return_value=None):
             status = self.store.status(operation_id=self.operation_id,
-                                       query_nonce="c" * 64,
-                                       launch_closed=True)["status"]
+                                       query_nonce="c" * 64)["status"]
         self.assertEqual(status, protocol.UNKNOWN)
         self.assertFalse(protocol.restore_allowed(status))
         row, _ = self.store.read(self.operation_id)
@@ -126,21 +129,38 @@ class RemoteReceiptStoreTests(unittest.TestCase):
         }
         with mock.patch.object(receipts, "process_start_identity", return_value="123"):
             self.store.transition(self.operation_id, "RUNNING", process=process, exit_code=None)
-            self.store.transition(self.operation_id, "EXITED_SUCCESS", process=process, exit_code=0)
+            with self.assertRaisesRegex(ValueError, "receipt transition refused"):
+                self.store.transition(self.operation_id, "EXITED_SUCCESS", process=process, exit_code=0)
         self.assertTrue(Path(f"/proc/{os.getpid()}/stat").exists())
         with mock.patch.object(receipts, "process_start_identity",
                                side_effect=receipts.ProcessInspectionFailure("permission denied")):
             state = self.store.status(operation_id=self.operation_id,
-                                      query_nonce="c" * 64,
-                                      launch_closed=True)["status"]
+                                      query_nonce="c" * 64)["status"]
         self.assertEqual(state, protocol.STATUS_INSPECTION_FAILED)
         self.assertFalse(protocol.restore_allowed(state))
         with mock.patch.object(receipts, "process_start_identity", return_value=None):
             state = self.store.status(operation_id=self.operation_id,
-                                      query_nonce="c" * 64,
-                                      launch_closed=True)["status"]
+                                      query_nonce="c" * 64)["status"]
         self.assertEqual(state, protocol.STATUS_INSPECTION_FAILED)
         self.assertFalse(protocol.restore_allowed(state))
+
+    def test_fabricated_terminal_receipt_and_pid_absence_remain_unknown(self):
+        self.store.create(self.payload)
+        self.store.transition(self.operation_id, "CLAIMED", process=None, exit_code=None)
+        process = {
+            "pid": 99999999, "start_identity": "123", "uid": os.getuid(),
+            "executable": "/usr/bin/python3", "executable_sha256": "5" * 64,
+            "argv_sha256": "6" * 64, "cwd": "/", "operation_id_argument": self.operation_id,
+        }
+        with mock.patch.object(receipts, "process_start_identity", return_value="123"):
+            self.store.transition(self.operation_id, "RUNNING", process=process, exit_code=None)
+        row, _ = self.store.read(self.operation_id)
+        row.update(state="EXITED_SUCCESS", process=process, exit_code=0)
+        op_dir = self.root / self.operation_id
+        (op_dir / "receipt.json").write_bytes(protocol.canonical(row))
+        status = self.store.status(operation_id=self.operation_id, query_nonce="c" * 64)
+        self.assertEqual(status["status"], protocol.UNKNOWN)
+        self.assertFalse(protocol.restore_allowed(status["status"]))
 
     def test_malformed_state_and_transition_arguments_are_bounded(self):
         self.store.create(self.payload)

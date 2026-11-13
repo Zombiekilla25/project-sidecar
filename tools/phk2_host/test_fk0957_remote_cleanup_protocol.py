@@ -60,7 +60,6 @@ class RemoteCleanupContractTests(unittest.TestCase):
                "release_manifest_sha256": self.expected["release_manifest_sha256"],
                "remote_host": self.expected["expected_host"],
                "remote_user": self.expected["expected_user"],
-               "launch_closed": True,
                "status": name,
                "receipt_sha256": hashlib.sha256(protocol.canonical(receipt)).hexdigest(),
                "receipt": receipt,
@@ -77,7 +76,7 @@ class RemoteCleanupContractTests(unittest.TestCase):
         terminal = (protocol.NOT_STARTED, protocol.EXITED_SUCCESS,
                     protocol.EXITED_REFUSAL, protocol.EXITED_FAILURE)
         for state in terminal:
-            self.assertTrue(protocol.restore_allowed(state), state)
+            self.assertFalse(protocol.restore_allowed(state), state)
         for state in (protocol.RUNNING_EXPECTED_PROCESS, protocol.IDENTITY_MISMATCH,
                       protocol.STATUS_INSPECTION_FAILED, protocol.TRANSPORT_FAILED,
                       protocol.UNKNOWN, "arbitrary", [], {}, None, True):
@@ -112,11 +111,7 @@ class RemoteCleanupContractTests(unittest.TestCase):
     def test_receipt_state_transitions_are_monotonic_and_terminal(self):
         allowed = (("PREPARED", "PREPARED"), ("PREPARED", "CLAIMED"),
                    ("CLAIMED", "CLAIMED"), ("CLAIMED", "RUNNING"),
-                   ("RUNNING", "RUNNING"), ("RUNNING", "EXITED_SUCCESS"),
-                   ("RUNNING", "EXITED_REFUSAL"), ("RUNNING", "EXITED_FAILURE"),
-                   ("EXITED_SUCCESS", "EXITED_SUCCESS"),
-                   ("EXITED_REFUSAL", "EXITED_REFUSAL"),
-                   ("EXITED_FAILURE", "EXITED_FAILURE"))
+                   ("RUNNING", "RUNNING"))
         denied = (("PREPARED", "EXITED_SUCCESS"), ("RUNNING", "PREPARED"),
                   ("EXITED_SUCCESS", "RUNNING"), ("EXITED_REFUSAL", "EXITED_SUCCESS"),
                   ("EXITED_FAILURE", "PREPARED"), ("UNKNOWN", "RUNNING"),
@@ -128,8 +123,8 @@ class RemoteCleanupContractTests(unittest.TestCase):
         for state in ("CLAIMED", "RUNNING", "EXITED_SUCCESS", "EXITED_REFUSAL", "EXITED_FAILURE", "UNKNOWN"):
             self.assertFalse(protocol.one_shot_claim_allowed(state, claimed=False))
 
-    def test_not_started_requires_fresh_exact_prepared_receipt(self):
-        self.assertEqual(self.classify(self.status(protocol.NOT_STARTED)), protocol.NOT_STARTED)
+    def test_legacy_not_started_claim_is_never_authoritative(self):
+        self.assertEqual(self.classify(self.status(protocol.NOT_STARTED)), protocol.UNKNOWN)
         self.assertEqual(self.classify(self.status(protocol.NOT_STARTED, self.receipt("CLAIMED"))),
                          protocol.UNKNOWN)
         changed = self.receipt(process=self.process())
@@ -146,20 +141,25 @@ class RemoteCleanupContractTests(unittest.TestCase):
                             (protocol.EXITED_REFUSAL, "EXITED_REFUSAL", 2),
                             (protocol.EXITED_FAILURE, "EXITED_FAILURE", 70)):
             receipt = self.receipt(receipt_state, exit_code=code)
-            self.assertEqual(self.classify(self.status(state, receipt)), state)
+            self.assertEqual(self.classify(self.status(state, receipt)), protocol.UNKNOWN)
 
     def test_ssh_loss_before_exec_vs_after_exec_and_surviving_child(self):
-        # A fresh PREPARED receipt proves launch was not claimed; no receipt or
-        # a still-running child after transport loss never permits restoration.
-        self.assertTrue(protocol.restore_allowed(self.classify(self.status(protocol.NOT_STARTED))))
+        # A caller-writable PREPARED receipt cannot prove launch closure.
+        self.assertFalse(protocol.restore_allowed(self.classify(self.status(protocol.NOT_STARTED))))
         self.assertFalse(protocol.restore_allowed(self.classify(None)))
         running = self.receipt("RUNNING")
         self.assertEqual(self.classify(self.status(protocol.RUNNING_EXPECTED_PROCESS, running)),
                          protocol.RUNNING_EXPECTED_PROCESS)
         self.assertFalse(protocol.restore_allowed(protocol.RUNNING_EXPECTED_PROCESS))
-        open_lease = self.status(protocol.NOT_STARTED, launch_closed=False)
+        open_lease = self.status(protocol.NOT_STARTED, launch_closed=True)
         self.assertEqual(self.classify(open_lease), protocol.UNKNOWN)
         self.assertFalse(protocol.restore_allowed(self.classify(open_lease)))
+
+    def test_legacy_launch_closed_field_is_rejected_not_interpreted(self):
+        raw = self.status(protocol.EXITED_SUCCESS, self.receipt("EXITED_SUCCESS", exit_code=0),
+                          launch_closed=True)
+        self.assertEqual(self.classify(raw), protocol.UNKNOWN)
+        self.assertFalse(protocol.restore_allowed(self.classify(raw)))
 
     def test_pid_reuse_and_same_pid_different_process_identity_are_nonrestorable(self):
         running = self.receipt("RUNNING")

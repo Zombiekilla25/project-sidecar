@@ -312,18 +312,14 @@ class ReceiptStore:
         finally:
             os.close(op_fd)
 
-    def status(self, *, operation_id: str, query_nonce: str,
-               launch_closed: bool = False) -> dict[str, Any]:
-        if (type(query_nonce) is not str or not protocol.HEX64.fullmatch(query_nonce) or
-                type(launch_closed) is not bool):
+    def status(self, *, operation_id: str, query_nonce: str) -> dict[str, Any]:
+        if type(query_nonce) is not str or not protocol.HEX64.fullmatch(query_nonce):
             raise ValueError("status challenge invalid")
         row, _identity = self.read(operation_id)
         claimed = row["state"]
         process = row["process"]
         observed_state = protocol.UNKNOWN
-        if claimed == "PREPARED" and launch_closed:
-            observed_state = protocol.NOT_STARTED
-        elif claimed == "RUNNING" and type(process) is dict:
+        if claimed == "RUNNING" and type(process) is dict:
             try:
                 actual_start = process_start_identity(process.get("pid", -1))
             except ProcessInspectionFailure:
@@ -343,30 +339,9 @@ class ReceiptStore:
                     observed_state = protocol.IDENTITY_MISMATCH
                 else:
                     observed_state = protocol.RUNNING_EXPECTED_PROCESS
-        elif claimed in {"EXITED_SUCCESS", "EXITED_REFUSAL", "EXITED_FAILURE"}:
-            try:
-                actual_start = process_start_identity(process.get("pid", -1)) if type(process) is dict else -1
-            except ProcessInspectionFailure:
-                observed_state = protocol.STATUS_INSPECTION_FAILED
-            else:
-                if actual_start is None:
-                    try:
-                        absent = process_directory_absent(process.get("pid", -1))
-                    except ProcessInspectionFailure:
-                        observed_state = protocol.STATUS_INSPECTION_FAILED
-                    else:
-                        if absent and launch_closed:
-                            observed_state = {
-                                "EXITED_SUCCESS": protocol.EXITED_SUCCESS,
-                                "EXITED_REFUSAL": protocol.EXITED_REFUSAL,
-                                "EXITED_FAILURE": protocol.EXITED_FAILURE,
-                            }[claimed]
-                        else:
-                            observed_state = protocol.UNKNOWN if absent else protocol.STATUS_INSPECTION_FAILED
-                elif actual_start == process.get("start_identity"):
-                    observed_state = protocol.RUNNING_EXPECTED_PROCESS
-                else:
-                    observed_state = protocol.IDENTITY_MISMATCH
+        # PREPARED and terminal records in this caller-writable legacy store
+        # cannot establish launch closure or exact-child wait/reap. They remain
+        # UNKNOWN regardless of PID presence or absence.
         result = {
             "schema": protocol.STATUS_SCHEMA, "operation_id": operation_id,
             "query_nonce": query_nonce,
@@ -376,7 +351,7 @@ class ReceiptStore:
             "target_selector": row["target_selector"],
             "release_manifest_sha256": row["release_manifest_sha256"],
             "remote_host": row["remote_host"], "remote_user": row["remote_user"],
-            "launch_closed": launch_closed, "status": observed_state,
+            "status": observed_state,
             "receipt_sha256": hashlib.sha256(protocol.canonical(row)).hexdigest(),
             "receipt": row, "process_identity": process,
         }
