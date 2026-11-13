@@ -91,6 +91,8 @@ GOLDEN_TDI_B_SHA256 = "aac746341b56fbd50ab5f0d63677d261201cf5970f0ddc60f2ffaac69
 _RESULT_LOCK = threading.Lock()
 _SEALED_RESULTS: dict[object, str] = {}
 _SIGNED_PERMITS: set[object] = set()
+_REMOTE_AUTHORIZED_PERMITS: dict[object, tuple[str, str, str, str]] = {}
+_REMOTE_AUTH_LOCK = threading.Lock()
 
 
 class Refusal(ValueError):
@@ -1109,6 +1111,12 @@ def run_fk0957_topology_discovery(authorized_permit: topology.DiscoveryPermit) -
     trace = _AttemptTrace()
     try:
         trace.phase = "PERMIT_VALIDATION"
+        if not isinstance(authorized_permit, topology.DiscoveryPermit):
+            raise Refusal("topology operation requires a verified release permit")
+        with _REMOTE_AUTH_LOCK:
+            release_binding = _REMOTE_AUTHORIZED_PERMITS.pop(authorized_permit._token, None)
+        if release_binding is None:
+            raise Refusal("topology operation requires authenticated release authorization")
         topology._consume(authorized_permit)
         trace.permit_consumed = 1
         trace.advance("PERMIT_VALIDATED")
@@ -1142,6 +1150,23 @@ def issue_fk0957_topology_permit(descriptor_evidence: bytes, expected_sha256: st
         else:
             code, phase = "INTERNAL_REFUSAL", "INTERNAL_REFUSAL"
         raise _diagnostic_refusal(exc, trace, code=code, phase=phase) from None
+
+
+def _authorize_remote_permit(permit: topology.DiscoveryPermit, *, authorization_sha256: str,
+                             handoff_sha256: str, manifest_sha256: str,
+                             descriptor_sha256: str) -> None:
+    """Attach verified release bindings to the one physical call that follows."""
+    digests = (authorization_sha256, handoff_sha256, manifest_sha256, descriptor_sha256)
+    if (not isinstance(permit, topology.DiscoveryPermit) or
+            any(type(value) is not str or len(value) != 64 or
+                any(ch not in "0123456789abcdef" for ch in value) for value in digests)):
+        raise Refusal("remote release authorization context is invalid")
+    if permit.descriptor_evidence_sha256 != descriptor_sha256:
+        raise Refusal("remote release authorization target does not match descriptor permit")
+    with _REMOTE_AUTH_LOCK:
+        if permit._token in _REMOTE_AUTHORIZED_PERMITS:
+            raise Refusal("remote release authorization context was already attached")
+        _REMOTE_AUTHORIZED_PERMITS[permit._token] = digests
 
 
 def _validate_transport_observation(permit: topology.DiscoveryPermit,

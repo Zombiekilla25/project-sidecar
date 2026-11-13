@@ -446,6 +446,10 @@ def execute_request(raw: bytes) -> bytes:
     _consume_authorization(auth_id, authorization_bytes)
     permit = transport.issue_fk0957_topology_permit(
         context["descriptor"], context["descriptor_sha256"])
+    transport._authorize_remote_permit(
+        permit, authorization_sha256=context["authorization_sha256"],
+        handoff_sha256=context["handoff_sha256"], manifest_sha256=context["manifest_sha256"],
+        descriptor_sha256=context["descriptor_sha256"])
     result = transport.run_fk0957_topology_discovery(permit)
     parsed = transport.validate_transport_observation(permit, result)
     record = _unsigned_record(context, permit, result, parsed)

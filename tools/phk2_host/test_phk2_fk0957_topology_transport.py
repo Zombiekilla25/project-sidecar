@@ -44,6 +44,9 @@ _TEST_SOURCE_SHA256 = "a" * 64
 
 def run_with_backend(permit, backend):
     """Test-only backend injection through the concrete production entrypoint."""
+    transport._authorize_remote_permit(permit, authorization_sha256="a" * 64,
+                                       handoff_sha256="b" * 64, manifest_sha256="c" * 64,
+                                       descriptor_sha256=permit.descriptor_evidence_sha256)
     with mock.patch.object(transport, "_NativeLibFtdi", return_value=backend):
         return transport.run_fk0957_topology_discovery(permit)
 
@@ -671,6 +674,9 @@ class TopologyTransportTests(unittest.TestCase):
         self.assertEqual(env["permit_consumed"], 0)
 
         permit = self.permit()
+        transport._authorize_remote_permit(permit, authorization_sha256="a" * 64,
+                                           handoff_sha256="b" * 64, manifest_sha256="c" * 64,
+                                           descriptor_sha256=permit.descriptor_evidence_sha256)
         with mock.patch.object(transport, "transport_source_sha256",
                                side_effect=transport.Refusal("secret path /private/native.so")):
             with self.assertRaises(transport.Refusal) as library:
@@ -680,6 +686,17 @@ class TopologyTransportTests(unittest.TestCase):
                          ("LIBRARY_PROVENANCE", "LIBRARY_PIN_MISMATCH"))
         self.assertEqual(env["permit_consumed"], 1)
         self.assertNotIn("private", library.exception.canonical_envelope().decode())
+
+    def test_descriptor_permit_cannot_enter_transport_without_release_binding(self):
+        permit = self.permit()
+        with mock.patch.object(transport, "_NativeLibFtdi") as backend:
+            with self.assertRaises(transport.Refusal) as caught:
+                transport.run_fk0957_topology_discovery(permit)
+        backend.assert_not_called()
+        envelope = json.loads(caught.exception.canonical_envelope())
+        self.assertEqual((envelope["phase"], envelope["code"]),
+                         ("PERMIT_VALIDATION", "PERMIT_INVALID"))
+        self.assertEqual(envelope["permit_consumed"], 0)
 
         permit = self.permit()
         result = run_with_backend(permit, self.backend())
