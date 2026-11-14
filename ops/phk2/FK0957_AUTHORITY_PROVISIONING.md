@@ -3,7 +3,7 @@
 This repository contains only the canonical **NON-PRODUCTION template**
 `FK0957_REMOTE_TRUST_TEMPLATE.json`. Its Ed25519 key slots are empty. The
 source-pinned template SHA256 is
-`54f448b1b04385c267c20525738195610c96875b056da83ad16bf7f68dc0b019`; that
+`64ced3c5dafb6d585d3ffa10c022599722dd85e2313bb68bb4bcae6f57a22dc1`; that
 hash authenticates the template bytes, not an issuer or a production key.
 Empty slots are rejected by the endpoint.
 
@@ -16,8 +16,13 @@ does not generate, select, or install production keys.
 Provisioning procedure:
 
 1. Copy the canonical template to `/etc/sidecar/fk0957/remote-trust.json`.
-2. Fill the two public-key slots with base64-encoded 32-byte Ed25519 public
-   keys. Keep issuer names, `/var/lib/sidecar/fk0957/consumed-release-authorizations`,
+2. Install raw 32-byte Ed25519 public keys at the distinct paths named by
+   `release_public_key_path` and `handoff_public_key_path`; set each matching
+   SHA256 field. Private signing keys remain in the approved HSM/key custody
+   system and are never copied into this package. The template pins the key
+   paths and policy; the source hash of the populated trust JSON is separately
+   reviewed and compiled into the endpoint and launcher. Keep issuer names,
+   `/var/lib/sidecar/fk0957/consumed-release-authorizations`,
    120-second authorization lifetime, and 86400-second manifest age unchanged
    unless a separately reviewed policy change authorizes otherwise.
 3. Canonicalize with UTF-8 JSON, sorted keys, compact separators, no NaN, and
@@ -35,6 +40,25 @@ Provisioning procedure:
    Run the dry-run package verifier before installation and the installed
    verifier after installation. Never use the template itself as production
    authority.
+
+## Signature chain
+
+* `FK0957_RELEASE_AUTHORITY` signs both the runtime-manifest payload and the
+  release-authorization payload. The manifest binds the exact Git HEAD, clean
+  state, source path/hash inventory (including the live CLI), all ten native
+  runtime identities, trust-config hash, and transaction-profile hash.
+* `FK0957_MAINTENANCE_AUTHORITY` signs the handoff payload. The release
+  authorization binds the canonical handoff SHA256; the handoff carries the
+  same authorization ID and operation ID, target, bridge release and USBFS
+  observations, manifest hash, HEAD, profile, and validity window.
+* The supervisor verifies all three signed objects, then creates one exclusive
+  ledger entry keyed by the canonical authorization digest before child
+  launch. Endpoint and transport only revalidate; they do not consume or
+  replace the authorization. Public keys and signatures may be distributed;
+  issuer private keys remain in administrator-controlled key custody. The
+  separate evidence-signing key remains RGB-local.
+* Unit tests generate ephemeral Ed25519 keys in test code only. They are not
+  serialized as defaults or installed by the package.
 
 Until these steps are complete, issuer verification, handoff verification,
 supervised acquisition, and live operation remain unavailable by design.

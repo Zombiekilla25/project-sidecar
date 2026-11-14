@@ -40,7 +40,7 @@ This code is intentionally non-operational until the following trusted
 deployment inputs and integration work exist:
 
 * `TRUST_CONFIG_SHA256` pins the canonical non-production trust template
-  (`54f448b1b04385c267c20525738195610c96875b056da83ad16bf7f68dc0b019`),
+  (`64ced3c5dafb6d585d3ffa10c022599722dd85e2313bb68bb4bcae6f57a22dc1`),
   whose release and handoff public-key slots are empty. The root-owned
   configured issuer-key file and administrator-held issuer keys have not been
   provisioned. The endpoint therefore refuses before transport open.

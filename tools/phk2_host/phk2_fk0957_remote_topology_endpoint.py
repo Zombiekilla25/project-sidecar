@@ -36,7 +36,7 @@ TRUST_CONFIG = Path("/etc/sidecar/fk0957/remote-trust.json")
 # Pin the canonical deployment template, whose issuer key slots are empty.
 # Production issuer keys require a separately reviewed administrator
 # provisioning commit that replaces the template and updates this pin.
-TRUST_CONFIG_SHA256 = "54f448b1b04385c267c20525738195610c96875b056da83ad16bf7f68dc0b019"
+TRUST_CONFIG_SHA256 = "64ced3c5dafb6d585d3ffa10c022599722dd85e2313bb68bb4bcae6f57a22dc1"
 CONSUMED_AUTHORIZATION_DIR = Path("/var/lib/sidecar/fk0957/consumed-release-authorizations")
 HEX64 = re.compile(r"[0-9a-f]{64}\Z")
 HEX40 = re.compile(r"[0-9a-f]{40}\Z")
@@ -94,6 +94,8 @@ RELEASE_SOURCE_PATHS = {
     "ops/phk2/FK0957_TOPOLOGY_TRANSACTION_PROFILE.json",
     "ops/phk2/FK0957_AUTHORITY_PROVISIONING.md",
     "ops/phk2/FK0957_RUNTIME_MANIFEST.template.json",
+    "ops/phk2/FK0957_DEPLOYMENT_OWNERSHIP.json",
+    "ops/phk2/fk0957.sysusers.conf",
 }
 REMOTE_SOURCE_PATHS = {
     "tools/phk2_host/fk0957_safe_launcher.c",
@@ -117,6 +119,8 @@ REMOTE_SOURCE_PATHS = {
     "ops/phk2/FK0957_TOPOLOGY_TRANSACTION_PROFILE.json",
     "ops/phk2/FK0957_AUTHORITY_PROVISIONING.md",
     "ops/phk2/FK0957_RUNTIME_MANIFEST.template.json",
+    "ops/phk2/FK0957_DEPLOYMENT_OWNERSHIP.json",
+    "ops/phk2/fk0957.sysusers.conf",
 }
 _SUPERVISOR_ISSUERS: dict[str, bytes] | None = None
 
@@ -199,8 +203,9 @@ def _load_trust_config(*, raw_override: bytes | None = None) -> dict[str, bytes]
         raise Refusal("ISSUER_CONFIG_PIN_MISMATCH")
     value = _parse_canonical(raw, 64 * 1024)
     expected_config_fields = {
-        "schema", "version", "release_issuer", "release_issuer_ed25519_b64",
-        "handoff_issuer", "handoff_issuer_ed25519_b64", "authorization_ledger",
+        "schema", "version", "release_issuer", "release_public_key_path",
+        "release_public_key_sha256", "handoff_issuer", "handoff_public_key_path",
+        "handoff_public_key_sha256", "authorization_ledger", "authorization_policy",
         "max_authorization_lifetime_seconds", "manifest_max_age_seconds",
     }
     if (set(value) != expected_config_fields or
@@ -208,26 +213,27 @@ def _load_trust_config(*, raw_override: bytes | None = None) -> dict[str, bytes]
             type(value["version"]) is not int or value["version"] != 1 or
             value["release_issuer"] != "FK0957_RELEASE_AUTHORITY" or
             value["handoff_issuer"] != "FK0957_MAINTENANCE_AUTHORITY" or
+            value["release_public_key_path"] != "/etc/sidecar/fk0957/release-issuer.pub" or
+            value["handoff_public_key_path"] != "/etc/sidecar/fk0957/handoff-issuer.pub" or
             value["authorization_ledger"] != str(CONSUMED_AUTHORIZATION_DIR) or
+            value["authorization_policy"] != {
+                "operation_bound": True, "single_use": True, "target_card_id": "FK0957"} or
             type(value["max_authorization_lifetime_seconds"]) is not int or
             value["max_authorization_lifetime_seconds"] != 120 or
             type(value["manifest_max_age_seconds"]) is not int or
             value["manifest_max_age_seconds"] != 86400):
         raise Refusal("ISSUER_CONFIG_SCHEMA_INVALID")
     keys = {}
-    try:
-        for name in ("release", "handoff"):
-            encoded = value[f"{name}_issuer_ed25519_b64"]
-            if type(encoded) is not str:
-                raise ValueError
-            key = base64.b64decode(encoded, validate=True)
-            if len(key) != 32:
-                raise Refusal("ISSUER_KEYS_NOT_PROVISIONED")
-            keys[name] = key
-    except Refusal:
-        raise
-    except (ValueError, base64.binascii.Error):
-        raise Refusal("ISSUER_CONFIG_KEY_INVALID") from None
+    for name in ("release", "handoff"):
+        expected_sha = value[f"{name}_public_key_sha256"]
+        if not _strict_hex(expected_sha, HEX64):
+            raise Refusal("ISSUER_KEYS_NOT_PROVISIONED")
+        key_path = Path(value[f"{name}_public_key_path"])
+        raw_key = _read_protected_file(key_path, owner=0, mode=0o400,
+                                       limit=32, failure="ISSUER_PUBLIC_KEY")
+        if len(raw_key) != 32 or hashlib.sha256(raw_key).hexdigest() != expected_sha:
+            raise Refusal("ISSUER_CONFIG_KEY_INVALID")
+        keys[name] = raw_key
     return keys
 
 
@@ -434,12 +440,14 @@ def build_unsigned_runtime_manifest(repo: Path | None = None) -> dict[str, Any]:
             raise
         except OSError:
             raise Refusal("RUNTIME_SOURCE_UNAVAILABLE") from None
+    runtime_inventory = _runtime_inventory()
     return {
         "schema": "fk0957-runtime-source-manifest-v1", "version": 1,
         "production_head": head, "worktree_clean": True, "source_hashes": hashes,
         "source_inventory": source_inventory,
-        "native_runtime_hashes": {pin.name: pin.sha256 for pin in transport.LIBRARY_PINS},
-        "runtime_inventory": _runtime_inventory(),
+        "native_runtime_hashes": {row["logical_name"]: row["sha256"]
+                                  for row in runtime_inventory},
+        "runtime_inventory": runtime_inventory,
         "trust_config_sha256": TRUST_CONFIG_SHA256,
         "transaction_profile_sha256": _profile_hash(),
         "issued_at": datetime.now(timezone.utc).isoformat(),
@@ -485,7 +493,8 @@ def _verify_runtime_manifest(manifest: dict[str, Any], profile_sha: str) -> None
             transport._bind_verified_remote_release_head(manifest["production_head"])
         except transport.Refusal:
             raise Refusal("RUNTIME_GIT_STATE_MISMATCH") from None
-    expected_native = {pin.name: pin.sha256 for pin in transport.LIBRARY_PINS}
+    expected_native = {row["logical_name"]: row["sha256"]
+                       for row in _runtime_inventory()}
     if manifest["native_runtime_hashes"] != expected_native:
         raise Refusal("NATIVE_RUNTIME_MANIFEST_MISMATCH")
     if manifest["runtime_inventory"] != _runtime_inventory():

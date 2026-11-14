@@ -37,6 +37,11 @@ static const struct runtime_pin runtime_pins[] = {
     PIN("/usr/bin/python3.12", "e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f", "337d65cf00021797985cc9f77c0cc334a9fbeb38"),
     PIN("/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2", "5fc0940888e9d2e1a00e66d6b1a559c36364ee867683652e1074fa576952cc3f", "231ab65dd867a89dce29cb958fd5ca50abb1aa34"),
     PIN("/usr/lib/x86_64-linux-gnu/libc.so.6", "755a371e86cc9f564ab54f66140747700fb0a103f698f659f2060f707897e09a", "8cebda42d140fc2b09639f8b13a5d5f2e617ef09"),
+    PIN("/usr/lib/x86_64-linux-gnu/libm.so.6", "5dcc4d25466e29ca390ed6fabb371c69b65dff6fa4e91c34561057a020d6994a", "f772fc0c42a75e38f138f8b66f1ebc8aad060525"),
+    PIN("/usr/lib/x86_64-linux-gnu/libz.so.1.3", "f61677c7bdb7c2aa2a243ea781bfd16afcb361cede7b4ef76127a9d8eb9a5242", "2f47d490170763b8b8e0064675d234bfede6c1db"),
+    PIN("/usr/lib/x86_64-linux-gnu/libexpat.so.1.9.1", "286682ecbc5e59a638963b1a4e6351e65eb32fcf4bdcb9cb7569b6a61fe06a8d", "8ae4253012c773ce4f3ceb73efbd6dbd47fd9510"),
+    PIN("/usr/lib/x86_64-linux-gnu/libudev.so.1.7.8", "0d6934adafb2ef3c640382440c14d6bd60f391e688c000796ffcea0c72849269", "1166cb4a3de6a68b330a78ef0f099ebddf315698"),
+    PIN("/usr/lib/x86_64-linux-gnu/libcap.so.2.66", "6ac6abc86ac891c6e13486470e26f1d939f47fda9e6b5d5508a7f5ec881adc84", "7a7c2bbc541071e68f1c74f691d5ffba03bfb5ad"),
     PIN("/usr/lib/x86_64-linux-gnu/libftdi1.so.2.5.0", "0e5332df54c66f14ef9107934365b47b9429df02e3ff3402436bd85e9e3e84fe", "5d7c81b08d369b6ea8654c825cbdff7fdce1f87c"),
     PIN("/usr/lib/x86_64-linux-gnu/libusb-1.0.so.0.4.0", "751349e3def1808981dc26bbeb746e2d6ff4ca97fc2c8bc8faaa8f46c879057f", "47533e904f636332fab2f1ca8847ad7759ed19ec"),
 };

@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import errno
+import json
 import grp
 import hashlib
 import os
 from pathlib import Path
+import pwd
 import shutil
 import stat
 import subprocess
@@ -36,12 +39,16 @@ INSTALLS = {
     "/usr/local/lib/sidecar/fk0957/tools/phk2_host/phk2_fk0957_remote_topology_endpoint.py": ("root", "root", 0o644),
     "/usr/local/lib/sidecar/fk0957/ops/phk2/fk0957-supervisor.service": ("root", "root", 0o644),
     "/etc/systemd/system/fk0957-supervisor.service": ("root", "root", 0o644),
+    "/usr/lib/sysusers.d": ("root", "root", 0o755),
+    "/usr/lib/sysusers.d/90-sidecar-fk0957.conf": ("root", "root", 0o644),
     "/etc/udev/rules.d/90-sidecar-fk0957-supervised.rules": ("root", "root", 0o644),
     "/etc/udev/rules.d": ("root", "root", 0o755),
     "/etc/sidecar/fk0957": ("root", "root", 0o750),
     "/etc/sidecar/fk0957/remote-trust.json": ("root", "root", 0o400),
+    "/etc/sidecar/fk0957/release-issuer.pub": ("root", "root", 0o400),
+    "/etc/sidecar/fk0957/handoff-issuer.pub": ("root", "root", 0o400),
     "/etc/sidecar/fk0957/runtime-release-manifest.json": ("root", "root", 0o400),
-    "/etc/sidecar/fk0957/remote-trust.json": ("root", "root", 0o400),
+    "/etc/sidecar/fk0957/deployment-ownership.json": ("root", "root", 0o400),
     "/run/sidecar": ("root", "sidecar-acquire", 0o750),
     "/var/lib/sidecar/fk0957/supervisor": ("root", "root", 0o700),
     "/var/lib/sidecar/fk0957/consumed-release-authorizations": ("root", "root", 0o700),
@@ -51,9 +58,67 @@ FILE_SOURCES = {
     "/etc/sidecar/fk0957/runtime-release-manifest.json":
         ROOT / "ops/phk2/FK0957_RUNTIME_MANIFEST.template.json",
     "/etc/systemd/system/fk0957-supervisor.service": UNIT,
+    "/usr/lib/sysusers.d/90-sidecar-fk0957.conf": ROOT / "ops/phk2/fk0957.sysusers.conf",
+    "/etc/sidecar/fk0957/deployment-ownership.json": ROOT / "ops/phk2/FK0957_DEPLOYMENT_OWNERSHIP.json",
     "/etc/udev/rules.d/90-sidecar-fk0957-supervised.rules":
         ROOT / "ops/phk2/90-sidecar-fk0957-supervised.rules",
 }
+
+OWNER_IDS = {"root": 0, "sidecar-acquire": 970, "sidecar-fk0957-runner": 971}
+GROUP_IDS = {"root": 0, "sidecar-acquire": 970, "sidecar-fk0957-runner": 971,
+             "fk0957-device": 972}
+RUNTIME_OWNERSHIP_ROWS = [
+    {"path": "/run/sidecar/fk0957-supervisor.sock", "owner": "root", "owner_uid": 0,
+     "group": "sidecar-acquire", "group_gid": 970, "mode": "0660",
+     "lifecycle": "created_by_supervisor"},
+]
+
+
+def ownership_payload() -> dict:
+    rows = []
+    for path, (owner, group, mode) in sorted(INSTALLS.items()):
+        rows.append({"path": path, "owner": owner, "owner_uid": OWNER_IDS[owner],
+                     "group": group, "group_gid": GROUP_IDS[group],
+                     "mode": f"{mode:04o}", "lifecycle": "installed"})
+    rows.extend(RUNTIME_OWNERSHIP_ROWS)
+    return {
+        "schema": "fk0957-deployment-ownership-v1", "version": 1,
+        "service": {"name": "fk0957-supervisor.service", "uid": 0,
+                    "user": "root", "gid": 970, "group": "sidecar-acquire"},
+        "principals": [
+            {"name": "root", "uid": 0, "primary_group": "root", "primary_gid": 0,
+             "role": "supervisor"},
+            {"name": "sidecar-acquire", "uid": 970, "primary_group": "sidecar-acquire",
+             "primary_gid": 970, "role": "ordinary_ipc_client"},
+            {"name": "sidecar-fk0957-runner", "uid": 971,
+             "primary_group": "sidecar-fk0957-runner", "primary_gid": 971,
+             "supplementary_groups": ["fk0957-device"], "role": "one_shot_child"},
+            {"name": "fk0957-device", "gid": 972, "role": "exact_usb_access_group"},
+        ],
+        "paths": rows,
+        "authority_policy": {
+            "state_and_ledger_owner_uid": 0, "state_and_ledger_mode": "0700",
+            "ordinary_client_uid": 970, "ordinary_client_may_write_state": False,
+            "ordinary_client_may_write_ledger": False,
+            "ordinary_client_may_connect_socket": True,
+            "runner_may_write_supervisor_state": False,
+            "protected_state_acl_write_grants": False,
+        },
+    }
+
+
+def _canonical_json(value) -> bytes:
+    return (json.dumps(value, sort_keys=True, separators=(",", ":"),
+                       ensure_ascii=False, allow_nan=False) + "\n").encode()
+
+
+def _mode_grants_write(mode: int, owner_uid: int, owner_gid: int,
+                       uid: int, groups: set[int]) -> bool:
+    if uid == owner_uid:
+        return bool(mode & stat.S_IWUSR)
+    if owner_gid in groups:
+        return bool(mode & stat.S_IWGRP)
+    return bool(mode & stat.S_IWOTH)
 
 # Install the entire source closure the remote endpoint verifies and imports.
 # Keep the repository-relative layout below the immutable release root so its
@@ -88,6 +153,13 @@ def verify_source_package() -> None:
     from phk2_fk0957_remote_topology_endpoint import TRUST_CONFIG_SHA256
     if hashlib.sha256(template).hexdigest() != TRUST_CONFIG_SHA256:
         raise ValueError("pinned trust template digest does not match source")
+    ownership_path = ROOT / "ops/phk2/FK0957_DEPLOYMENT_OWNERSHIP.json"
+    if ownership_path.read_bytes() != _canonical_json(ownership_payload()):
+        raise ValueError("deployment ownership manifest does not match install policy")
+    sysusers = (ROOT / "ops/phk2/fk0957.sysusers.conf").read_text(encoding="utf-8")
+    if not all(token in sysusers for token in (
+            "sidecar-acquire 970", "sidecar-fk0957-runner 971:971", "fk0957-device 972")):
+        raise ValueError("dedicated service identity policy is incomplete")
 
 
 def _source_for_install_path(raw: str) -> Path | None:
@@ -111,6 +183,13 @@ def stage_package(root: Path) -> None:
         destination = root / raw.lstrip("/")
         source = _source_for_install_path(raw)
         if source is None and raw == "/usr/local/bin/fk0957-safe-launcher":
+            continue
+        if source is None and raw in {
+                "/etc/sidecar/fk0957/release-issuer.pub",
+                "/etc/sidecar/fk0957/handoff-issuer.pub"}:
+            destination.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            destination.write_bytes(b"")  # Provisioning slot; empty keys are rejected.
+            destination.chmod(mode)
             continue
         if source is None:
             destination.mkdir(parents=True, exist_ok=True)
@@ -162,6 +241,40 @@ def verify_staged_package(root: Path) -> list[str]:
                 errors.append(f"FILE_IDENTITY {raw}")
             elif hashlib.sha256(path.read_bytes()).digest() != hashlib.sha256(source.read_bytes()).digest():
                 errors.append(f"CONTENT {raw}")
+        elif raw in {"/etc/sidecar/fk0957/release-issuer.pub",
+                     "/etc/sidecar/fk0957/handoff-issuer.pub"}:
+            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_size != 0:
+                errors.append(f"UNPROVISIONED_KEY_SLOT {raw}")
+    ownership_path = root / "etc/sidecar/fk0957/deployment-ownership.json"
+    try:
+        staged_ownership = json.loads(ownership_path.read_bytes())
+    except (OSError, ValueError):
+        errors.append("OWNERSHIP_MANIFEST_INVALID")
+    else:
+        expected_ownership = ownership_payload()
+        if staged_ownership != expected_ownership:
+            errors.append("OWNERSHIP_MANIFEST_POLICY_MISMATCH")
+        policy = staged_ownership.get("authority_policy", {})
+        protected = {row["path"]: row for row in staged_ownership.get("paths", [])
+                     if isinstance(row, dict) and "path" in row}
+        for protected_path in ("/var/lib/sidecar/fk0957/supervisor",
+                               "/var/lib/sidecar/fk0957/consumed-release-authorizations"):
+            row = protected.get(protected_path, {})
+            mode = int(row.get("mode", "0000"), 8)
+            owner_gid = row.get("group_gid", -1)
+            ordinary_can_write = _mode_grants_write(mode, row.get("owner_uid", -1),
+                                                    owner_gid, 970, {970})
+            runner_can_write = _mode_grants_write(mode, row.get("owner_uid", -1),
+                                                  owner_gid, 971, {971, 972})
+            if (row.get("owner_uid") != 0 or row.get("group_gid") != 0 or
+                    row.get("mode") != "0700" or ordinary_can_write or runner_can_write or
+                    policy.get("ordinary_client_may_write_state") is not False or
+                    policy.get("ordinary_client_may_write_ledger") is not False):
+                errors.append(f"ORDINARY_APP_WRITE_POLICY {protected_path}")
+        socket_row = protected.get("/run/sidecar/fk0957-supervisor.sock", {})
+        if (socket_row.get("owner_uid") != 0 or socket_row.get("group_gid") != 970 or
+                socket_row.get("mode") != "0660"):
+            errors.append("SUPERVISOR_SOCKET_POLICY")
     launcher = root / "usr/local/bin/fk0957-safe-launcher"
     if launcher.exists():
         try:
@@ -197,6 +310,49 @@ def verify_installed() -> list[str]:
         else:
             if info.st_gid != expected_gid:
                 errors.append(f"GROUP {raw} expected {group}")
+    expected_users = {"sidecar-acquire": (970, 970),
+                      "sidecar-fk0957-runner": (971, 971)}
+    for name, (uid, gid) in expected_users.items():
+        try:
+            user = pwd.getpwnam(name)
+        except KeyError:
+            errors.append(f"USER {name} missing")
+            continue
+        if (user.pw_uid, user.pw_gid) != (uid, gid):
+            errors.append(f"USER {name} expected uid/gid {uid}/{gid}")
+        if user.pw_shell not in {"/usr/sbin/nologin", "/bin/false"} or user.pw_dir != "/nonexistent":
+            errors.append(f"USER {name} must be non-login")
+    for name, gid in {"sidecar-acquire": 970, "fk0957-device": 972}.items():
+        try:
+            group = grp.getgrnam(name)
+        except KeyError:
+            errors.append(f"GROUP {name} missing")
+        else:
+            if group.gr_gid != gid:
+                errors.append(f"GROUP {name} expected gid {gid}")
+    try:
+        runner_name = "sidecar-fk0957-runner"
+        device_group = grp.getgrnam("fk0957-device")
+        runner = pwd.getpwnam(runner_name)
+        members = set(device_group.gr_mem)
+        primary = {user.pw_name for user in pwd.getpwall() if user.pw_gid == device_group.gr_gid}
+        if (members | primary) != {runner_name}:
+            errors.append("DEVICE_GROUP_MEMBERSHIP must be limited to the runner")
+    except KeyError:
+        pass
+    for protected in (Path("/var/lib/sidecar/fk0957/supervisor"),
+                      Path("/var/lib/sidecar/fk0957/consumed-release-authorizations")):
+        cursor = protected
+        while cursor != Path("/"):
+            for attribute in ("system.posix_acl_access", "system.posix_acl_default"):
+                try:
+                    os.getxattr(cursor, attribute, follow_symlinks=False)
+                except OSError as exc:
+                    if exc.errno not in {errno.ENODATA, errno.ENOTSUP, errno.EOPNOTSUPP}:
+                        errors.append(f"ACL_INSPECTION {cursor}")
+                else:
+                    errors.append(f"ACL_PRESENT {cursor}")
+            cursor = cursor.parent
     return errors
 
 

@@ -50,8 +50,9 @@ class RemoteTopologyEndpointTests(unittest.TestCase):
                  "absolute_install_path": f"/usr/local/lib/sidecar/fk0957/{path}",
                  "sha256": hashlib.sha256(Path(path).read_bytes()).hexdigest()}
                 for path in sorted(endpoint.RELEASE_SOURCE_PATHS)],
-            "native_runtime_hashes": {pin.name: pin.sha256 for pin in transport.LIBRARY_PINS},
             "runtime_inventory": endpoint._runtime_inventory(),
+            "native_runtime_hashes": {row["logical_name"]: row["sha256"]
+                                      for row in endpoint._runtime_inventory()},
             "trust_config_sha256": endpoint.TRUST_CONFIG_SHA256,
             "transaction_profile_sha256": self.profile_sha,
             "issued_at": self.now.isoformat(),
@@ -130,6 +131,33 @@ class RemoteTopologyEndpointTests(unittest.TestCase):
                 endpoint._load_trust_config()
         self.assertEqual(caught.exception.code, "ISSUER_KEYS_NOT_PROVISIONED")
 
+    def test_public_key_file_paths_are_hash_bound_and_raw_ed25519_sized(self):
+        template = json.loads(Path("ops/phk2/FK0957_REMOTE_TRUST_TEMPLATE.json").read_text())
+        release_key, handoff_key = self.issuers["release"], self.issuers["handoff"]
+        template["release_public_key_sha256"] = hashlib.sha256(release_key).hexdigest()
+        template["handoff_public_key_sha256"] = hashlib.sha256(handoff_key).hexdigest()
+        raw_config = endpoint.canonical(template)
+        test_config_sha = hashlib.sha256(raw_config).hexdigest()
+        key_data = {
+            template["release_public_key_path"]: release_key,
+            template["handoff_public_key_path"]: handoff_key,
+        }
+        def read(path, **_kwargs):
+            if str(path) == str(endpoint.TRUST_CONFIG):
+                return raw_config
+            return key_data[str(path)]
+        with mock.patch.object(endpoint, "TRUST_CONFIG_SHA256", test_config_sha), \
+                mock.patch.object(endpoint, "supervisor_capability_valid", return_value=False), \
+                mock.patch.object(endpoint, "_read_protected_file", side_effect=read):
+            issuers = endpoint._load_trust_config()
+        self.assertEqual(issuers, {"release": release_key, "handoff": handoff_key})
+        key_data[template["release_public_key_path"]] = b"X" * 31
+        with mock.patch.object(endpoint, "TRUST_CONFIG_SHA256", test_config_sha), \
+                mock.patch.object(endpoint, "supervisor_capability_valid", return_value=False), \
+                mock.patch.object(endpoint, "_read_protected_file", side_effect=read):
+            with self.assertRaisesRegex(endpoint.Refusal, "ISSUER_CONFIG_KEY_INVALID"):
+                endpoint._load_trust_config()
+
     def test_endpoint_has_no_signing_key_or_signing_module_import(self):
         source = Path(endpoint.__file__).read_text()
         tree = ast.parse(source)
@@ -170,7 +198,9 @@ class RemoteTopologyEndpointTests(unittest.TestCase):
         self.assertEqual(payload["trust_config_sha256"], endpoint.TRUST_CONFIG_SHA256)
         names = {row["logical_name"] for row in payload["runtime_inventory"]}
         self.assertTrue({"python3.12", "ld-linux-x86-64.so.2", "libc",
-                         "libftdi", "libusb"} <= names)
+                         "libftdi", "libusb", "libm.so.6", "libz.so.1.3",
+                         "libexpat.so.1.9.1", "libcap", "libudev"} <= names)
+        self.assertEqual(len(payload["runtime_inventory"]), 10)
         self.assertNotIn("signature_hex", payload)
         profile_bytes = Path("ops/phk2/FK0957_TOPOLOGY_TRANSACTION_PROFILE.json").read_bytes()
         self.assertEqual(endpoint.canonical(json.loads(profile_bytes)), profile_bytes)
@@ -203,8 +233,9 @@ class RemoteTopologyEndpointTests(unittest.TestCase):
                  "absolute_install_path": f"/usr/local/lib/sidecar/fk0957/{relative}",
                  "sha256": hashes[relative]}
                 for relative in sorted(endpoint.RELEASE_SOURCE_PATHS)]
+            manifest["runtime_inventory"] = endpoint._runtime_inventory()
             manifest["native_runtime_hashes"] = {
-                pin.name: pin.sha256 for pin in transport.LIBRARY_PINS}
+                row["logical_name"]: row["sha256"] for row in manifest["runtime_inventory"]}
             with mock.patch.object(endpoint, "__file__", str(host_tools / "phk2_fk0957_remote_topology_endpoint.py")), \
                  mock.patch.object(transport, "_bind_verified_remote_release_head") as bind, \
                  mock.patch.object(transport, "_production_git_state") as git_state:

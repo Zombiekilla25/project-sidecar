@@ -14,7 +14,11 @@ provision the independently approved trust material and install the files.
 | `/etc/systemd/system/fk0957-supervisor.service` | `root:root` | `0644` | Installed supervisor unit |
 | `/etc/sidecar/fk0957/` | `root:root` | `0750` | Provisioned trust/runtime configuration |
 | `/etc/sidecar/fk0957/remote-trust.json` | `root:root` | `0400` | Release and handoff public-key pins; empty template refuses |
+| `/etc/sidecar/fk0957/release-issuer.pub` | `root:root` | `0400` | Provisioned raw 32-byte release Ed25519 public key |
+| `/etc/sidecar/fk0957/handoff-issuer.pub` | `root:root` | `0400` | Provisioned raw 32-byte handoff Ed25519 public key |
+| `/etc/sidecar/fk0957/deployment-ownership.json` | `root:root` | `0400` | Machine-readable UID/GID/mode policy |
 | `/etc/sidecar/fk0957/runtime-release-manifest.json` | `root:root` | `0400` | Signed exact-HEAD manifest pinned by static launcher |
+| `/usr/lib/sysusers.d/90-sidecar-fk0957.conf` | `root:root` | `0644` | Dedicated service and runner identity definitions |
 | `/etc/udev/rules.d/90-sidecar-fk0957-supervised.rules` | `root:root` | `0644` | Exact serial USB ACL for non-login runner |
 | `/run/sidecar/` | `root:sidecar-acquire` | `0750` | IPC socket parent |
 | `/run/sidecar/fk0957-supervisor.sock` | `root:sidecar-acquire` | `0660` | Narrow local IPC |
@@ -30,6 +34,13 @@ closure before importing the acquisition or RGB CLI. The staged package uses
 an explicitly non-production manifest template for packaging rehearsal only;
 it cannot pass production signature validation.
 
+The runtime inventory contains ten native objects on the qualified x86_64
+image: Python 3.12, the ELF loader, libc, libm, zlib, expat, libftdi, libusb,
+libudev, and libcap. Each row records absolute realpath, SHA256, ELF build ID,
+and Debian package/version. The static launcher checks all ten files before
+Python executes; the signed runtime manifest independently checks the same
+entire set.
+
 The service is deliberately root-owned to retain exclusive authority over
 state and the authorization ledger. IPC callers use the unprivileged
 `sidecar-acquire` account; each acquisition child is dropped to the distinct
@@ -38,6 +49,16 @@ non-login `sidecar-fk0957-runner` account and receives only the
 access only to the exact USB descriptor serial. The runner cannot write root
 state. These accounts, rule, and service are not installed by this change.
 No `launch_closed`, exit, or restore claim is accepted from IPC.
+
+The committed ownership policy fixes `sidecar-acquire` at UID/GID 970,
+`sidecar-fk0957-runner` at UID/GID 971, and the `fk0957-device` group at GID
+972. Supervisor state and the authorization ledger are `root:root 0700`; the
+ordinary IPC identity cannot write either. The socket is `root:sidecar-acquire
+0660`, granting IPC access without journal or ledger write authority. The
+disposable-root rehearsal verifies this machine-readable policy and staged
+path modes; it does not claim to change or prove real host inode ownership.
+The installed `--verify` mode checks actual ownership after administrator
+provisioning.
 
 ## Installer and verifier
 
