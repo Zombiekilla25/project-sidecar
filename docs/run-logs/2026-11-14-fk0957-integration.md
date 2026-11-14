@@ -65,3 +65,16 @@ The independent workstream subsequently reviewed the same source candidate `50fe
 - The independent background watcher/integration campaign was still running when the results were reviewed; its final results were not yet available.
 
 **Next software gates:** preserve Right's minimal reproductions, fix workstream-owned code in isolated development trees, re-run relevant full suites, and have Right independently verify the **new exact integrated HEAD**. Keep production signing, installation, and deployment blocked.
+
+
+## Verified follow-up — parent replacement recovery and refusal parsing — 2026-11-14
+
+The local offline candidate has source commit `4135afc` and a separate evidence-metadata revision `fcb4626`. The implementation branch remains unpublished; this update is a sanitized progress report only.
+
+- The independent parent-replacement reproducer was preserved and replayed. Before the fix, recovery at the recreated parent found no stages while a stage and owner marker remained under the renamed parent.
+- The installer now writes a durable, inode-bound recovery locator before stage creation. Recovery searches only the verified grandparent anchor for the original parent identity, refuses ambiguous or out-of-anchor moves, and preserves a decoy release at the replacement path. Installer recovery passed **22 tests**, including parent replacement at two hard-exit points, locator-write/publication interruption, and idempotent repeat recovery. Moving the original parent outside the recorded anchor still requires manual recovery; the tool fails closed and does not search or delete elsewhere.
+- Left's malformed refusal/status parsing correction (`7b28c11`) is integrated. The full focused FK0957 suite passed **473 tests**; operations acceptance passed **871 tests across four runs**; the corrected oracle accepted all **28 valid states** and rejected all **249,572 invalid states** with zero mismatches. Compile and whitespace checks passed.
+- An unsigned canonical integrity manifest now binds the exact source candidate and covers **31 source files** and **10 runtime objects**. Its SHA-256 is `5c859b4fd22e63f67cac30926288cd16f8c382e4b43e5f09968454ca74a888ea`. This is not a production signature or trust authorization.
+- Right's independent audit of this combined candidate is still pending. Production controller/profile alignment, production trust provisioning, administrator installation, and production authorization remain blocked.
+
+No live acquisition, hardware/USB access, privileged installation, key provisioning, or production-main change occurred.
