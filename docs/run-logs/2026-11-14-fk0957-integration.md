@@ -78,3 +78,15 @@ The local offline candidate has source commit `4135afc` and latest evidence-meta
 - Right's independent audit of this combined candidate is still pending. Production controller/profile alignment, production trust provisioning, administrator installation, and production authorization remain blocked.
 
 No live acquisition, hardware/USB access, privileged installation, key provisioning, or production-main change occurred.
+
+## Independent exact-candidate audit verdict — 2026-11-14 (latest)
+
+An independent audit of the later evidence revision `e2d860584cbdcf74f58f4cf582214b8531528871`, whose source manifest pins `4135afc78319ff988a6eb8bcb37c618082e38ae7`, **still returns FAIL for release qualification**, despite substantial progress. This is newer than the earlier `50fe500` candidate notes above.
+
+- **Refusal/status parsing fixed in the tested candidate:** the independent 237-case malformed-type matrix produced **zero uncaught exceptions** and **zero unexpected acceptances**.
+- **Manifest integrity fixed in the tested candidate:** **31/31 source hashes** and **10/10 native runtime objects** matched; the manifest remains unsigned.
+- **One installer issue remains:** of 36 disposable path-substitution cases, **22 falsely returned success** after the target parent pathname was replaced. In the minimal first-install case, substitution immediately after `after_installed_verify` led to success even though the requested release pathname did not exist. Decoy-symlink replacement also produced false success. The independent audit preserved a minimal deterministic reproducer at audit commit `44b3a5af65a13ce3bf3a10a51c9f1f8b7160991`.
+- An earlier 24,024,072-scenario one-hour campaign reported zero unsafe outcomes, but it exercised an **older source revision**, and **does not certify this candidate**.
+- A separate audit watcher was still running when this report was prepared. No live/hardware tests or production authorization are implied.
+
+**Next qualification gate:** require path identity validation at the final success boundary, explicit failure when the intended target is absent or redirected, disposable-root adversarial retesting, and independent audit of the exact new HEAD. Production signing, authorization, privileged installation and real deployment remain BLOCKED.
