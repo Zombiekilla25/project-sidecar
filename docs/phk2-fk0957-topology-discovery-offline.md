@@ -59,15 +59,20 @@ orchestration and remote-process-exit cleanup proof are not yet connected.
 The deterministic hashes and local host-key pin observation from the earlier
 software integration are recorded in
 [`results/fk0957-topology-software-handoff.json`](../results/fk0957-topology-software-handoff.json).
-That historical record does not prove current remote acquisition or bridge
-ownership readiness.
+That JSON is a historical snapshot, not the current candidate manifest: its
+candidate HEAD is `c98dff737726cf6f001b41f891edd3094b67c549`. Do not use its
+source hashes or readiness fields to authorize this or a later candidate.
+Obtain the current HEAD from the clean hardening checkout and generate a new
+exact-HEAD manifest; an offline test signature is explicitly non-production.
+The snapshot does not prove current remote acquisition or bridge ownership
+readiness.
 
 The handoff identifies production main as
 `3226bfc1474d6afa873fce7327ded6dac548baae`; the separate WIP branch is
-`hardening/fk0957-production-20261113`. Its current candidate head and source
-hashes are recorded in the handoff JSON. Do not treat those candidate hashes
-as an authenticated release manifest: no trusted signed manifest currently
-authorizes the exact source bytes or clean Git state.
+`hardening/fk0957-production-20261113`. The historical handoff JSON does not
+record that branch's current head. Do not treat its old candidate hashes as
+an authenticated release manifest: no production trust root currently
+authorizes exact source bytes or clean Git state.
 
 The host's verified `libc6:amd64` update from `2.39-0ubuntu8.9` to
 `2.39-0ubuntu8.12` has been independently requalified for the WIP native
