@@ -90,3 +90,18 @@ An independent audit of the later evidence revision `e2d860584cbdcf74f58f4cf5822
 - A separate audit watcher was still running when this report was prepared. No live/hardware tests or production authorization are implied.
 
 **Next qualification gate:** require path identity validation at the final success boundary, explicit failure when the intended target is absent or redirected, disposable-root adversarial retesting, and independent audit of the exact new HEAD. Production signing, authorization, privileged installation and real deployment remain BLOCKED.
+
+
+## Verified follow-up — post-publication parent identity check — 2026-11-14
+
+The independent auditor's exact reproducer was taken from audit commit `44b3a5a` and run against a clean checkout of the pre-fix evidence revision. The minimal case returned success after replacing the target parent, although the requested target was absent. The complete independent matrix reproduced **22 false successes in 36 cases**.
+
+The local source candidate is now `be33af6`; its separate evidence revision is `6f0c27d`. Implementation source remains local and unpublished.
+
+- The installer rechecks parent and target inode identity after the installed verification checkpoint, before removing the previous release, and before reporting success. Cleanup-error returns also revalidate the requested target.
+- On the fixed candidate, the same minimal reproducer now refuses, and Right's exact 36-case matrix reports **zero false successes**. Regression coverage preserves existing releases and decoys on refusal and covers cleanup-path substitution.
+- Offline qualification passed: **484 FK0957 focused tests**, **24 installer tests**, **871 operations acceptance tests across four runs**, and the corrected oracle (**28 valid accepted; 249,572 invalid rejected; zero mismatches**). Compile and diff checks passed.
+- The unsigned canonical integrity manifest binds source candidate `be33af6`, with **31 source files** and **10 runtime objects**; SHA-256 `41aee5f94f4b355ba29afbb61378199ee8337c2e95e4520debefa3713fa1b4fe`. It is integrity evidence only, not production authentication.
+- Right's final independent audit of `be33af6` remains pending. Production trust provisioning, controller/profile release alignment, administrator installation, and production authorization are still blocked.
+
+No hardware, USB/JTAG, production host, privileged installation, key provisioning, or live acquisition was used. No production-main code was changed.
