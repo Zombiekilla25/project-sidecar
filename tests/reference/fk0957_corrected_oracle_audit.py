@@ -143,6 +143,13 @@ def refusal_envelope(snapshot, model) -> dict[str, Any] | None:
                 "MULTIPLE_TARGET_CANDIDATES" if snapshot.target_candidates >= 2 else
                 "CANDIDATE_IDENTITY_MISMATCH")
     op_state = STATE_BY_STAGE[stage.name]
+    # Newer release envelopes expose the publisher's authoritative stage.
+    # This is a serialization adapter only: legal/illegal state classification
+    # remains exclusively in the commit-pinned reference model above.
+    publication_state = "NOT_STARTED"
+    if snapshot.signing_staged:
+        publication_state = ("PUBLISHING" if stage == model.Stage.ATOMIC_PUBLISH
+                             else "SIGNED_STAGED")
     close_from = None
     transport_closed = int(snapshot.transport_closed)
 
@@ -183,6 +190,7 @@ def refusal_envelope(snapshot, model) -> dict[str, Any] | None:
         "transport_closed": transport_closed,
         "permit_consumed": int(snapshot.permit_consumed),
         "operation_state": op_state, "close_from_state": close_from,
+        "publication_state": publication_state,
     }
 
 
@@ -227,6 +235,7 @@ def _manual_envelope(phase: str, operation_state: str, **changes: Any) -> dict[s
         "scan_b_started": 0, "scan_b_tck_emitted": 0,
         "transport_closed": 0, "permit_consumed": 1,
         "operation_state": operation_state, "close_from_state": None,
+        "publication_state": "NOT_STARTED",
     }
     value.update(changes)
     return value

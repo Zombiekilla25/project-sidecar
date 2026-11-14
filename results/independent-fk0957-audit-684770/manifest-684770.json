@@ -1,0 +1,31 @@
+{
+  "candidate_head": "684770dd9657d070c982ce98fe84c839016456a6",
+  "hardware_access": false,
+  "integrity_checks_pass": true,
+  "manifest_authenticated": false,
+  "manifest_production_head": "50fe500558495273501f643e0a0024443e23e210",
+  "manifest_sidecar_matches": true,
+  "manifest_source_revision_is_ancestor": true,
+  "manifest_worktree_clean_claim": true,
+  "network_access": false,
+  "production_authorization_available": false,
+  "production_trust_keys_provisioned": false,
+  "runtime_count": 10,
+  "runtime_errors": [],
+  "runtime_hash_and_build_ids_match": true,
+  "source_count": 31,
+  "source_errors": [],
+  "source_hashes_match": true,
+  "transaction_counts": [
+    591,
+    586,
+    1177
+  ],
+  "transaction_hashes": [
+    "81f0fb9eefad365e50d8cdbe855274bdf408104158ac193a50798e0aaba778f2",
+    "08534f71229a30798c82cc7518a934ada0113d38ba351ddb577ddd02a845336a"
+  ],
+  "transaction_profile_hash_matches": true,
+  "transaction_profile_sha256": "695870565b971d3b4ac49d69a6196e600629e5b2604af4e063ea0cf1d763cd00",
+  "trust_template_hash_matches": true
+}

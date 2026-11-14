@@ -1,0 +1,25 @@
+{
+  "cases": 100000,
+  "elapsed_seconds": 8.89,
+  "exception_types": {
+    "TypeError": 16023
+  },
+  "fields_mutated": [
+    "phase",
+    "code",
+    "publication_state",
+    "operation_state",
+    "close_from_state",
+    "target_candidates",
+    "device_opened",
+    "permit_consumed",
+    "scan_a_tck_emitted",
+    "scan_b_tck_emitted"
+  ],
+  "hardware_access": false,
+  "network_access": false,
+  "raw_exception_count": 16023,
+  "schema": "fk0957-independent-supervisor-status-fuzz-v1",
+  "seed": 1749512343,
+  "unsafe_terminal_state_count": 0
+}

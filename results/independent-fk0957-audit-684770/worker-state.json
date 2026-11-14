@@ -1,0 +1,46 @@
+{
+  "candidate_commit": "684770dd9657d070c982ce98fe84c839016456a6",
+  "finished_utc": "2026-11-14T14:58:20+00:00",
+  "queue_sha256": "217e7815c293d87cde15c687d9a2ff19b2ed99beb546f5267a4c53bd4b099e12",
+  "schema": "fk0957-audit-worker-state-v1",
+  "started_utc": "2026-11-14T14:58:16+00:00",
+  "status": "COMPLETE",
+  "tasks": {
+    "diff-check": {
+      "elapsed_seconds": 0.257,
+      "log_path": "/tmp/fk0957-audit-worker-state-684770/diff-check.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "return_code": 0,
+      "started_utc": "2026-11-14T14:58:20+00:00",
+      "status": "PASS",
+      "timed_out": false
+    },
+    "enumeration": {
+      "elapsed_seconds": 0.758,
+      "log_path": "/tmp/fk0957-audit-worker-state-684770/enumeration.log",
+      "log_sha256": "953a26f4e29d5ba749e864419b776deac975b01e1a0db31a396a8a4dbcd83433",
+      "return_code": 0,
+      "started_utc": "2026-11-14T14:58:19+00:00",
+      "status": "PASS",
+      "timed_out": false
+    },
+    "manifest": {
+      "elapsed_seconds": 0.257,
+      "log_path": "/tmp/fk0957-audit-worker-state-684770/manifest.log",
+      "log_sha256": "cb76f44271fb7ecf51c819f0de6f4d8256a03e28670f05a8cc5aade5dc971b56",
+      "return_code": 0,
+      "started_utc": "2026-11-14T14:58:19+00:00",
+      "status": "PASS",
+      "timed_out": false
+    },
+    "oracle": {
+      "elapsed_seconds": 2.258,
+      "log_path": "/tmp/fk0957-audit-worker-state-684770/oracle.log",
+      "log_sha256": "d94506afd3a157dde2e131c3f62c542f0ea4ff9f2e9aeaa7436691de475e2fa1",
+      "return_code": 0,
+      "started_utc": "2026-11-14T14:58:16+00:00",
+      "status": "PASS",
+      "timed_out": false
+    }
+  }
+}

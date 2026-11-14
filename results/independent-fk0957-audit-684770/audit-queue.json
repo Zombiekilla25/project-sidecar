@@ -1,0 +1,70 @@
+{
+  "candidate_commit": "684770dd9657d070c982ce98fe84c839016456a6",
+  "schema": "fk0957-offline-audit-queue-v1",
+  "tasks": [
+    {
+      "argv": [
+        "/tmp/fk0957-audit-venv-20261114/bin/python",
+        "/tmp/fk0957-right-audit-worker-20261115/tests/reference/fk0957_corrected_oracle_audit.py",
+        "684770dd9657d070c982ce98fe84c839016456a6"
+      ],
+      "cwd": "/tmp/fk0957-release-audit-684770",
+      "env": {
+        "PYTHONHASHSEED": "0"
+      },
+      "id": "oracle",
+      "timeout_seconds": 1800
+    },
+    {
+      "argv": [
+        "/tmp/fk0957-audit-venv-20261114/bin/python",
+        "/tmp/fk0957-right-audit-worker-20261115/tests/reference/fk0957_manifest_independent_verify.py",
+        "--candidate-root",
+        "/tmp/fk0957-release-audit-684770",
+        "--expected-commit",
+        "684770dd9657d070c982ce98fe84c839016456a6",
+        "--output",
+        "/tmp/fk0957-manifest-worker-684770.json"
+      ],
+      "cwd": "/tmp/fk0957-release-audit-684770",
+      "env": {
+        "PYTHONHASHSEED": "0"
+      },
+      "id": "manifest",
+      "timeout_seconds": 1800
+    },
+    {
+      "argv": [
+        "/tmp/fk0957-audit-venv-20261114/bin/python",
+        "/tmp/fk0957-right-audit-worker-20261115/tests/reference/fk0957_enumeration_permutation_audit.py",
+        "--candidate-root",
+        "/tmp/fk0957-release-audit-684770",
+        "--expected-commit",
+        "684770dd9657d070c982ce98fe84c839016456a6",
+        "--seed",
+        "1749512341",
+        "--permutations",
+        "1000"
+      ],
+      "cwd": "/tmp/fk0957-release-audit-684770",
+      "env": {
+        "PYTHONHASHSEED": "0"
+      },
+      "id": "enumeration",
+      "timeout_seconds": 1800
+    },
+    {
+      "argv": [
+        "git",
+        "diff",
+        "--check",
+        "HEAD^",
+        "HEAD"
+      ],
+      "cwd": "/tmp/fk0957-release-audit-684770",
+      "env": {},
+      "id": "diff-check",
+      "timeout_seconds": 120
+    }
+  ]
+}

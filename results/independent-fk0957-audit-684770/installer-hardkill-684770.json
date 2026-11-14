@@ -1,0 +1,19 @@
+{
+  "after_commit_checkpoint_ordinal": 164,
+  "candidate_commit": "684770dd9657d070c982ce98fe84c839016456a6",
+  "cases_leaving_orphan_siblings": 0,
+  "checkpoint_count": 170,
+  "completed_utc": "2026-11-14T14:55:18+00:00",
+  "elapsed_seconds": 176.758,
+  "fault_cases": 340,
+  "hardware_access": false,
+  "network_access": false,
+  "orphan_cleanup_by_recovery": true,
+  "prior_install_preserved_before_publish": true,
+  "published_root_complete_after_commit": true,
+  "recovery_attempts": 680,
+  "repeated_recovery_succeeded": true,
+  "schema": "fk0957-independent-hardkill-audit-v1",
+  "seed": 1749512345,
+  "started_utc": "2026-11-14T14:52:21+00:00"
+}
