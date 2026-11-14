@@ -27,6 +27,7 @@ _ENVELOPE_KEYS = frozenset({
     "return_code", "target_candidates", "device_opened", "scan_a_started",
     "scan_a_tck_emitted", "scan_b_started", "scan_b_tck_emitted",
     "transport_closed", "permit_consumed", "operation_state", "close_from_state",
+    "publication_state",
 })
 _PHASE_CODES = {
     "PRELIVE_VALIDATION": {"TRANSACTION_PIN_MISMATCH", "TRUSTED_LAUNCHER_REQUIRED"},
@@ -111,6 +112,10 @@ def _bounded_envelope(value: Any) -> bool:
     for key in ("scan_a_started", "scan_b_started", "transport_closed"):
         if type(value.get(key)) is not int or value[key] not in (0, 1):
             return False
+    publication_state = value.get("publication_state")
+    if (type(publication_state) is not str or publication_state not in {
+            "NOT_STARTED", "SIGNED_STAGED", "PUBLISHING"}):
+        return False
     for key, limit in (("scan_a_tck_emitted", 591), ("scan_b_tck_emitted", 586)):
         item = value.get(key)
         if type(item) is not int or not 0 <= item <= limit:
@@ -141,6 +146,14 @@ def _bounded_envelope(value: Any) -> bool:
     else:
         progress_state = state
     if state in {"LOCAL_VALIDATED", "SIGNED_STAGED"} and close_from != "SCAN_B_COMPLETE":
+        return False
+    if publication_state == "NOT_STARTED" and state in {"SIGNED_STAGED"}:
+        return False
+    if publication_state in {"SIGNED_STAGED", "PUBLISHING"} and state != "SIGNED_STAGED":
+        return False
+    if publication_state == "PUBLISHING" and phase != "LOCAL_SIGNING":
+        return False
+    if publication_state != "NOT_STARTED" and phase != "LOCAL_SIGNING":
         return False
     if ranks[progress_state] >= ranks["PERMIT_VALIDATED"] and consumed != 1:
         return False
@@ -224,11 +237,15 @@ def _bounded_envelope(value: Any) -> bool:
     phase_state = progress_state
     close_flag_allowed = closing or closed == 0
     if phase in {"PRELIVE_VALIDATION", "PERMIT_VALIDATION"}:
-        allowed_states = ({"PRELIVE": 0, "PERMIT_VALIDATED": 1}
-                          if phase == "PRELIVE_VALIDATION" else {"PRELIVE": 0})
-        if (phase_state not in allowed_states or consumed != allowed_states.get(phase_state) or
-                not no_candidates or
-                opened or not no_scans or not close_flag_allowed):
+        if phase == "PRELIVE_VALIDATION":
+            allowed_states = {"PRELIVE": 0, "PERMIT_VALIDATED": 1}
+            if (phase_state not in allowed_states or
+                    consumed != allowed_states.get(phase_state) or candidates != 0 or
+                    opened or not no_scans or not close_flag_allowed):
+                return False
+        elif (phase_state != "PRELIVE" or consumed != 0 or
+              candidates not in (0, "unknown") or opened or not no_scans or
+              not close_flag_allowed):
             return False
     elif phase == "LIBRARY_PROVENANCE":
         if (phase_state not in {"PERMIT_VALIDATED", "RUNTIME_READY"} or
@@ -299,16 +316,19 @@ def _bounded_envelope(value: Any) -> bool:
                                    "SCAN_B_COMPLETE"}):
             return False
     elif phase == "LOCAL_VALIDATION":
-        if (state != "TRANSPORT_CLOSED" or close_from != "SCAN_B_COMPLETE" or
+        if (state not in {"TRANSPORT_CLOSED", "LOCAL_VALIDATED"} or
+                close_from != "SCAN_B_COMPLETE" or
                 consumed != 1 or candidates != 1 or opened != 1 or
                 not a_started or a_tcks != 591 or not b_started or b_tcks != 586 or
-                closed != 1):
+                closed != 1 or publication_state != "NOT_STARTED"):
             return False
     elif phase == "LOCAL_SIGNING":
-        if (state != "LOCAL_VALIDATED" or close_from != "SCAN_B_COMPLETE" or
+        if (state not in {"LOCAL_VALIDATED", "SIGNED_STAGED"} or
+                close_from != "SCAN_B_COMPLETE" or
                 consumed != 1 or candidates != 1 or opened != 1 or
                 not a_started or a_tcks != 591 or not b_started or b_tcks != 586 or
-                closed != 1):
+                closed != 1 or publication_state not in {
+                    "NOT_STARTED", "SIGNED_STAGED", "PUBLISHING"}):
             return False
     elif phase == "INTERNAL_REFUSAL":
         if (state != "PRELIVE" or consumed != 0 or not no_candidates or opened or
@@ -504,6 +524,10 @@ def _publish_evidence_atomic(path: Path, data: bytes,
                 raise ValueError("evidence output changed before publish")
 
             link_error = None
+            if publish_state is not None:
+                if publish_state[0] != "SIGNED_STAGED":
+                    raise ValueError("evidence publish state transition is invalid")
+                publish_state[0] = "PUBLISHING"
             try:
                 # linkat-style publication is atomic and refuses an existing
                 # destination. The held dirfd prevents redirection by a

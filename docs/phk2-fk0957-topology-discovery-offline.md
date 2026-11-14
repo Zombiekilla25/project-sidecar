@@ -102,8 +102,15 @@ For example, a prelive refusal has this exact field set and bounded values;
 later phases use the same schema with their validated progress:
 
 ```json
-{"status":"REFUSED","phase":"PRELIVE_VALIDATION","code":"TRANSACTION_PIN_MISMATCH","evidence_path":"none","signature_verified":false,"return_code":null,"target_candidates":0,"device_opened":0,"scan_a_started":0,"scan_a_tck_emitted":0,"scan_b_started":0,"scan_b_tck_emitted":0,"transport_closed":0,"permit_consumed":0,"operation_state":"PRELIVE","close_from_state":null}
+{"status":"REFUSED","phase":"PRELIVE_VALIDATION","code":"TRANSACTION_PIN_MISMATCH","evidence_path":"none","signature_verified":false,"return_code":null,"target_candidates":0,"device_opened":0,"scan_a_started":0,"scan_a_tck_emitted":0,"scan_b_started":0,"scan_b_tck_emitted":0,"transport_closed":0,"permit_consumed":0,"operation_state":"PRELIVE","close_from_state":null,"publication_state":"NOT_STARTED"}
 ```
+
+`publication_state` is an internally derived monotonic progress marker. The
+allowed refusal values are `NOT_STARTED`, `SIGNED_STAGED`, and `PUBLISHING`.
+The terminal `PUBLISHED` state is not a refusal-envelope value. Publishing
+requires the signed staging state. This preserves the distinction between a
+pre-staging signing refusal and a publish attempt; the field is diagnostic
+progress, not an authorization or signing capability.
 
 The success summary contains `status`, `target`, the three TCK counts, both
 transaction hashes, raw-capture byte lengths and hashes, `parse_status`,
@@ -191,9 +198,12 @@ reset-default topology (or an inconclusive status), descriptor SHA, permit
 nonce/freshness, signer fingerprint, algorithm/transaction/command hashes,
 and mutation counters. It explicitly says topology discovery only, IDCODE
 qualification failed/not performed, and DNA/image/bitstream identity not
-observed. The transport source hash remains null until a reviewed production
-adapter exists; caller-supplied hashes are rejected by design. No remote
-signing code exists here.
+observed. The pure parser/mock record in `phk2_fk0957_topology_discovery.py`
+intentionally leaves `transport_source_sha256` null because that helper has no
+physical transport provenance. The supervised production endpoint instead
+computes a non-null `transport_source_sha256()` over the clean exact Git HEAD,
+complete production source closure, and pinned native runtime; RGB validation
+rejects a missing or mismatching value. Caller-supplied hashes are rejected.
 
 ## Readiness boundary
 

@@ -115,7 +115,8 @@ def refusal_progress(phase):
                   scan_a_started=0, scan_a_tck_emitted=0,
                   scan_b_started=0, scan_b_tck_emitted=0,
                   transport_closed=0, permit_consumed=1,
-                  operation_state="PRELIVE", close_from_state=None)
+                  operation_state="PRELIVE", close_from_state=None,
+                  publication_state="NOT_STARTED")
     states = {
         "PRELIVE_VALIDATION": "PRELIVE", "PERMIT_VALIDATION": "PRELIVE",
         "LIBRARY_PROVENANCE": "PERMIT_VALIDATED", "FTDI_CONTEXT_CREATE": "RUNTIME_READY",
@@ -154,6 +155,9 @@ def refusal_progress(phase):
     if phase in {"LOCAL_VALIDATION", "LOCAL_SIGNING"}:
         values.update(scan_b_tck_emitted=586, transport_closed=1,
                       close_from_state="SCAN_B_COMPLETE")
+    if phase == "LOCAL_SIGNING":
+        values["publication_state"] = "SIGNED_STAGED"
+        values["operation_state"] = "SIGNED_STAGED"
     return values
 
 
@@ -590,6 +594,47 @@ class LiveCliTests(unittest.TestCase):
                 None, **values)
             with self.subTest(phase=phase):
                 self.assertTrue(cli._bounded_envelope(envelope.as_dict()))
+
+    def test_publication_state_preserves_signing_stage_boundary(self):
+        staged = refusal_progress("LOCAL_SIGNING")
+        staged.update(operation_state="LOCAL_VALIDATED", publication_state="NOT_STARTED")
+        self.assertTrue(cli._bounded_envelope(transport.RefusalEnvelope(
+            "LOCAL_SIGNING", "LOCAL_SIGNING_FAILED", None, **staged).as_dict()))
+
+        signed_staged = refusal_progress("LOCAL_SIGNING")
+        self.assertTrue(cli._bounded_envelope(transport.RefusalEnvelope(
+            "LOCAL_SIGNING", "LOCAL_SIGNING_FAILED", None, **signed_staged).as_dict()))
+
+        publishing = dict(signed_staged, publication_state="PUBLISHING")
+        self.assertTrue(cli._bounded_envelope(transport.RefusalEnvelope(
+            "LOCAL_SIGNING", "LOCAL_SIGNING_FAILED", None, **publishing).as_dict()))
+
+        unsigned_publish = dict(staged, publication_state="PUBLISHING")
+        self.assertFalse(cli._bounded_envelope(transport.RefusalEnvelope(
+            "LOCAL_SIGNING", "LOCAL_SIGNING_FAILED", None, **unsigned_publish).as_dict()))
+
+        impossible_published_refusal = dict(signed_staged, publication_state="PUBLISHED")
+        self.assertFalse(cli._bounded_envelope(transport.RefusalEnvelope(
+            "LOCAL_SIGNING", "LOCAL_SIGNING_FAILED", None,
+            **impossible_published_refusal).as_dict()))
+        missing = transport.RefusalEnvelope(
+            "LOCAL_SIGNING", "LOCAL_SIGNING_FAILED", None, **signed_staged).as_dict()
+        missing.pop("publication_state")
+        self.assertFalse(cli._bounded_envelope(missing))
+
+    def test_unknown_candidate_count_is_allowed_only_before_selection(self):
+        permit = refusal_progress("PERMIT_VALIDATION")
+        permit.update(target_candidates="unknown", permit_consumed=0)
+        self.assertTrue(cli._bounded_envelope(transport.RefusalEnvelope(
+            "PERMIT_VALIDATION", "PERMIT_INVALID", None, **permit).as_dict()))
+        enumerating = refusal_progress("DEVICE_ENUMERATION")
+        enumerating.update(target_candidates="unknown")
+        self.assertTrue(cli._bounded_envelope(transport.RefusalEnvelope(
+            "DEVICE_ENUMERATION", "ENUMERATION_FAILED", None, **enumerating).as_dict()))
+        selected = refusal_progress("DEVICE_SELECTION")
+        selected.update(target_candidates="unknown")
+        self.assertFalse(cli._bounded_envelope(transport.RefusalEnvelope(
+            "DEVICE_SELECTION", "CANDIDATE_IDENTITY_MISMATCH", None, **selected).as_dict()))
 
     def test_legitimate_partial_write_boundaries_and_large_candidate_count(self):
         for phase, counter, values in (

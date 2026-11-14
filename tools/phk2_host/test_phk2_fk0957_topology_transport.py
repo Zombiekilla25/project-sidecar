@@ -687,7 +687,7 @@ class TopologyTransportTests(unittest.TestCase):
                 "return_code", "target_candidates", "device_opened", "scan_a_started",
                 "scan_a_tck_emitted", "scan_b_started", "scan_b_tck_emitted",
                 "transport_closed", "permit_consumed", "operation_state",
-                "close_from_state",
+                "close_from_state", "publication_state",
             })
             self.assertEqual(envelope["status"], "REFUSED")
             self.assertEqual(envelope["evidence_path"], "none")
@@ -1017,6 +1017,21 @@ class TopologyTransportTests(unittest.TestCase):
             trace.advance("MPSSE_READY")
             trace.advance("SCAN_A_ACTIVE")
             trace.advance("MPSSE_READY")
+
+    def test_publication_progress_is_internal_monotonic_and_published_cannot_refuse(self):
+        trace = transport._AttemptTrace()
+        with self.assertRaises(transport.Refusal):
+            trace.begin_evidence_publish()
+        trace.advance("LOCAL_VALIDATED")
+        trace.advance("SIGNED_STAGED")
+        trace.phase = "LOCAL_SIGNING"
+        self.assertEqual(trace.publication_state, "SIGNED_STAGED")
+        trace.begin_evidence_publish()
+        self.assertEqual(trace.publication_state, "PUBLISHING")
+        self.assertEqual(trace.refuse().envelope.publication_state, "PUBLISHING")
+        trace.mark_evidence_published()
+        with self.assertRaisesRegex(transport.Refusal, "published evidence"):
+            trace.refuse()
 
     def test_open_failure_cleanup_preserves_unopened_device_state(self):
         permit = self.permit()

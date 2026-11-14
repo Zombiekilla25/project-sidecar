@@ -153,6 +153,7 @@ class RefusalEnvelope:
     permit_consumed: int | str
     operation_state: str = "PRELIVE"
     close_from_state: str | None = None
+    publication_state: str = "NOT_STARTED"
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -167,6 +168,7 @@ class RefusalEnvelope:
             "permit_consumed": self.permit_consumed,
             "operation_state": self.operation_state,
             "close_from_state": self.close_from_state,
+            "publication_state": self.publication_state,
         }
 
 
@@ -185,6 +187,7 @@ class _AttemptTrace:
         self.code_override: str | None = None
         self.operation_state = "PRELIVE"
         self.close_from_state: str | None = None
+        self.publication_state = "NOT_STARTED"
 
     def advance(self, state: str) -> None:
         current_rank = _OPERATION_STATE_RANK.get(self.operation_state)
@@ -192,6 +195,8 @@ class _AttemptTrace:
         if current_rank is None or next_rank is None or next_rank < current_rank:
             raise Refusal("invalid internal topology progress transition")
         self.operation_state = state
+        if state == "SIGNED_STAGED" and self.publication_state == "NOT_STARTED":
+            self.publication_state = "SIGNED_STAGED"
 
     def begin_close(self) -> None:
         if self.close_from_state is None:
@@ -201,7 +206,19 @@ class _AttemptTrace:
     def finish_close(self) -> None:
         self.advance("TRANSPORT_CLOSED")
 
+    def begin_evidence_publish(self) -> None:
+        if self.operation_state != "SIGNED_STAGED" or self.publication_state != "SIGNED_STAGED":
+            raise Refusal("evidence publish requires a validated staged signature")
+        self.publication_state = "PUBLISHING"
+
+    def mark_evidence_published(self) -> None:
+        if self.operation_state != "SIGNED_STAGED" or self.publication_state != "PUBLISHING":
+            raise Refusal("evidence publish commit transition is invalid")
+        self.publication_state = "PUBLISHED"
+
     def refuse(self, *, code: str | None = None, phase: str | None = None) -> Refusal:
+        if self.publication_state == "PUBLISHED":
+            raise Refusal("published evidence cannot be downgraded to refusal")
         selected_phase = phase or self.phase
         selected_code = code or self.code_override or _DEFAULT_REFUSAL_CODE.get(
             selected_phase, "INTERNAL_REFUSAL")
@@ -213,7 +230,8 @@ class _AttemptTrace:
             self.scan_a_started, _bounded_count(self.scan_a_tck_emitted),
             self.scan_b_started, _bounded_count(self.scan_b_tck_emitted),
             self.transport_closed, self.permit_consumed,
-            self.operation_state, self.close_from_state))
+            self.operation_state, self.close_from_state,
+            self.publication_state))
 
 
 _DEFAULT_REFUSAL_CODE = {
