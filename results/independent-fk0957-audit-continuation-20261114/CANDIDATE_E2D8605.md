@@ -45,4 +45,4 @@ No hardware, SSH to a production host, USB/JTAG, privileged installation, produc
 1. Before success, bind the result to and revalidate the requested parent and target identity after all replaceable checkpoints. If it changes, return a distinct relocated outcome or fail closed; do not report success for an absent requested path.
 2. Production authorization remains unavailable: unsigned manifest and unprovisioned production trust keys. No live/deployment readiness can be claimed.
 
-Artifacts: `parent-matrix-e2d8605.json`, `type-matrix-e2d8605.json`, `manifest-e2d8605.json`, `oracle-e2d8605.json`, `ops-acceptance-e2d8605.json`, `candidate-e2d8605.json`.
+Minimal deterministic reproducer: `tests/reference/fk0957_parent_path_postverify_repro.py`. Artifacts: `parent-matrix-e2d8605.json`, `type-matrix-e2d8605.json`, `manifest-e2d8605.json`, `oracle-e2d8605.json`, `ops-acceptance-e2d8605.json`, `candidate-e2d8605.json`.
