@@ -1,18 +1,70 @@
 {
-  "candidate_commit":"e2d860584cbdcf74f58f4cf582214b8531528871",
-  "candidate_parent":"fcb4626364b977a3101abb014c83750be1db528a",
-  "candidate_branch":"release/fk0957-candidate-20261115",
-  "hardware_access":false,"production_modification":false,
-  "tests":[
-    {"suite":"FK0957 focused","count":482,"passed":482,"seconds":122.506,"exit":0},
-    {"suite":"complete host suite; existing isolated blake3 venv","count":586,"passed":586,"seconds":140.948,"exit":0},
-    {"suite":"operations acceptance","count":871,"passed":871,"runs":4,"seconds":101.198,"exit":0},
-    {"suite":"independent corrected oracle","valid":28,"invalid":249572,"valid_rejected":0,"invalid_accepted":0,"focused_oracle_tests":70,"exit":0},
-    {"suite":"malformed type matrix","cases":237,"uncaught_exceptions":0,"unexpected_accepts":0},
-    {"suite":"parent replacement matrix","cases":36,"false_success":22},
-    {"suite":"manifest verifier","sources":31,"sources_matching":31,"runtime_objects":10,"runtime_objects_matching":10,"manifest_authenticated":false},
-    {"suite":"git diff check","pass":true}
-  ],
-  "release_verdict":"FAIL: installer reports success after requested parent path identity changes",
-  "deployment_verdict":"BLOCKED: no production authorization or provisioned production trust key"
+  "candidate_branch": "release/fk0957-candidate-20261115",
+  "candidate_commit": "e2d860584cbdcf74f58f4cf582214b8531528871",
+  "candidate_parent": "fcb4626364b977a3101abb014c83750be1db528a",
+  "deployment_verdict": "BLOCKED: no production authorization or provisioned production trust key",
+  "hardware_access": false,
+  "production_modification": false,
+  "release_verdict": "FAIL: installer reports success after requested parent path identity changes",
+  "tests": [
+    {
+      "count": 482,
+      "exit": 0,
+      "passed": 482,
+      "seconds": 122.506,
+      "suite": "FK0957 focused"
+    },
+    {
+      "count": 586,
+      "exit": 0,
+      "passed": 586,
+      "seconds": 140.948,
+      "suite": "complete host suite; existing isolated blake3 venv"
+    },
+    {
+      "count": 871,
+      "exit": 0,
+      "passed": 871,
+      "runs": 4,
+      "seconds": 101.198,
+      "suite": "operations acceptance"
+    },
+    {
+      "exit": 0,
+      "focused_oracle_tests": 70,
+      "invalid": 249572,
+      "invalid_accepted": 0,
+      "suite": "independent corrected oracle",
+      "valid": 28,
+      "valid_rejected": 0
+    },
+    {
+      "cases": 237,
+      "suite": "malformed type matrix",
+      "uncaught_exceptions": 0,
+      "unexpected_accepts": 0
+    },
+    {
+      "cases": 36,
+      "false_success": 22,
+      "suite": "parent replacement matrix"
+    },
+    {
+      "manifest_authenticated": false,
+      "runtime_objects": 10,
+      "runtime_objects_matching": 10,
+      "sources": 31,
+      "sources_matching": 31,
+      "suite": "manifest verifier"
+    },
+    {
+      "pass": true,
+      "suite": "git diff check"
+    },
+    {
+      "cases": 12,
+      "false_success": 12,
+      "suite": "final target identity matrix"
+    }
+  ]
 }

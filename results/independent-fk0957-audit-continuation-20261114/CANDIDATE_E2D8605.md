@@ -46,3 +46,5 @@ No hardware, SSH to a production host, USB/JTAG, privileged installation, produc
 2. Production authorization remains unavailable: unsigned manifest and unprovisioned production trust keys. No live/deployment readiness can be claimed.
 
 Minimal deterministic reproducer: `tests/reference/fk0957_parent_path_postverify_repro.py`. Artifacts: `parent-matrix-e2d8605.json`, `type-matrix-e2d8605.json`, `manifest-e2d8605.json`, `oracle-e2d8605.json`, `ops-acceptance-e2d8605.json`, `candidate-e2d8605.json`.
+
+Additional final-target substitution matrix: **12/12 false-success outcomes**. It covers first install and upgrade at `after_installed_verify` and `before_finalize`, plus upgrade cleanup checkpoints, replacing the just-verified target with either an empty directory or a decoy symlink. In every case the displaced package remains complete, but the requested target path is invalid while `stage_package()` returns success. See `target-matrix-e2d8605.json` and `tests/reference/fk0957_installer_target_identity_matrix.py`.
