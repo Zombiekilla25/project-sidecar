@@ -72,12 +72,12 @@ for _stage in (
     "SCAN_A_NAV_WRITE", "SCAN_A_BULK_WRITE", "SCAN_A_BULK_READ",
     "SCAN_A_FINAL_WRITE", "SCAN_A_FINAL_READ", "SCAN_A_EXIT_WRITE",
 ):
-    STATE_BY_STAGE[_stage] = "SCAN_A_ACTIVE"
+    STATE_BY_STAGE[_stage] = _stage
 for _stage in (
     "SCAN_B_NAV_WRITE", "SCAN_B_BULK_WRITE", "SCAN_B_BULK_READ",
     "SCAN_B_FINAL_WRITE", "SCAN_B_FINAL_READ", "SCAN_B_EXIT_WRITE",
 ):
-    STATE_BY_STAGE[_stage] = "SCAN_B_ACTIVE"
+    STATE_BY_STAGE[_stage] = _stage
 
 PHASE_CODES = {
     "PRELIVE_VALIDATION": "TRANSACTION_PIN_MISMATCH",
@@ -126,11 +126,7 @@ def _candidate_close_from(snapshot, model) -> str:
         return "DEVICE_SELECTED"
     if origin == model.Stage.MPSSE_INIT:
         return "DEVICE_OPENED"
-    if origin.value <= model.Stage.SCAN_A_EXIT_WRITE:
-        return "SCAN_A_ACTIVE"
-    if origin.value <= model.Stage.SCAN_B_EXIT_WRITE:
-        return "SCAN_B_ACTIVE"
-    return "SCAN_B_COMPLETE"
+    return origin.name
 
 
 def refusal_envelope(snapshot, model) -> dict[str, Any] | None:
@@ -152,27 +148,38 @@ def refusal_envelope(snapshot, model) -> dict[str, Any] | None:
     op_state = STATE_BY_STAGE[stage.name]
     close_from = None
     transport_closed = int(snapshot.transport_closed)
+    publication_state = ("PUBLISHING" if stage == model.Stage.ATOMIC_PUBLISH
+                         else "NOT_STARTED")
+
+    if stage in (model.Stage.SIGNING_STAGING, model.Stage.ATOMIC_PUBLISH):
+        if not snapshot.local_validation_passed:
+            op_state = "TRANSPORT_CLOSED"
+        elif snapshot.signing_staged:
+            op_state = "SIGNED_STAGED"
+            publication_state = ("PUBLISHING" if stage == model.Stage.ATOMIC_PUBLISH
+                                 else "SIGNED_STAGED")
+        else:
+            op_state = "LOCAL_VALIDATED"
+        close_from = "SCAN_B_COMPLETE"
+    elif stage == model.Stage.LOCAL_VALIDATION:
+        op_state = ("LOCAL_VALIDATED" if snapshot.local_validation_passed
+                    else "TRANSPORT_CLOSED")
+        close_from = "SCAN_B_COMPLETE"
 
     if stage == model.Stage.TRANSPORT_CLOSE:
         if snapshot.failure_origin is None:
-            # A successfully closed transport has moved to local validation.
-            phase = "LOCAL_VALIDATION"
-            code = PHASE_CODES[phase]
-            op_state = "TRANSPORT_CLOSED"
+            if snapshot.transport_closed:
+                phase = "LOCAL_VALIDATION"
+                code = PHASE_CODES[phase]
+                op_state = "TRANSPORT_CLOSED"
+            else:
+                phase = "TRANSPORT_CLOSE"
+                code = PHASE_CODES[phase]
+                op_state = "TRANSPORT_CLOSING"
             close_from = "SCAN_B_COMPLETE"
         else:
             close_from = _candidate_close_from(snapshot, model)
             op_state = "TRANSPORT_CLOSED" if snapshot.transport_closed else "TRANSPORT_CLOSING"
-    elif stage in (model.Stage.LOCAL_VALIDATION, model.Stage.SIGNING_STAGING,
-                   model.Stage.ATOMIC_PUBLISH):
-        close_from = "SCAN_B_COMPLETE"
-        if stage == model.Stage.SIGNING_STAGING:
-            if not snapshot.local_validation_passed:
-                op_state = "TRANSPORT_CLOSED"
-            elif snapshot.signing_staged:
-                op_state = "SIGNED_STAGED"
-        elif stage == model.Stage.ATOMIC_PUBLISH and not snapshot.signing_staged:
-            op_state = "LOCAL_VALIDATED"
 
     return {
         "status": "REFUSED", "phase": phase, "code": code,
@@ -186,6 +193,7 @@ def refusal_envelope(snapshot, model) -> dict[str, Any] | None:
         "transport_closed": transport_closed,
         "permit_consumed": int(snapshot.permit_consumed),
         "operation_state": op_state, "close_from_state": close_from,
+        "publication_state": publication_state,
     }
 
 
@@ -222,6 +230,7 @@ def _manual_envelope(phase: str, operation_state: str, **changes: Any) -> dict[s
         "scan_b_started": 0, "scan_b_tck_emitted": 0,
         "transport_closed": 0, "permit_consumed": 1,
         "operation_state": operation_state, "close_from_state": None,
+        "publication_state": "NOT_STARTED",
     }
     value.update(changes)
     return value
@@ -271,8 +280,14 @@ def targeted_checks(cli, transport) -> dict[str, bool]:
         scan_a_write = _manual_envelope("SCAN_A_WRITE", "SCAN_A_ACTIVE",
                                         scan_a_started=1, scan_a_tck_emitted=ticks)
         scan_a_read_expected = ticks in (585, 586)
+        scan_a_read_state = "SCAN_A_BULK_READ" if ticks == 585 else "SCAN_A_FINAL_READ"
         scan_a_read = _manual_envelope("SCAN_A_READ", "SCAN_A_ACTIVE",
                                        scan_a_started=1, scan_a_tck_emitted=ticks)
+        scan_a_read["operation_state"] = scan_a_read_state
+        scan_a_write_state = ("SCAN_A_NAV_WRITE" if ticks <= 9 else
+                              "SCAN_A_BULK_WRITE" if ticks <= 585 else
+                              "SCAN_A_FINAL_WRITE" if ticks == 586 else "SCAN_A_EXIT_WRITE")
+        scan_a_write["operation_state"] = scan_a_write_state
         scan_boundaries &= validate(scan_a_write)
         scan_boundaries &= (validate(scan_a_read) == scan_a_read_expected)
     for ticks in (0, 1, 585, 586):
@@ -283,6 +298,8 @@ def targeted_checks(cli, transport) -> dict[str, bool]:
         scan_b_read = _manual_envelope("SCAN_B_READ", "SCAN_B_ACTIVE",
                                        scan_a_started=1, scan_a_tck_emitted=591,
                                        scan_b_started=1, scan_b_tck_emitted=ticks)
+        scan_b_read["operation_state"] = "SCAN_B_BULK_READ" if ticks == 580 else "SCAN_B_FINAL_READ"
+        scan_b_write["operation_state"] = "SCAN_B_NAV_WRITE" if ticks <= 4 else "SCAN_B_EXIT_WRITE"
         scan_boundaries &= validate(scan_b_write)
         scan_boundaries &= (validate(scan_b_read) == scan_b_read_expected)
 
@@ -291,9 +308,9 @@ def targeted_checks(cli, transport) -> dict[str, bool]:
         ("DEVICE_SELECTED", 0, 0, 0, 0, 0),
         ("DEVICE_OPENED", 1, 0, 0, 0, 0),
         ("MPSSE_READY", 1, 0, 0, 0, 0),
-        ("SCAN_A_ACTIVE", 1, 1, 169, 0, 0),
+        ("SCAN_A_BULK_WRITE", 1, 1, 169, 0, 0),
         ("SCAN_A_COMPLETE", 1, 1, 591, 0, 0),
-        ("SCAN_B_ACTIVE", 1, 1, 591, 1, 17),
+        ("SCAN_B_BULK_WRITE", 1, 1, 591, 1, 17),
         ("SCAN_B_COMPLETE", 1, 1, 591, 1, 586),
     )
     for prior, opened, a_started, a_ticks, b_started, b_ticks in close_rows:
