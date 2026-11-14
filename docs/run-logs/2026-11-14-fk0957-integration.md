@@ -69,7 +69,7 @@ The independent workstream subsequently reviewed the same source candidate `50fe
 
 ## Verified follow-up — parent replacement recovery and refusal parsing — 2026-11-14
 
-The local offline candidate has source commit `4135afc` and a separate evidence-metadata revision `fcb4626`. The implementation branch remains unpublished; this update is a sanitized progress report only.
+The local offline candidate has source commit `4135afc` and latest evidence-metadata revision `e2d8605` (superseding `fcb4626`). The implementation branch remains unpublished; this update is a sanitized progress report only.
 
 - The independent parent-replacement reproducer was preserved and replayed. Before the fix, recovery at the recreated parent found no stages while a stage and owner marker remained under the renamed parent.
 - The installer now writes a durable, inode-bound recovery locator before stage creation. Recovery searches only the verified grandparent anchor for the original parent identity, refuses ambiguous or out-of-anchor moves, and preserves a decoy release at the replacement path. Installer recovery passed **22 tests**, including parent replacement at two hard-exit points, locator-write/publication interruption, and idempotent repeat recovery. Moving the original parent outside the recorded anchor still requires manual recovery; the tool fails closed and does not search or delete elsewhere.
