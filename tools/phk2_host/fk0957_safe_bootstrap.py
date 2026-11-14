@@ -111,6 +111,11 @@ def main(argv: list[str] | None = None) -> int:
         _verify_release_manifest(manifest, trust_config_raw)
     except BaseException:
         return _refuse()
+    if args == ["--verify-runtime-manifest"]:
+        sys.stdout.write("RUNTIME_MANIFEST=VERIFIED\n")
+        sys.stdout.write(f"PRODUCTION_HEAD={manifest['document']['payload']['production_head']}\n")
+        sys.stdout.write(f"SOURCE_COUNT={len(manifest['document']['payload']['source_hashes'])}\n")
+        return 0
     if args == ["--supervisor"]:
         if os.geteuid() != 0:
             return _refuse()

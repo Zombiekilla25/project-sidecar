@@ -38,3 +38,13 @@ Provisioning procedure:
 
 Until these steps are complete, issuer verification, handoff verification,
 supervised acquisition, and live operation remain unavailable by design.
+
+The runtime verifier is `tools/phk2_host/verify_fk0957_runtime_manifest.py`;
+the installed static launcher exposes the same verification as
+`fk0957-safe-launcher --verify-runtime-manifest`. After the trust configuration
+and signed manifest are provisioned at their protected paths, this command
+checks the canonical Ed25519 envelope, issuer, freshness, exact
+source set and bytes, Git HEAD/clean state where available, native hashes and
+build IDs, trust-config hash, and fixed transaction-profile hash. The command
+prints only a bounded verified/refused result. It does not sign manifests or
+create issuer keys.
