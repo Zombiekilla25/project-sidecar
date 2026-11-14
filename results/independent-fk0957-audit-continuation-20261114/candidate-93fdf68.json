@@ -1,0 +1,23 @@
+{
+  "candidate_commit": "93fdf68041d06a593c5539522bce9f45d2f1ad02",
+  "candidate_parent": "684770dd9657d070c982ce98fe84c839016456a6",
+  "candidate_branch": "release/fk0957-candidate-20261115",
+  "hardware_access": false,
+  "network_access": false,
+  "production_modification": false,
+  "tests": [
+    {"name":"installer_package","command":"PYTHONPATH=tools/phk2_host python3 -m unittest test_fk0957_supervisor_package -v","count":22,"passed":22,"failed":0,"seconds":19.403,"exit":0},
+    {"name":"fk0957_focused","command":"python3 -m unittest discover -s tools/phk2_host -p 'test*fk0957*.py'","count":475,"passed":475,"failed":0,"seconds":129.552,"exit":0},
+    {"name":"full_host_system_python","command":"python3 -m unittest discover -s tools/phk2_host","count":579,"passed":578,"failed":1,"error":"optional blake3 import unavailable in system Python","seconds":145.474,"exit":1},
+    {"name":"optional_dependency_targeted_rerun","command":"/tmp/fk0957-audit-venv-20261114/bin/python -m unittest discover -s tools/phk2_host -p 'test_phk2_physical_close_guard.py'","count":24,"passed":24,"failed":0,"seconds":1.358,"exit":0},
+    {"name":"full_host_isolated_venv","command":"/tmp/fk0957-audit-venv-20261114/bin/python -m unittest discover -s tools/phk2_host","count":579,"passed":579,"failed":0,"seconds":144.568,"exit":0},
+    {"name":"operations_acceptance","count":844,"passed":844,"failed":0,"runs":4,"seconds":102.525,"exit":0},
+    {"name":"corrected_independent_oracle","valid_states":28,"invalid_states":249572,"valid_rejected":0,"invalid_accepted":0,"oracle_tests":70,"exit":0},
+    {"name":"malformed_type_campaign","cases":237,"uncaught_type_errors":28,"unexpected_accepts":0,"duplicate_key_outer":"UNKNOWN","duplicate_key_nested":"UNKNOWN"},
+    {"name":"parent_identity_campaign","cases":36,"success_after_parent_substitution":22,"first_install_minimal_case":"after_installed_verify; replacement=new_directory; success returned while requested target absent"},
+    {"name":"independent_manifest_check","source_count":31,"source_hashes_matching":30,"runtime_objects":10,"runtime_hash_build_id_matching":10,"authentication":"unsigned","mismatch_path":"tools/phk2_host/install_fk0957_supervisor.py","expected_sha256":"347aca2ed29d8ac68ac29c9363dce5131ebad5425b827594051c45d2bfdf9f70","actual_sha256":"9d0addf77e8dfba83404e4b6e5511326b43f65b7f9d52803912909a415a7763b"},
+    {"name":"git_diff_check","pass":true}
+  ],
+  "release_verdict":"FAIL",
+  "deployment_verdict":"BLOCKED: unsigned manifest, no production trust keys, no production authorization or install performed"
+}
