@@ -18,6 +18,18 @@
 #ifndef FK0957_BOOTSTRAP_SHA256
 #define FK0957_BOOTSTRAP_SHA256 ""
 #endif
+#ifndef FK0957_MANIFEST_PATH
+#define FK0957_MANIFEST_PATH "/etc/sidecar/fk0957/runtime-release-manifest.json"
+#endif
+#ifndef FK0957_MANIFEST_SHA256
+#define FK0957_MANIFEST_SHA256 ""
+#endif
+#ifndef FK0957_TRUST_CONFIG_PATH
+#define FK0957_TRUST_CONFIG_PATH "/etc/sidecar/fk0957/remote-trust.json"
+#endif
+#ifndef FK0957_TRUST_CONFIG_SHA256
+#define FK0957_TRUST_CONFIG_SHA256 ""
+#endif
 
 #define PIN(path_, sha_, build_) { (path_), (sha_), (build_) }
 struct runtime_pin { const char *path; const char *sha256; const char *build_id; };
@@ -146,6 +158,48 @@ static int open_verified_bootstrap(void) {
     return fd;
 }
 
+static int open_verified_manifest(void) {
+    char resolved[4096], digest[65];
+    if (strlen(FK0957_MANIFEST_SHA256) != 64 ||
+        !realpath(FK0957_MANIFEST_PATH, resolved) ||
+        strcmp(resolved, FK0957_MANIFEST_PATH) != 0) return -1;
+    int fd = open(FK0957_MANIFEST_PATH, O_RDONLY | O_NOFOLLOW | O_NOCTTY);
+    if (fd < 0) return -1;
+    struct stat before, after;
+    int ok = fstat(fd, &before) == 0 && S_ISREG(before.st_mode) &&
+             (before.st_uid == 0 || before.st_uid == geteuid()) && before.st_nlink == 1 &&
+             (before.st_mode & 0777) == 0400 && before.st_size > 0 &&
+             before.st_size <= 16 * 1024 * 1024 && hash_fd(fd, digest) &&
+             strcmp(digest, FK0957_MANIFEST_SHA256) == 0 &&
+             fstat(fd, &after) == 0 && before.st_dev == after.st_dev &&
+             before.st_ino == after.st_ino && before.st_size == after.st_size &&
+             before.st_mtim.tv_sec == after.st_mtim.tv_sec &&
+             before.st_mtim.tv_nsec == after.st_mtim.tv_nsec;
+    if (!ok) { close(fd); return -1; }
+    return fd;
+}
+
+static int open_verified_trust_config(void) {
+    char resolved[4096], digest[65];
+    if (strlen(FK0957_TRUST_CONFIG_SHA256) != 64 ||
+        !realpath(FK0957_TRUST_CONFIG_PATH, resolved) ||
+        strcmp(resolved, FK0957_TRUST_CONFIG_PATH) != 0) return -1;
+    int fd = open(FK0957_TRUST_CONFIG_PATH, O_RDONLY | O_NOFOLLOW | O_NOCTTY);
+    if (fd < 0) return -1;
+    struct stat before, after;
+    int ok = fstat(fd, &before) == 0 && S_ISREG(before.st_mode) &&
+             (before.st_uid == 0 || before.st_uid == geteuid()) && before.st_nlink == 1 &&
+             (before.st_mode & 0777) == 0400 && before.st_size > 0 &&
+             before.st_size <= 64 * 1024 && hash_fd(fd, digest) &&
+             strcmp(digest, FK0957_TRUST_CONFIG_SHA256) == 0 &&
+             fstat(fd, &after) == 0 && before.st_dev == after.st_dev &&
+             before.st_ino == after.st_ino && before.st_size == after.st_size &&
+             before.st_mtim.tv_sec == after.st_mtim.tv_sec &&
+             before.st_mtim.tv_nsec == after.st_mtim.tv_nsec;
+    if (!ok) { close(fd); return -1; }
+    return fd;
+}
+
 static int refuse_runtime(void) {
     static const char message[] = "{\"status\":\"REFUSED\",\"phase\":\"PRESTART_VALIDATION\",\"code\":\"NATIVE_RUNTIME_PIN_MISMATCH\"}\n";
     size_t offset = 0;
@@ -163,17 +217,35 @@ int main(int argc, char **argv) {
         if (!verify_runtime_pin(&runtime_pins[i])) return refuse_runtime();
     int bootstrap_fd = open_verified_bootstrap();
     if (bootstrap_fd < 0) return refuse_runtime();
+    int manifest_fd = open_verified_manifest();
+    if (manifest_fd < 0) { close(bootstrap_fd); return refuse_runtime(); }
+    int trust_config_fd = open_verified_trust_config();
+    if (trust_config_fd < 0) {
+        close(bootstrap_fd); close(manifest_fd); return refuse_runtime();
+    }
 
-    char **child_argv = calloc((size_t)argc + 5, sizeof(char *));
-    if (child_argv == NULL) { close(bootstrap_fd); return 126; }
+    char **child_argv = calloc((size_t)argc + 9, sizeof(char *));
+    if (child_argv == NULL) {
+        close(bootstrap_fd); close(manifest_fd); close(trust_config_fd); return 126;
+    }
     char bootstrap_fd_path[64];
+    char manifest_fd_arg[64], manifest_sha_arg[96];
+    char trust_config_fd_arg[64], trust_config_sha_arg[96];
     snprintf(bootstrap_fd_path, sizeof(bootstrap_fd_path), "/proc/self/fd/%d", bootstrap_fd);
+    snprintf(manifest_fd_arg, sizeof(manifest_fd_arg), "--trusted-manifest-fd=%d", manifest_fd);
+    snprintf(manifest_sha_arg, sizeof(manifest_sha_arg), "--trusted-manifest-sha256=%s", FK0957_MANIFEST_SHA256);
+    snprintf(trust_config_fd_arg, sizeof(trust_config_fd_arg), "--trusted-trust-config-fd=%d", trust_config_fd);
+    snprintf(trust_config_sha_arg, sizeof(trust_config_sha_arg), "--trusted-trust-config-sha256=%s", FK0957_TRUST_CONFIG_SHA256);
     child_argv[0] = "/usr/bin/python3.12";
     child_argv[1] = "-I";
     child_argv[2] = "-S";
     child_argv[3] = bootstrap_fd_path;
-    for (int i = 1; i < argc; ++i) child_argv[i + 3] = argv[i];
-    child_argv[argc + 3] = NULL;
+    child_argv[4] = manifest_fd_arg;
+    child_argv[5] = manifest_sha_arg;
+    child_argv[6] = trust_config_fd_arg;
+    child_argv[7] = trust_config_sha_arg;
+    for (int i = 1; i < argc; ++i) child_argv[i + 7] = argv[i];
+    child_argv[argc + 7] = NULL;
 
     char *const clean_env[] = {
         "PATH=/usr/bin:/bin",

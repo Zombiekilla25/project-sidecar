@@ -45,7 +45,14 @@ class RemoteTopologyEndpointTests(unittest.TestCase):
             "source_hashes": {
                 path: hashlib.sha256(Path(path).read_bytes()).hexdigest()
                 for path in endpoint.RELEASE_SOURCE_PATHS},
+            "source_inventory": [
+                {"relative_path": path,
+                 "absolute_install_path": f"/usr/local/lib/sidecar/fk0957/{path}",
+                 "sha256": hashlib.sha256(Path(path).read_bytes()).hexdigest()}
+                for path in sorted(endpoint.RELEASE_SOURCE_PATHS)],
             "native_runtime_hashes": {pin.name: pin.sha256 for pin in transport.LIBRARY_PINS},
+            "runtime_inventory": endpoint._runtime_inventory(),
+            "trust_config_sha256": endpoint.TRUST_CONFIG_SHA256,
             "transaction_profile_sha256": self.profile_sha,
             "issued_at": self.now.isoformat(),
         }
@@ -113,6 +120,16 @@ class RemoteTopologyEndpointTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, "ISSUER_PINS_NOT_PROVISIONED")
         run.assert_not_called()
 
+    def test_pinned_nonproduction_template_is_canonical_and_refuses_empty_keys(self):
+        template = Path("ops/phk2/FK0957_REMOTE_TRUST_TEMPLATE.json").read_bytes()
+        self.assertEqual(hashlib.sha256(template).hexdigest(), endpoint.TRUST_CONFIG_SHA256)
+        self.assertEqual(endpoint.canonical(json.loads(template)), template)
+        with mock.patch.object(endpoint, "supervisor_capability_valid", return_value=False), \
+                mock.patch.object(endpoint, "_read_protected_file", return_value=template):
+            with self.assertRaises(endpoint.Refusal) as caught:
+                endpoint._load_trust_config()
+        self.assertEqual(caught.exception.code, "ISSUER_KEYS_NOT_PROVISIONED")
+
     def test_endpoint_has_no_signing_key_or_signing_module_import(self):
         source = Path(endpoint.__file__).read_text()
         tree = ast.parse(source)
@@ -146,8 +163,26 @@ class RemoteTopologyEndpointTests(unittest.TestCase):
         self.assertEqual(payload["production_head"], "a" * 40)
         self.assertTrue(payload["worktree_clean"])
         self.assertEqual(set(payload["source_hashes"]), endpoint.RELEASE_SOURCE_PATHS)
+        self.assertEqual(len(payload["source_inventory"]), len(endpoint.RELEASE_SOURCE_PATHS))
+        self.assertTrue(all(row["absolute_install_path"].startswith(
+            "/usr/local/lib/sidecar/fk0957/") for row in payload["source_inventory"]))
         self.assertEqual(payload["transaction_profile_sha256"], self.profile_sha)
+        self.assertEqual(payload["trust_config_sha256"], endpoint.TRUST_CONFIG_SHA256)
+        names = {row["logical_name"] for row in payload["runtime_inventory"]}
+        self.assertTrue({"python3.12", "ld-linux-x86-64.so.2", "libc",
+                         "libftdi", "libusb"} <= names)
         self.assertNotIn("signature_hex", payload)
+        profile_bytes = Path("ops/phk2/FK0957_TOPOLOGY_TRANSACTION_PROFILE.json").read_bytes()
+        self.assertEqual(endpoint.canonical(json.loads(profile_bytes)), profile_bytes)
+        self.assertEqual(hashlib.sha256(profile_bytes).hexdigest(), self.profile_sha)
+
+    def test_cli_sources_are_in_signed_release_and_remote_transport_closures(self):
+        self.assertIn("tools/phk2_host/phk2_fk0957_topology_live_cli.py",
+                      endpoint.RELEASE_SOURCE_PATHS)
+        self.assertIn("tools/phk2_host/phk2_fk0957_topology_live_cli.py",
+                      endpoint.REMOTE_SOURCE_PATHS)
+        self.assertIn("tools/phk2_host/phk2_fk0957_topology_rgb_cli.py",
+                      endpoint.RELEASE_SOURCE_PATHS)
 
     def test_remote_bundle_checks_deployed_sources_without_git_checkout(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -163,6 +198,11 @@ class RemoteTopologyEndpointTests(unittest.TestCase):
             for relative in endpoint.REMOTE_SOURCE_PATHS:
                 hashes[relative] = hashlib.sha256((root / relative).read_bytes()).hexdigest()
             manifest["source_hashes"] = hashes
+            manifest["source_inventory"] = [
+                {"relative_path": relative,
+                 "absolute_install_path": f"/usr/local/lib/sidecar/fk0957/{relative}",
+                 "sha256": hashes[relative]}
+                for relative in sorted(endpoint.RELEASE_SOURCE_PATHS)]
             manifest["native_runtime_hashes"] = {
                 pin.name: pin.sha256 for pin in transport.LIBRARY_PINS}
             with mock.patch.object(endpoint, "__file__", str(host_tools / "phk2_fk0957_remote_topology_endpoint.py")), \

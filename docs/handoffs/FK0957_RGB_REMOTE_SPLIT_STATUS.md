@@ -39,10 +39,11 @@ opened.
 This code is intentionally non-operational until the following trusted
 deployment inputs and integration work exist:
 
-* `TRUST_CONFIG_SHA256` in the remote endpoint is empty. The protected release
-  and handoff issuer public-key pin file and corresponding administrator-held
-  issuer keys have not been provisioned. The endpoint therefore refuses before
-  transport open.
+* `TRUST_CONFIG_SHA256` pins the canonical non-production trust template
+  (`54f448b1b04385c267c20525738195610c96875b056da83ad16bf7f68dc0b019`),
+  whose release and handoff public-key slots are empty. The root-owned
+  configured issuer-key file and administrator-held issuer keys have not been
+  provisioned. The endpoint therefore refuses before transport open.
 * The runtime-manifest payload builder now enumerates the RGB launcher,
   bootstrap, SSH policy, both CLIs, RGB orchestrator/signer, remote endpoint,
   transport, observer/identity gate, and discovery source hashes, plus native

@@ -33,9 +33,10 @@ EXPECTED_TARGET = {
     "interface": "A",
 }
 TRUST_CONFIG = Path("/etc/sidecar/fk0957/remote-trust.json")
-# Filled only by a reviewed release-authority provisioning commit. Empty pins
-# are an intentional fail-closed state and are not caller-configurable.
-TRUST_CONFIG_SHA256 = ""
+# Pin the canonical deployment template, whose issuer key slots are empty.
+# Production issuer keys require a separately reviewed administrator
+# provisioning commit that replaces the template and updates this pin.
+TRUST_CONFIG_SHA256 = "54f448b1b04385c267c20525738195610c96875b056da83ad16bf7f68dc0b019"
 CONSUMED_AUTHORIZATION_DIR = Path("/var/lib/sidecar/fk0957/consumed-release-authorizations")
 HEX64 = re.compile(r"[0-9a-f]{64}\Z")
 HEX40 = re.compile(r"[0-9a-f]{40}\Z")
@@ -61,7 +62,8 @@ AUTH_FIELDS = {
 }
 MANIFEST_FIELDS = {
     "schema", "version", "production_head", "worktree_clean", "source_hashes",
-    "native_runtime_hashes", "transaction_profile_sha256", "issued_at",
+    "source_inventory", "native_runtime_hashes", "runtime_inventory", "trust_config_sha256",
+    "transaction_profile_sha256", "issued_at",
 }
 RELEASE_SOURCE_PATHS = {
     "tools/phk2_host/fk0957_safe_launcher.c",
@@ -82,6 +84,15 @@ RELEASE_SOURCE_PATHS = {
     "tools/phk2_host/phk2_fk0957_topology_rgb_cli.py",
     "tools/phk2_host/phk2_fk0957_topology_rgb_orchestrator.py",
     "tools/phk2_host/phk2_fk0957_topology_signing.py",
+    "tools/phk2_host/phk2_fk0957_readonly_backend.py",
+    "tools/phk2_host/phk2_fk0957_remote_collector.py",
+    "tools/phk2_host/fk0957_remote_cleanup_protocol.py",
+    "tools/phk2_host/fk0957_remote_receipts.py",
+    "ops/phk2/PHK2_FK0957_EVIDENCE_SCHEMA.json",
+    "ops/phk2/FK0957_REMOTE_TRUST_TEMPLATE.json",
+    "ops/phk2/FK0957_TOPOLOGY_TRANSACTION_PROFILE.json",
+    "ops/phk2/FK0957_AUTHORITY_PROVISIONING.md",
+    "ops/phk2/FK0957_RUNTIME_MANIFEST.template.json",
 }
 REMOTE_SOURCE_PATHS = {
     "tools/phk2_host/fk0957_safe_launcher.c",
@@ -95,6 +106,15 @@ REMOTE_SOURCE_PATHS = {
     "tools/phk2_host/phk2_fk0957_topology_discovery.py",
     "tools/phk2_host/phk2_fk0957_idcode_gate.py",
     "tools/phk2_host/phk2_fk0957_remote_orchestrator.py",
+    "tools/phk2_host/phk2_fk0957_topology_live_cli.py",
+    "tools/phk2_host/fk0957_remote_cleanup_protocol.py",
+    "tools/phk2_host/fk0957_remote_receipts.py",
+    "tools/phk2_host/phk2_fk0957_readonly_backend.py",
+    "tools/phk2_host/phk2_fk0957_remote_collector.py",
+    "ops/phk2/FK0957_REMOTE_TRUST_TEMPLATE.json",
+    "ops/phk2/FK0957_TOPOLOGY_TRANSACTION_PROFILE.json",
+    "ops/phk2/FK0957_AUTHORITY_PROVISIONING.md",
+    "ops/phk2/FK0957_RUNTIME_MANIFEST.template.json",
 }
 _SUPERVISOR_ISSUERS: dict[str, bytes] | None = None
 
@@ -141,7 +161,7 @@ def _strict_hex(value: Any, pattern: re.Pattern[str]) -> bool:
     return type(value) is str and pattern.fullmatch(value) is not None
 
 
-def _load_trust_config() -> dict[str, bytes]:
+def _load_trust_config(*, raw_override: bytes | None = None) -> dict[str, bytes]:
     """Load immutable issuer keys; hashes are source-pinned, not CLI/env inputs."""
     global _SUPERVISOR_ISSUERS
     if supervisor_capability_valid():
@@ -170,13 +190,27 @@ def _load_trust_config() -> dict[str, bytes]:
             raise Refusal("SUPERVISOR_ISSUER_HANDOFF_INVALID") from None
     if not _strict_hex(TRUST_CONFIG_SHA256, HEX64):
         raise Refusal("ISSUER_PINS_NOT_PROVISIONED")
-    raw = _read_protected_file(TRUST_CONFIG, owner=0, mode=0o400,
-                               limit=64 * 1024, failure="ISSUER_CONFIG")
+    raw = (raw_override if raw_override is not None else
+           _read_protected_file(TRUST_CONFIG, owner=0, mode=0o400,
+                                limit=64 * 1024, failure="ISSUER_CONFIG"))
     if hashlib.sha256(raw).hexdigest() != TRUST_CONFIG_SHA256:
         raise Refusal("ISSUER_CONFIG_PIN_MISMATCH")
     value = _parse_canonical(raw, 64 * 1024)
-    if set(value) != {"schema", "version", "release_issuer_ed25519_b64", "handoff_issuer_ed25519_b64"} or \
-            value["schema"] != "fk0957-remote-issuer-pins-v1" or type(value["version"]) is not int or value["version"] != 1:
+    expected_config_fields = {
+        "schema", "version", "release_issuer", "release_issuer_ed25519_b64",
+        "handoff_issuer", "handoff_issuer_ed25519_b64", "authorization_ledger",
+        "max_authorization_lifetime_seconds", "manifest_max_age_seconds",
+    }
+    if (set(value) != expected_config_fields or
+            value["schema"] != "fk0957-remote-trust-config-v1" or
+            type(value["version"]) is not int or value["version"] != 1 or
+            value["release_issuer"] != "FK0957_RELEASE_AUTHORITY" or
+            value["handoff_issuer"] != "FK0957_MAINTENANCE_AUTHORITY" or
+            value["authorization_ledger"] != str(CONSUMED_AUTHORIZATION_DIR) or
+            type(value["max_authorization_lifetime_seconds"]) is not int or
+            value["max_authorization_lifetime_seconds"] != 120 or
+            type(value["manifest_max_age_seconds"]) is not int or
+            value["manifest_max_age_seconds"] != 86400):
         raise Refusal("ISSUER_CONFIG_SCHEMA_INVALID")
     keys = {}
     try:
@@ -186,8 +220,10 @@ def _load_trust_config() -> dict[str, bytes]:
                 raise ValueError
             key = base64.b64decode(encoded, validate=True)
             if len(key) != 32:
-                raise ValueError
+                raise Refusal("ISSUER_KEYS_NOT_PROVISIONED")
             keys[name] = key
+    except Refusal:
+        raise
     except (ValueError, base64.binascii.Error):
         raise Refusal("ISSUER_CONFIG_KEY_INVALID") from None
     return keys
@@ -310,6 +346,68 @@ def _profile_hash() -> str:
     return hashlib.sha256(canonical(profile)).hexdigest()
 
 
+def _runtime_inventory() -> list[dict[str, str]]:
+    """Return verified path/hash/build-id/package rows for the pinned runtime."""
+    repo = Path(transport.__file__).resolve().parents[2]
+    launcher = (repo / "tools/phk2_host/fk0957_safe_launcher.c").read_text(encoding="utf-8")
+    pins: dict[str, tuple[str, str, str]] = {}
+    for path, sha256, build_id in re.findall(
+            r'PIN\("([^\"]+)",\s*"([0-9a-f]{64})",\s*"([0-9a-f]{40,128})"\)', launcher):
+        pins[path] = (sha256, build_id, Path(path).name)
+    for pin in transport.LIBRARY_PINS:
+        value = (pin.sha256, pin.build_id, pin.name)
+        prior = pins.get(str(pin.path))
+        if prior is not None and prior[:2] != value[:2]:
+            raise Refusal("RUNTIME_PIN_SOURCES_DISAGREE")
+        pins[str(pin.path)] = value
+    if len(pins) < 7:
+        raise Refusal("RUNTIME_PIN_SET_INCOMPLETE")
+
+    rows = []
+    for path, (expected_sha, expected_build, logical_name) in sorted(pins.items()):
+        try:
+            info = os.lstat(path)
+            if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or
+                    info.st_nlink != 1 or info.st_uid != 0 or info.st_mode & 0o022 or
+                    os.path.realpath(path) != path):
+                raise Refusal("RUNTIME_PIN_FILE_UNSAFE")
+            fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) |
+                         getattr(os, "O_CLOEXEC", 0))
+            try:
+                before = os.fstat(fd)
+                actual_sha = transport._hash_fd(fd)
+                actual_build = transport._build_id_fd(fd)
+                after = os.fstat(fd)
+                if ((before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) !=
+                        (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns) or
+                        actual_sha != expected_sha or actual_build != expected_build):
+                    raise Refusal("RUNTIME_PIN_MISMATCH")
+            finally:
+                os.close(fd)
+            owner = subprocess.run(["/usr/bin/dpkg-query", "-S", path], check=False,
+                                   text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                   env={"PATH": "/usr/bin:/bin", "LANG": "C"})
+            package_line = owner.stdout.splitlines()[0] if owner.returncode == 0 and owner.stdout else ""
+            package = package_line.partition(": ")[0]
+            if not package:
+                raise Refusal("RUNTIME_PACKAGE_PROVENANCE_UNAVAILABLE")
+            version_result = subprocess.run(
+                ["/usr/bin/dpkg-query", "-W", "-f=${Version}", package], check=False,
+                text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                env={"PATH": "/usr/bin:/bin", "LANG": "C"})
+            package_version = version_result.stdout.strip()
+            if version_result.returncode != 0 or not package_version or "\n" in package_version:
+                raise Refusal("RUNTIME_PACKAGE_PROVENANCE_UNAVAILABLE")
+        except Refusal:
+            raise
+        except (OSError, subprocess.SubprocessError):
+            raise Refusal("RUNTIME_INVENTORY_UNAVAILABLE") from None
+        rows.append({"logical_name": logical_name, "path": path,
+                     "sha256": actual_sha, "build_id": actual_build,
+                     "package": package, "package_version": package_version})
+    return rows
+
+
 def build_unsigned_runtime_manifest(repo: Path | None = None) -> dict[str, Any]:
     """Create the complete release-manifest payload for signing by the pinned authority."""
     root = repo or Path(__file__).resolve().parents[2]
@@ -317,12 +415,19 @@ def build_unsigned_runtime_manifest(repo: Path | None = None) -> dict[str, Any]:
     if not clean:
         raise Refusal("RUNTIME_GIT_STATE_MISMATCH")
     hashes = {}
+    source_inventory = []
     for relative in sorted(RELEASE_SOURCE_PATHS):
         try:
             info = (root / relative).lstat()
             if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or info.st_nlink != 1:
                 raise Refusal("RUNTIME_SOURCE_UNSAFE")
-            hashes[relative] = hashlib.sha256((root / relative).read_bytes()).hexdigest()
+            digest = hashlib.sha256((root / relative).read_bytes()).hexdigest()
+            hashes[relative] = digest
+            source_inventory.append({
+                "relative_path": relative,
+                "absolute_install_path": f"/usr/local/lib/sidecar/fk0957/{relative}",
+                "sha256": digest,
+            })
         except Refusal:
             raise
         except OSError:
@@ -330,7 +435,10 @@ def build_unsigned_runtime_manifest(repo: Path | None = None) -> dict[str, Any]:
     return {
         "schema": "fk0957-runtime-source-manifest-v1", "version": 1,
         "production_head": head, "worktree_clean": True, "source_hashes": hashes,
+        "source_inventory": source_inventory,
         "native_runtime_hashes": {pin.name: pin.sha256 for pin in transport.LIBRARY_PINS},
+        "runtime_inventory": _runtime_inventory(),
+        "trust_config_sha256": TRUST_CONFIG_SHA256,
         "transaction_profile_sha256": _profile_hash(),
         "issued_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -340,6 +448,17 @@ def _verify_runtime_manifest(manifest: dict[str, Any], profile_sha: str) -> None
     repo = Path(__file__).resolve().parents[2]
     if set(manifest["source_hashes"]) != RELEASE_SOURCE_PATHS:
         raise Refusal("RUNTIME_SOURCE_SET_INVALID")
+    inventory = manifest.get("source_inventory")
+    if type(inventory) is not list or len(inventory) != len(RELEASE_SOURCE_PATHS):
+        raise Refusal("RUNTIME_SOURCE_INVENTORY_INVALID")
+    expected_inventory = [
+        {"relative_path": relative,
+         "absolute_install_path": f"/usr/local/lib/sidecar/fk0957/{relative}",
+         "sha256": manifest["source_hashes"].get(relative)}
+        for relative in sorted(RELEASE_SOURCE_PATHS)
+    ]
+    if inventory != expected_inventory:
+        raise Refusal("RUNTIME_SOURCE_INVENTORY_INVALID")
     local_checkout = (repo / ".git").exists()
     check_sources = RELEASE_SOURCE_PATHS if local_checkout else REMOTE_SOURCE_PATHS
     for relative in sorted(check_sources):
@@ -367,6 +486,10 @@ def _verify_runtime_manifest(manifest: dict[str, Any], profile_sha: str) -> None
     expected_native = {pin.name: pin.sha256 for pin in transport.LIBRARY_PINS}
     if manifest["native_runtime_hashes"] != expected_native:
         raise Refusal("NATIVE_RUNTIME_MANIFEST_MISMATCH")
+    if manifest["runtime_inventory"] != _runtime_inventory():
+        raise Refusal("RUNTIME_INVENTORY_MISMATCH")
+    if manifest["trust_config_sha256"] != TRUST_CONFIG_SHA256:
+        raise Refusal("TRUST_CONFIG_MANIFEST_MISMATCH")
     if manifest["transaction_profile_sha256"] != profile_sha:
         raise Refusal("TRANSACTION_PROFILE_MISMATCH")
 

@@ -50,18 +50,32 @@ _TEST_SOURCE_SHA256 = "a" * 64
 def fake_release_request(permit, reconstructed_permit=None, context_nonce=None,
                          context_authorization_id=None, context_authorization_sha256=None,
                          context_operation_id=None):
-    """Test-only signed-request validator substitute at the trust boundary."""
+    """Production-shaped trust fixture; only signature/OS IPC are replaced."""
+    operation_id = (permit.operation_id or "1" * 32 if context_operation_id is None
+                    else context_operation_id)
+    authorization_id = (permit.authorization_id if context_authorization_id is None
+                        else context_authorization_id)
+    authorization_sha = (permit.authorization_sha256 if context_authorization_sha256 is None
+                         else context_authorization_sha256)
+    nonce = permit.nonce if context_nonce is None else context_nonce
     context = {
         "descriptor_sha256": permit.descriptor_evidence_sha256,
-        "authorization_sha256": (permit.authorization_sha256 if context_authorization_sha256 is None
-                                  else context_authorization_sha256),
+        "authorization_sha256": authorization_sha,
         "handoff_sha256": "b" * 64,
         "manifest_sha256": "c" * 64, "descriptor": b"fixture-descriptor",
-        "authorization_id": (permit.authorization_id if context_authorization_id is None
-                             else context_authorization_id),
-        "operation_id": (permit.operation_id or "1" * 32 if context_operation_id is None
-                         else context_operation_id),
-        "permit_nonce": permit.nonce if context_nonce is None else context_nonce,
+        "authorization_id": authorization_id, "operation_id": operation_id,
+        "permit_nonce": nonce, "production_head": "d" * 40,
+        "transaction_profile_sha256": "e" * 64,
+        "target": {"card_id": "FK0957", "usb_descriptor_serial": "153300000957",
+                   "adapter_serial": "153300000957A", "interface": "A"},
+        "source_provenance": {"production_head": "d" * 40, "worktree_clean": True,
+                               "manifest_sha256": "c" * 64},
+        "supervisor_status": {
+            "schema": "fk0957-maintenance-status-v1", "operation_id": operation_id,
+            "authorization_id": authorization_id, "authorization_sha256": authorization_sha,
+            "target": "FK0957", "state": "RUNNING", "terminal": False,
+            "restore_eligible": False,
+        },
     }
     with mock.patch.object(endpoint, "_load_trust_config", return_value={"release": b"x" * 32,
                                                                            "handoff": b"y" * 32}), \
@@ -792,6 +806,21 @@ class TopologyTransportTests(unittest.TestCase):
         self.assertNotIn(permit._token, topology._CONSUMED)
         self.assertNotIn(permit.authorization_id, transport._REMOTE_CONSUMED_AUTHORIZATIONS)
 
+    def test_production_shaped_acceptance_fixture_binds_supervisor_and_provenance(self):
+        permit = self.permit()
+        with fake_release_request(permit) as request_raw:
+            context, _auth_bytes, auth_id = endpoint._validate_request(
+                request_raw, {"release": b"x" * 32, "handoff": b"y" * 32})
+            self.assertEqual(auth_id, permit.authorization_id)
+            self.assertEqual(context["authorization_sha256"], permit.authorization_sha256)
+            self.assertEqual(context["operation_id"], permit.operation_id)
+            self.assertEqual(context["supervisor_status"]["state"], "RUNNING")
+            self.assertEqual(context["supervisor_status"]["target"], "FK0957")
+            self.assertFalse(context["supervisor_status"]["restore_eligible"])
+            self.assertEqual(context["source_provenance"]["production_head"], "d" * 40)
+            self.assertTrue(context["source_provenance"]["worktree_clean"])
+            self.assertTrue(endpoint.supervisor_capability_valid())
+
     def test_raw_digest_injection_cannot_authorize_remote_transport(self):
         permit = self.permit()
         with self.assertRaises(transport.Refusal):
@@ -957,6 +986,7 @@ class TopologyTransportTests(unittest.TestCase):
         self.assertEqual(backend.open_count, 1)
         self.assertEqual(result.authorization_id, permit.authorization_id)
 
+
     def test_parallel_invocation_of_same_authorized_permit_runs_backend_once(self):
         permit = self.permit()
         with fake_release_request(permit) as request_raw:
@@ -1026,6 +1056,28 @@ class TopologyTransportTests(unittest.TestCase):
         source = inspect.getsource(signing)
         self.assertNotIn("import phk2_fk0957_topology_transport", source)
         self.assertNotIn("run_fk0957_topology_discovery(", source)
+
+
+class TransportSourceClosureTests(unittest.TestCase):
+    def test_live_cli_bytes_are_in_transport_source_digest(self):
+        relative = "tools/phk2_host/phk2_fk0957_topology_live_cli.py"
+        with tempfile.TemporaryDirectory(prefix="fk0957-source-closure-") as raw:
+            root = Path(raw)
+            module = root / "tools/phk2_host/phk2_fk0957_topology_transport.py"
+            module.parent.mkdir(parents=True)
+            module.write_text("# transport fixture\n")
+            cli = root / relative
+            cli.parent.mkdir(parents=True, exist_ok=True)
+            cli.write_bytes(b"approved cli bytes\n")
+            with mock.patch.object(transport, "__file__", str(module)), \
+                    mock.patch.object(endpoint, "RELEASE_SOURCE_PATHS", {relative}), \
+                    mock.patch.object(transport, "LIBRARY_PINS", ()), \
+                    mock.patch.object(transport, "_require_native_files", return_value=()), \
+                    mock.patch.object(transport, "_production_git_state", return_value=("a" * 40, True)):
+                first = transport.transport_source_sha256()
+                cli.write_bytes(b"changed cli bytes\n")
+                second = transport.transport_source_sha256()
+        self.assertNotEqual(first, second)
 
 
 if __name__ == "__main__":

@@ -1,10 +1,13 @@
 """Trusted post-launch bootstrap for the FK0957 CLI (invoked with -I -S)."""
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import socket
+import stat
 import struct
 import sys
 
@@ -21,11 +24,79 @@ def _refuse() -> int:
     return 2
 
 
+def _unique_pairs(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate key")
+        result[key] = value
+    return result
+
+
+def _read_launcher_manifest(args: list[str]) -> tuple[list[str], dict | None, bytes | None]:
+    if len(args) < 4:
+        raise ValueError("manifest capability missing")
+    def read_pinned_json(fd_arg: str, sha_arg: str, prefix: str, limit: int) -> tuple[dict, bytes, str]:
+        fd_match = re.fullmatch(rf"--trusted-{prefix}-fd=([0-9]{{1,4}})", fd_arg)
+        sha_match = re.fullmatch(rf"--trusted-{prefix}-sha256=([0-9a-f]{{64}})", sha_arg)
+        if fd_match is None or sha_match is None:
+            raise ValueError("trusted file capability malformed")
+        fd = int(fd_match.group(1))
+        info = os.fstat(fd)
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid not in (0, os.geteuid()) or
+                info.st_nlink != 1 or stat.S_IMODE(info.st_mode) != 0o400 or
+                info.st_size <= 0 or info.st_size > limit):
+            raise ValueError("trusted file identity invalid")
+        raw = os.pread(fd, info.st_size + 1, 0)
+        after = os.fstat(fd)
+        if ((info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns) !=
+                (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns) or
+                len(raw) != info.st_size or hashlib.sha256(raw).hexdigest() != sha_match.group(1)):
+            raise ValueError("trusted file hash invalid")
+        value = json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_pairs,
+                           parse_constant=lambda _value: (_ for _ in ()).throw(ValueError()))
+        canonical = (json.dumps(value, sort_keys=True, separators=(",", ":"),
+                                ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8")
+        if canonical != raw or type(value) is not dict:
+            raise ValueError("trusted JSON is not canonical")
+        return value, raw, sha_match.group(1)
+
+    manifest_value, _manifest_raw, manifest_sha = read_pinned_json(
+        args[0], args[1], "manifest", 16 * 1024 * 1024)
+    _trust_value, trust_raw, trust_sha = read_pinned_json(
+        args[2], args[3], "trust-config", 64 * 1024)
+    return args[4:], {"sha256": manifest_sha, "document": manifest_value}, trust_raw
+
+
+def _verify_release_manifest(manifest: dict, trust_config_raw: bytes) -> None:
+    bootstrap = Path(__file__).resolve()
+    repo_root = bootstrap.parents[2]
+    host_tools = repo_root / "tools" / "phk2_host"
+    if not host_tools.is_dir():
+        raise ValueError("trusted source root missing")
+    sys.path.insert(0, str(host_tools))
+    import phk2_fk0957_remote_topology_endpoint as endpoint
+    transport = __import__("phk2_fk0957_topology_transport")
+    issuers = endpoint._load_trust_config(raw_override=trust_config_raw)
+    payload, _payload_bytes, _digest = endpoint._verify_signed(
+        manifest["document"], expected_issuer="FK0957_RELEASE_AUTHORITY",
+        public_key_raw=issuers["release"], payload_fields=endpoint.MANIFEST_FIELDS,
+        schema="fk0957-runtime-source-manifest-v1")
+    endpoint._verify_runtime_manifest(payload, endpoint._profile_hash())
+    transport._bind_verified_remote_release_head(payload["production_head"])
+
+
 def main(argv: list[str] | None = None) -> int:
     if (sys.flags.isolated != 1 or sys.flags.no_site != 1 or
             dict(os.environ) != _EXPECTED_ENV):
         return _refuse()
-    args = list(sys.argv[1:] if argv is None else argv)
+    try:
+        args, manifest, trust_config_raw = _read_launcher_manifest(
+            list(sys.argv[1:] if argv is None else argv))
+    except (OSError, UnicodeError, ValueError, json.JSONDecodeError):
+        return _refuse()
+    if manifest is None or trust_config_raw is None:
+        return _refuse()
     if args == ["--launcher-self-test"]:
         sys.stdout.write(json.dumps({
             "isolated": sys.flags.isolated,
@@ -33,8 +104,13 @@ def main(argv: list[str] | None = None) -> int:
             "environment_keys": sorted(os.environ),
             "sitecustomize_loaded": "sitecustomize" in sys.modules,
             "usercustomize_loaded": "usercustomize" in sys.modules,
+            "manifest_sha256": manifest["sha256"],
         }, sort_keys=True, separators=(",", ":")) + "\n")
         return 0
+    try:
+        _verify_release_manifest(manifest, trust_config_raw)
+    except BaseException:
+        return _refuse()
     if args == ["--supervisor"]:
         if os.geteuid() != 0:
             return _refuse()

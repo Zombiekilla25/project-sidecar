@@ -13,11 +13,22 @@ provision the independently approved trust material and install the files.
 | `/usr/local/lib/sidecar/fk0957/ops/phk2/` | `root:root` | `0755` | Service template |
 | `/etc/systemd/system/fk0957-supervisor.service` | `root:root` | `0644` | Installed supervisor unit |
 | `/etc/sidecar/fk0957/` | `root:root` | `0750` | Provisioned trust/runtime configuration |
+| `/etc/sidecar/fk0957/remote-trust.json` | `root:root` | `0400` | Release and handoff public-key pins; empty template refuses |
+| `/etc/sidecar/fk0957/runtime-release-manifest.json` | `root:root` | `0400` | Signed exact-HEAD manifest pinned by static launcher |
 | `/etc/udev/rules.d/90-sidecar-fk0957-supervised.rules` | `root:root` | `0644` | Exact serial USB ACL for non-login runner |
 | `/run/sidecar/` | `root:sidecar-acquire` | `0750` | IPC socket parent |
 | `/run/sidecar/fk0957-supervisor.sock` | `root:sidecar-acquire` | `0660` | Narrow local IPC |
 | `/var/lib/sidecar/fk0957/supervisor/` | `root:root` | `0700` | Authoritative operation journals |
 | `/var/lib/sidecar/fk0957/consumed-release-authorizations/` | `root:root` | `0700` | Single-use authorization ledger |
+
+The static launcher is compiled with the reviewed absolute path and SHA256 of
+the signed runtime manifest. Before Python starts it opens that file without
+following symlinks, checks owner/mode/link count, hashes the descriptor, and
+keeps the verified descriptor inherited by the isolated bootstrap. The
+bootstrap checks canonical bytes and verifies the release signature/source
+closure before importing the acquisition or RGB CLI. The staged package uses
+an explicitly non-production manifest template for packaging rehearsal only;
+it cannot pass production signature validation.
 
 The service is deliberately root-owned to retain exclusive authority over
 state and the authorization ledger. IPC callers use the unprivileged
@@ -86,7 +97,8 @@ the same release authorization, not a second release authorization.
 
 ## Current provisioning state
 
-The issuer pin is unset in the remote endpoint source and the root-owned
-configuration/issuer keys are not provisioned. Therefore supervisor requests
-currently fail before child launch. This is intentional; do not generate
-replacement keys as part of this software package.
+The source pins the canonical trust-template bytes, whose release and handoff
+public-key slots are empty. The root-owned configured key file and issuer keys
+are not provisioned. Therefore supervisor requests currently fail before
+child launch. This is intentional; do not generate replacement keys as part
+of this software package.

@@ -1,0 +1,1 @@
+{"authorization_ledger":"/var/lib/sidecar/fk0957/consumed-release-authorizations","handoff_issuer":"FK0957_MAINTENANCE_AUTHORITY","handoff_issuer_ed25519_b64":"","manifest_max_age_seconds":86400,"max_authorization_lifetime_seconds":120,"release_issuer":"FK0957_RELEASE_AUTHORITY","release_issuer_ed25519_b64":"","schema":"fk0957-remote-trust-config-v1","version":1}

@@ -606,19 +606,31 @@ def _production_git_state(repo: Path | None = None) -> tuple[str, bool]:
 
 
 def transport_source_sha256() -> str:
-    """Hash the clean production Git state, runtime-critical sources, and native libraries."""
+    """Hash the clean production Git state, complete runtime source closure and native libraries."""
     repo = Path(__file__).resolve().parents[2]
     head, clean = _production_git_state(repo)
-    relative_sources = (
-        "tools/phk2_host/phk2_fk0957_topology_transport.py",
-        "tools/phk2_host/phk2_fk0957_topology_discovery.py",
-        "tools/phk2_host/phk2_fk0957_idcode_gate.py",
-    )
-    source_files = tuple((item, (repo / item).resolve(strict=True)) for item in relative_sources)
+    try:
+        import phk2_fk0957_remote_topology_endpoint as endpoint
+        relative_sources = tuple(sorted(endpoint.RELEASE_SOURCE_PATHS))
+    except Exception:
+        raise Refusal("runtime source manifest unavailable") from None
+    source_files = []
+    for item in relative_sources:
+        path = repo / item
+        try:
+            info = path.lstat()
+            if (not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or
+                    info.st_nlink != 1):
+                raise Refusal("runtime source input is unsafe")
+            source_files.append((item, path.resolve(strict=True)))
+        except Refusal:
+            raise
+        except OSError:
+            raise Refusal("runtime source input is unavailable") from None
     native_files = tuple((pin.name, path) for pin, path in zip(LIBRARY_PINS, _require_native_files()))
     digest = hashlib.sha256()
     digest.update(b"production_git_head\0" + head.encode("ascii") + b"\0clean=1\0")
-    for label, path in source_files + native_files:
+    for label, path in tuple(source_files) + native_files:
         st = path.stat()
         if not stat.S_ISREG(st.st_mode) or st.st_size > 100 * 1024 * 1024:
             raise Refusal("transport source input is not a bounded regular file")

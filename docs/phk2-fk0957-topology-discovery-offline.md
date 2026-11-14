@@ -50,8 +50,10 @@ does not import the RGB orchestrator or signing module and has no signing-key
 path. The current checked-in CLI still performs local acquisition followed
 by local signing. A separate testbench endpoint now validates one-shot signed
 authorization/handoff/manifest envelopes and emits only a canonical unsigned
-record, but its issuer trust pin is intentionally unset until the approved
-maintenance/release authority provisions it. The RGB SSH-to-unsigned-record
+record. The source pins a canonical trust-configuration template with empty
+issuer key slots; acquisition remains fail-closed until the approved
+maintenance/release authority provisions real keys and updates the reviewed
+configuration pin. The RGB SSH-to-unsigned-record
 orchestration and remote-process-exit cleanup proof are not yet connected.
 
 The deterministic hashes and local host-key pin observation from the earlier
