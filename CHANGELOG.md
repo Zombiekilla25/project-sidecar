@@ -2,6 +2,12 @@
 
 Project changes are recorded here when prepared for public release. This file does not itself announce a published release.
 
+## Unreleased — 2026-11-14
+
+- Publish a [dated FK0957 offline integration milestone](docs/run-logs/2026-11-14-fk0957-integration.md), summarizing operations acceptance, independent audits, installer hardening, and the remaining production-authorization gates.
+- Record the remaining Git synchronization, controller/CLI integration, manifest-tooling, and hard-kill staging-cleanup blockers. No production-ready or live-deployment claim is made.
+- Establish a verified daily GitHub milestone-publication rule: a local commit is not considered published until its remote SHA and URL have been checked.
+
 ## Unreleased — 2026-11-12
 
 - Record PHK1 diagnostic launcher, Evidence-v2 capture, bounded transport, fail-closed target/peer controls, rollback modeling, and the completed 72-hour offline reliability campaign.
