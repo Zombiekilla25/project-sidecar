@@ -22,6 +22,47 @@ import phk2_fk0957_topology_rgb_orchestrator as rgb
 MAX_REQUEST_BYTES = 512 * 1024
 
 
+def _status_report(progress: rgb.AcquisitionProgress, status: str,
+                   code: str, evidence_path: str = "none",
+                   publication: evidence_cli._PublicationProgress | None = None) -> bytes:
+    """Serialize only state held by the operation object, never exception text."""
+    value = {
+        "status": status,
+        "code": code,
+        "operation_id": progress.operation_id,
+        "authorization_id": progress.authorization_id,
+        "local_state": progress.local_state,
+        "supervisor_state": progress.supervisor_state,
+        "publication_state": progress.publication_state if publication is None else publication.state,
+        "evidence_sha256": progress.evidence_sha256 if publication is None else publication.evidence_sha256,
+        "evidence_path": evidence_path,
+    }
+    return canonical_json.canonical(value)
+
+
+def _status_matches_operation(value: object, progress: rgb.AcquisitionProgress) -> bool:
+    """Reject unsigned progress substitution against the live operation object."""
+    if not (type(value) is dict and set(value) == {
+                "status", "code", "operation_id", "authorization_id", "local_state",
+                "supervisor_state", "publication_state", "evidence_sha256", "evidence_path"} and
+            value["operation_id"] == progress.operation_id and
+            value["authorization_id"] == progress.authorization_id and
+            value["local_state"] == progress.local_state and
+            value["supervisor_state"] == progress.supervisor_state and
+            value["publication_state"] == progress.publication_state and
+            value["evidence_sha256"] == progress.evidence_sha256):
+        return False
+    if value["status"] == "REFUSED":
+        return value["publication_state"] != "PUBLISHED" and value["evidence_path"] == "none"
+    if value["status"] == "POST_SUCCESS_REPORTING_FAULT":
+        return value["publication_state"] == "PUBLISHED" and value["evidence_path"] != "none"
+    if value["status"] == "SIGNED":
+        return (value["publication_state"] == "PUBLISHED" and
+                value["supervisor_state"] == "EXITED_SUCCESS" and
+                value["evidence_path"] != "none")
+    return False
+
+
 def _read_request(path: Path) -> bytes:
     parent_fd, name = canonical_json._open_path_parent(path)
     try:
@@ -92,23 +133,62 @@ def _verify_signed_remote_result(document: object) -> dict:
 
 
 def run_once(request_path: Path, evidence_path: Path) -> tuple[bytes, int, bool]:
+    progress = rgb.AcquisitionProgress()
     try:
         request = _read_request(request_path)
-        signed = rgb.acquire_validate_sign_once(request)
+        signed = rgb.acquire_validate_sign_once(request, progress=progress)
         unsigned = _verify_signed_remote_result(signed)
+        if (unsigned.get("operation_id") != progress.operation_id or
+                unsigned.get("authorization_id") != progress.authorization_id or
+                progress.local_state != "LOCAL_SIGNED" or
+                progress.supervisor_state != "EXITED_SUCCESS"):
+            raise ValueError("signed result does not match supervisor operation")
         evidence = canonical_json.canonical(signed)
+        digest = hashlib.sha256(evidence).hexdigest()
         summary = evidence_cli._success_summary(unsigned, evidence_path,
-                                                hashlib.sha256(evidence).hexdigest())
+                                                digest)
+        summary.update({"supervisor_state": progress.supervisor_state,
+                        "publication_state": "PUBLISHED"})
         summary_bytes = canonical_json.canonical(summary)
-        published = ["SIGNED_STAGED"]
+        published = evidence_cli._PublicationProgress(
+            progress.operation_id, digest, observer=progress)
         evidence_cli._publish_evidence_atomic(evidence_path, evidence, published)
+        if (progress.publication_state != "PUBLISHED" or
+                summary.get("operation_id") != progress.operation_id or
+                summary.get("supervisor_state") != "EXITED_SUCCESS" or
+                summary.get("publication_state") != "PUBLISHED" or
+                summary.get("evidence_sha256") != progress.evidence_sha256 or
+                not _status_matches_operation({
+                    "status": "SIGNED", "code": "NONE",
+                    "operation_id": progress.operation_id,
+                    "authorization_id": progress.authorization_id,
+                    "local_state": progress.local_state,
+                    "supervisor_state": progress.supervisor_state,
+                    "publication_state": progress.publication_state,
+                    "evidence_sha256": progress.evidence_sha256,
+                    "evidence_path": str(evidence_path)}, progress)):
+            raise ValueError("published operation contract mismatch")
         return summary_bytes, 0, True
     except BaseException:
         # A published record is a committed acquisition and can never become
         # REFUSED due to subsequent status formatting or pipe failures.
-        if "published" in locals() and published[0] == "EVIDENCE_PUBLISHED":
-            return b"FK0957_POST_SUCCESS_REPORTING_FAULT=YES EVIDENCE_PUBLISHED=YES\n", 3, True
-        return b"FK0957_STATUS=REFUSED CODE=REMOTE_RGB_FLOW_FAILED EVIDENCE_PATH=none SIGNATURE_VERIFIED=NO\n", 2, False
+        if "published" in locals() and published.published:
+            return _status_report(progress, "POST_SUCCESS_REPORTING_FAULT",
+                                  "EVIDENCE_ALREADY_PUBLISHED",
+                                  str(evidence_path), publication=published) + b"\n", 3, True
+        report = _status_report(progress, "REFUSED", "REMOTE_RGB_FLOW_FAILED")
+        try:
+            valid = _status_matches_operation(json.loads(report), progress)
+        except (ValueError, TypeError):
+            valid = False
+        if not valid:
+            report = canonical_json.canonical({
+                "status": "REFUSED", "code": "OPERATION_STATE_INVALID",
+                "operation_id": None, "authorization_id": None,
+                "local_state": "PRELIVE", "supervisor_state": "UNKNOWN",
+                "publication_state": "NOT_STARTED", "evidence_sha256": None,
+                "evidence_path": "none"})
+        return report + b"\n", 2, False
 
 
 class _Parser(argparse.ArgumentParser):
@@ -123,7 +203,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         args = parser.parse_args(argv)
     except BaseException:
-        report, status, published = (b"FK0957_STATUS=REFUSED CODE=INVALID_ARGUMENTS EVIDENCE_PATH=none SIGNATURE_VERIFIED=NO\n", 2, False)
+        report, status, published = (_status_report(
+            rgb.AcquisitionProgress(), "REFUSED", "INVALID_ARGUMENTS") + b"\n", 2, False)
     else:
         report, status, published = run_once(Path(args.authorization_request), Path(args.output))
     try:

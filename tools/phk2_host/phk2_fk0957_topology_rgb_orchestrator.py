@@ -20,6 +20,7 @@ import phk2_fk0957_topology_signing as signing
 import phk2_fk0957_topology_transport as transport
 import phk2_fk0957_remote_topology_endpoint as endpoint
 import fk0957_supervisor as supervisor_protocol
+import fk0957_supervisor_client as supervisor_client
 
 KNOWN_HOSTS_PATH = Path("/home/rmann/.local/share/sidecar/ssh/fk0957-testbench-known_hosts")
 REMOTE_ENDPOINT_COMMAND = "/usr/local/bin/fk0957-safe-launcher --supervisor-client run"
@@ -50,6 +51,102 @@ class Refusal(ValueError):
     def __init__(self, message: str, *, remote_state: str = "REMOTE_STATE_UNKNOWN"):
         super().__init__(message)
         self.remote_state = remote_state
+
+
+class AcquisitionProgress:
+    """Single operation contract carried from authorization through publish."""
+
+    __slots__ = ("_operation_id", "_authorization_id", "_local_state",
+                 "_supervisor_state", "_publication_state", "_evidence_sha256")
+
+    def __init__(self):
+        self._operation_id: str | None = None
+        self._authorization_id: str | None = None
+        self._local_state = "PRELIVE"
+        self._supervisor_state = "UNKNOWN"
+        self._publication_state = "NOT_STARTED"
+        self._evidence_sha256: str | None = None
+
+    @property
+    def operation_id(self):
+        return self._operation_id
+
+    @property
+    def authorization_id(self):
+        return self._authorization_id
+
+    @property
+    def local_state(self):
+        return self._local_state
+
+    @property
+    def supervisor_state(self):
+        return self._supervisor_state
+
+    @property
+    def publication_state(self):
+        return self._publication_state
+
+    @property
+    def evidence_sha256(self):
+        return self._evidence_sha256
+
+    def bind(self, context: dict[str, Any]) -> None:
+        operation_id, authorization_id = context.get("operation_id"), context.get("authorization_id")
+        if (self.local_state != "PRELIVE" or type(operation_id) is not str or
+                re.fullmatch(r"[0-9a-f]{32}", operation_id) is None or
+                type(authorization_id) is not str or HEX64.fullmatch(authorization_id) is None):
+            raise Refusal("operation identity rejected")
+        self._operation_id = operation_id
+        self._authorization_id = authorization_id
+        self._local_state = "REQUEST_VALIDATED"
+
+    def authorization_consumed(self, context: dict[str, Any]) -> None:
+        if (self.local_state != "REQUEST_VALIDATED" or
+                context.get("operation_id") != self.operation_id or
+                context.get("authorization_id") != self.authorization_id):
+            raise Refusal("operation authorization transition rejected")
+        self._local_state = "AUTHORIZATION_CONSUMED"
+
+    def supervisor_terminal(self, operation_id: str, authorization_id: str,
+                            state: str, exit_code: int) -> None:
+        if (self.local_state != "AUTHORIZATION_CONSUMED" or
+                operation_id != self.operation_id or authorization_id != self.authorization_id or
+                state not in {"EXITED_SUCCESS", "EXITED_REFUSAL", "EXITED_FAILURE"} or
+                type(exit_code) is not int or
+                (state == "EXITED_SUCCESS" and exit_code != 0) or
+                (state == "EXITED_REFUSAL" and exit_code != 2) or
+                (state == "EXITED_FAILURE" and exit_code in (0, 2))):
+            raise Refusal("supervisor operation binding rejected")
+        self._supervisor_state = state
+        self._local_state = "SUPERVISOR_TERMINAL"
+
+    def remote_result_validated(self) -> None:
+        if self.local_state != "SUPERVISOR_TERMINAL" or self.supervisor_state != "EXITED_SUCCESS":
+            raise Refusal("remote result has no successful supervisor operation")
+        self._local_state = "REMOTE_RESULT_VALIDATED"
+
+    def locally_signed(self, operation_id: str, authorization_id: str,
+                       evidence_sha256: str) -> None:
+        if (self.local_state != "REMOTE_RESULT_VALIDATED" or
+                operation_id != self.operation_id or authorization_id != self.authorization_id or
+                HEX64.fullmatch(evidence_sha256) is None):
+            raise Refusal("local signature operation binding rejected")
+        self._evidence_sha256 = evidence_sha256
+        self._local_state = "LOCAL_SIGNED"
+        self._publication_state = "SIGNED_STAGED"
+
+    def publication_started(self, operation_id: str, evidence_sha256: str) -> None:
+        if (self.local_state != "LOCAL_SIGNED" or self.publication_state != "SIGNED_STAGED" or
+                operation_id != self.operation_id or evidence_sha256 != self.evidence_sha256):
+            raise Refusal("unsigned publication stage substitution refused")
+        self._publication_state = "PUBLISHING"
+
+    def evidence_published(self, operation_id: str, evidence_sha256: str) -> None:
+        if (self.local_state != "LOCAL_SIGNED" or self.publication_state != "PUBLISHING" or
+                operation_id != self.operation_id or evidence_sha256 != self.evidence_sha256):
+            raise Refusal("published evidence operation binding rejected")
+        self._publication_state = "PUBLISHED"
 
 
 def _parse_response(raw: bytes) -> dict[str, Any]:
@@ -116,7 +213,73 @@ def _consume_local_auth(context: dict[str, Any]) -> None:
         os.close(parent_fd)
 
 
-def _pinned_ssh(request_raw: bytes, *, runner=None) -> tuple[bytes, dict[str, Any]]:
+def _decode_supervisor_result(raw: bytes, request_raw: bytes,
+                              process_exit_code: int) -> tuple[bytes, dict[str, Any]]:
+    """Validate the supervisor operation envelope before exposing child bytes."""
+    value = endpoint._parse_canonical(raw, MAX_RESPONSE_BYTES)
+    fields = {
+        "schema", "operation_id", "authorization_id", "authorization_sha256",
+        "handoff_sha256", "manifest_sha256", "production_head",
+        "transaction_profile_sha256", "target", "one_shot", "registered_ns",
+        "state", "process", "exit_code", "reaped_ns", "result_sha256", "result_b64",
+    }
+    request = endpoint._parse_canonical(request_raw, endpoint.MAX_REQUEST_BYTES)
+    operation_id = request.get("operation_id")
+    auth_payload = request.get("release_authorization", {}).get("payload", {})
+    handoff_payload = request.get("handoff", {}).get("payload", {})
+    manifest_payload = request.get("runtime_manifest", {}).get("payload", {})
+    authorization_id = auth_payload.get("authorization_id")
+    expected = {
+        "operation_id": operation_id,
+        "authorization_id": authorization_id,
+        "authorization_sha256": hashlib.sha256(endpoint.canonical(auth_payload)).hexdigest(),
+        "handoff_sha256": hashlib.sha256(endpoint.canonical(handoff_payload)).hexdigest(),
+        "manifest_sha256": hashlib.sha256(endpoint.canonical(manifest_payload)).hexdigest(),
+        "production_head": manifest_payload.get("production_head"),
+        "transaction_profile_sha256": manifest_payload.get("transaction_profile_sha256"),
+        "target": "FK0957", "one_shot": True,
+    }
+    process = value.get("process")
+    process_fields = {"pid", "start_identity", "parent_pid", "operation_id", "authorization_id",
+                      "launcher", "launcher_sha256", "executable", "executable_sha256", "argv_sha256"}
+    if (set(value) != fields or value.get("schema") != supervisor_client.CLIENT_RESULT_SCHEMA or
+            any(value.get(name) != item for name, item in expected.items()) or
+            type(value.get("registered_ns")) is not int or value["registered_ns"] <= 0 or
+            type(value.get("reaped_ns")) is not int or value["reaped_ns"] < value["registered_ns"] or
+            type(value.get("exit_code")) is not int or value["exit_code"] != process_exit_code or
+            type(process) is not dict or set(process) != process_fields or
+            type(process.get("pid")) is not int or process["pid"] <= 1 or
+            type(process.get("parent_pid")) is not int or process["parent_pid"] <= 1 or
+            process.get("operation_id") != operation_id or
+            process.get("authorization_id") != authorization_id or
+            type(process.get("start_identity")) is not str or
+            not re.fullmatch(r"[1-9][0-9]{0,19}", process["start_identity"]) or
+            process.get("launcher") != supervisor_protocol.LAUNCHER or
+            process.get("executable") != supervisor_protocol.PYTHON_EXECUTABLE or
+            process.get("executable_sha256") != supervisor_protocol.PYTHON_EXECUTABLE_SHA256 or
+            type(process.get("launcher_sha256")) is not str or
+            not re.fullmatch(r"[0-9a-f]{64}", process["launcher_sha256"]) or
+            type(process.get("argv_sha256")) is not str or
+            not re.fullmatch(r"[0-9a-f]{64}", process["argv_sha256"])):
+        raise Refusal("supervisor operation result binding invalid", remote_state="REMOTE_STATE_UNKNOWN")
+    state, code = value["state"], value["exit_code"]
+    if (state not in {"EXITED_SUCCESS", "EXITED_REFUSAL", "EXITED_FAILURE"} or
+            (state == "EXITED_SUCCESS" and code != 0) or
+            (state == "EXITED_REFUSAL" and code != 2) or
+            (state == "EXITED_FAILURE" and code in (0, 2))):
+        raise Refusal("supervisor terminal state invalid", remote_state="REMOTE_STATE_UNKNOWN")
+    try:
+        child_result = base64.b64decode(value["result_b64"], validate=True)
+    except (TypeError, ValueError, base64.binascii.Error):
+        raise Refusal("supervisor result encoding invalid", remote_state="REMOTE_STATE_UNKNOWN") from None
+    if (not child_result or len(child_result) > MAX_RESPONSE_BYTES or
+            hashlib.sha256(child_result).hexdigest() != value.get("result_sha256")):
+        raise Refusal("supervisor result digest invalid", remote_state="REMOTE_STATE_UNKNOWN")
+    return child_result, value
+
+
+def _pinned_ssh(request_raw: bytes, *, runner=None,
+                progress: AcquisitionProgress | None = None) -> tuple[bytes, dict[str, Any]]:
     runner = subprocess.run if runner is None else runner
     known_hosts, host_identity, source_identity = ssh_policy._read_pinned_source(KNOWN_HOSTS_PATH)
     known_hosts_sha = hashlib.sha256(known_hosts).hexdigest()
@@ -233,6 +396,8 @@ def _pinned_ssh(request_raw: bytes, *, runner=None) -> tuple[bytes, dict[str, An
                 if not stdout or len(stdout) > MAX_RESPONSE_BYTES:
                     raise ValueError("recovered result absent or oversized")
                 code = terminal_code
+                if progress is not None:
+                    progress.supervisor_terminal(operation_id, auth_id, status["state"], code)
             except BaseException:
                 raise Refusal("remote process state unknown after SSH loss; do not restore ownership",
                               remote_state="REMOTE_STATE_UNKNOWN") from None
@@ -240,6 +405,18 @@ def _pinned_ssh(request_raw: bytes, *, runner=None) -> tuple[bytes, dict[str, An
             stdout = getattr(result, "stdout", b"")
             if isinstance(stdout, str):
                 stdout = stdout.encode("utf-8", "replace")
+            try:
+                stdout, operation_result = _decode_supervisor_result(stdout, request_raw, code)
+            except Refusal:
+                raise
+            except BaseException:
+                raise Refusal("supervisor operation result malformed",
+                              remote_state="REMOTE_STATE_UNKNOWN") from None
+            if progress is not None:
+                progress.supervisor_terminal(operation_result["operation_id"],
+                                             operation_result["authorization_id"],
+                                             operation_result["state"],
+                                             operation_result["exit_code"])
     if len(stdout) > MAX_RESPONSE_BYTES:
         raise Refusal("remote result exceeded its size bound")
     if code != 0:
@@ -343,10 +520,19 @@ def _validate_unsigned_record(raw: bytes, request_context: dict[str, Any]) -> di
     return record
 
 
-def acquire_validate_sign_once(request_raw: bytes) -> dict[str, Any]:
+def acquire_validate_sign_once(request_raw: bytes,
+                               progress: AcquisitionProgress | None = None) -> dict[str, Any]:
     """One pinned SSH transaction; validate every byte before local signing."""
+    progress = AcquisitionProgress() if progress is None else progress
     context = _validated_local_context(request_raw)
+    progress.bind(context)
     _consume_local_auth(context)
-    unsigned_raw, ssh_provenance = _pinned_ssh(request_raw)
+    progress.authorization_consumed(context)
+    unsigned_raw, ssh_provenance = _pinned_ssh(request_raw, progress=progress)
     record = _validate_unsigned_record(unsigned_raw, context)
-    return signing._sign_validated_remote_record(record, ssh_provenance)
+    progress.remote_result_validated()
+    signed = signing._sign_validated_remote_record(record, ssh_provenance)
+    signed_bytes = endpoint.canonical(signed)
+    progress.locally_signed(context["operation_id"], context["authorization_id"],
+                            hashlib.sha256(signed_bytes).hexdigest())
+    return signed

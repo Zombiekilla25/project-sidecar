@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import hashlib
 import json
 import re
 import socket
@@ -18,6 +19,7 @@ MAX_RESPONSE = supervisor_protocol.MAX_MESSAGE
 OP_ID = re.compile(r"[0-9a-f]{32}\Z")
 HEX64 = re.compile(r"[0-9a-f]{64}\Z")
 HEX40 = re.compile(r"[0-9a-f]{40}\Z")
+CLIENT_RESULT_SCHEMA = "fk0957-supervisor-client-result-v1"
 
 
 def _recv_all(sock: socket.socket) -> bytes:
@@ -48,7 +50,7 @@ def request_supervisor(message: dict[str, Any], *, socket_path: str = SOCKET_PAT
     return response
 
 
-def run_once(request_raw: bytes) -> tuple[bytes, int]:
+def _run_once_detailed(request_raw: bytes) -> dict[str, Any]:
     request = endpoint._parse_canonical(request_raw, endpoint.MAX_REQUEST_BYTES)
     operation_id = request.get("operation_id")
     if type(operation_id) is not str or not OP_ID.fullmatch(operation_id):
@@ -79,14 +81,17 @@ def run_once(request_raw: bytes) -> tuple[bytes, int]:
             type(process) is not dict or set(process) != process_fields or
             type(process.get("pid")) is not int or process["pid"] <= 1 or
             type(process.get("parent_pid")) is not int or process["parent_pid"] <= 1 or
-            not re.fullmatch(r"[1-9][0-9]{0,19}", str(process.get("start_identity", ""))) or
+            type(process.get("start_identity")) is not str or
+            not re.fullmatch(r"[1-9][0-9]{0,19}", process["start_identity"]) or
             process.get("operation_id") != operation_id or
             process.get("authorization_id") != response.get("authorization_id") or
             process.get("launcher") != supervisor_protocol.LAUNCHER or
-            not HEX64.fullmatch(str(process.get("launcher_sha256", ""))) or
+            type(process.get("launcher_sha256")) is not str or
+            not HEX64.fullmatch(process["launcher_sha256"]) or
             process.get("executable") != supervisor_protocol.PYTHON_EXECUTABLE or
             process.get("executable_sha256") != supervisor_protocol.PYTHON_EXECUTABLE_SHA256 or
-            not HEX64.fullmatch(str(process.get("argv_sha256", ""))) or
+            type(process.get("argv_sha256")) is not str or
+            not HEX64.fullmatch(process["argv_sha256"]) or
             response.get("state") not in {
             "EXITED_SUCCESS", "EXITED_REFUSAL", "EXITED_FAILURE"}):
         raise ValueError("supervisor did not confirm a terminal child state")
@@ -103,7 +108,28 @@ def run_once(request_raw: bytes) -> tuple[bytes, int]:
             (response["state"] == "EXITED_REFUSAL" and code != 2) or
             (response["state"] == "EXITED_FAILURE" and code in (0, 2))):
         raise ValueError("supervisor state and exit code conflict")
-    return result, code
+    return {
+        "schema": CLIENT_RESULT_SCHEMA,
+        "operation_id": response["operation_id"],
+        "authorization_id": response["authorization_id"],
+        "authorization_sha256": response["authorization_sha256"],
+        "handoff_sha256": response["handoff_sha256"],
+        "manifest_sha256": response["manifest_sha256"],
+        "production_head": response["production_head"],
+        "transaction_profile_sha256": response["transaction_profile_sha256"],
+        "target": response["target"], "one_shot": response["one_shot"],
+        "registered_ns": response["registered_ns"], "state": response["state"],
+        "process": response["process"], "exit_code": code,
+        "reaped_ns": response["reaped_ns"],
+        "result_sha256": hashlib.sha256(result).hexdigest(),
+        "result_b64": base64.b64encode(result).decode("ascii"),
+    }
+
+
+def run_once(request_raw: bytes) -> tuple[bytes, int]:
+    """Compatibility helper; production CLI emits the complete bound contract."""
+    detailed = _run_once_detailed(request_raw)
+    return base64.b64decode(detailed["result_b64"], validate=True), detailed["exit_code"]
 
 
 def _status_projection(operation_id: str, response: Any) -> dict[str, Any]:
@@ -235,8 +261,9 @@ def main(argv=None) -> int:
             request_raw = sys.stdin.buffer.read(endpoint.MAX_REQUEST_BYTES + 1)
             if len(request_raw) > endpoint.MAX_REQUEST_BYTES:
                 raise ValueError("request oversized")
-            result, code = run_once(request_raw)
-            sys.stdout.buffer.write(result)
+            result = _run_once_detailed(request_raw)
+            code = result["exit_code"]
+            sys.stdout.buffer.write(supervisor_protocol.canonical(result))
             sys.stdout.buffer.flush()
             return code
         if len(args) == 2 and args[0] == "status":
@@ -248,7 +275,7 @@ def main(argv=None) -> int:
         # Never turn an unavailable/unknown supervisor state into a valid
         # remote refusal: the RGB side must not infer child exit from it.
         sys.stdout.buffer.write(supervisor_protocol.canonical({
-            "schema": supervisor_protocol.RESPONSE_SCHEMA,
+            "schema": CLIENT_RESULT_SCHEMA,
             "state": "UNKNOWN", "code": "SUPERVISOR_UNAVAILABLE"}))
         return 3
 

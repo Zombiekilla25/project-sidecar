@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 import hashlib
+import base64
 import json
 from pathlib import Path
 import subprocess
@@ -30,13 +31,55 @@ def response(pattern):
     return bytes(packed[:-1]), bytes(((packed[-1] & 1) << 7,))
 
 
+def supervisor_result(request_raw, child_bytes, code=0):
+    request = endpoint._parse_canonical(request_raw, endpoint.MAX_REQUEST_BYTES)
+    auth = request.get("release_authorization", {}).get("payload", {})
+    handoff = request.get("handoff", {}).get("payload", {})
+    manifest = request.get("runtime_manifest", {}).get("payload", {})
+    operation_id = request.get("operation_id")
+    auth_id = auth.get("authorization_id")
+    state = "EXITED_SUCCESS" if code == 0 else "EXITED_REFUSAL" if code == 2 else "EXITED_FAILURE"
+    return endpoint.canonical({
+        "schema": "fk0957-supervisor-client-result-v1", "operation_id": operation_id,
+        "authorization_id": auth_id,
+        "authorization_sha256": hashlib.sha256(endpoint.canonical(auth)).hexdigest(),
+        "handoff_sha256": hashlib.sha256(endpoint.canonical(handoff)).hexdigest(),
+        "manifest_sha256": hashlib.sha256(endpoint.canonical(manifest)).hexdigest(),
+        "production_head": manifest.get("production_head"),
+        "transaction_profile_sha256": manifest.get("transaction_profile_sha256"),
+        "target": "FK0957", "one_shot": True, "registered_ns": 100,
+        "state": state, "exit_code": code, "reaped_ns": 200,
+        "process": {"pid": 100, "start_identity": "12345", "parent_pid": 50,
+                    "operation_id": operation_id, "authorization_id": auth_id,
+                    "launcher": supervisor_protocol.LAUNCHER, "launcher_sha256": "1" * 64,
+                    "executable": supervisor_protocol.PYTHON_EXECUTABLE,
+                    "executable_sha256": supervisor_protocol.PYTHON_EXECUTABLE_SHA256,
+                    "argv_sha256": "2" * 64},
+        "result_sha256": hashlib.sha256(child_bytes).hexdigest(),
+        "result_b64": base64.b64encode(child_bytes).decode("ascii"),
+    })
+
+
+def minimal_operation_request():
+    return endpoint.canonical({
+        "operation_id": "a" * 32,
+        "release_authorization": {"payload": {"authorization_id": "b" * 64}},
+        "handoff": {"payload": {"handoff_id": "c" * 64}},
+        "runtime_manifest": {"payload": {"production_head": "f" * 40,
+                                           "transaction_profile_sha256": "9" * 64}},
+    })
+
+
 class RGBTopologyOrchestratorTests(unittest.TestCase):
     def test_pinned_ssh_keeps_agent_local_and_disables_forwarding(self):
         captured = {}
         def runner(command, **kwargs):
             captured["command"] = command
             captured.update(kwargs)
-            return SimpleNamespace(returncode=0, stdout=b"canonical placeholder\n", stderr=b"remote-secret")
+            return SimpleNamespace(returncode=0,
+                                   stdout=supervisor_result(kwargs["input"],
+                                                            b"canonical placeholder\n"),
+                                   stderr=b"remote-secret")
         known = b"approved host-key pin\n"
         host = {"algorithm": "ssh-ed25519", "fingerprint": "SHA256:" + "A" * 43}
         with mock.patch.object(ssh_policy, "_read_pinned_source", return_value=(known, host, (1, 2))), \
@@ -44,7 +87,8 @@ class RGBTopologyOrchestratorTests(unittest.TestCase):
              mock.patch.object(ssh_policy, "_probe_local_ssh_agent") as probe, \
              mock.patch.object(ssh_policy, "_revalidate_local_ssh_auth_sock") as revalidate, \
              mock.patch.object(ssh_policy, "_validate_private_pin"):
-            output, provenance = rgb._pinned_ssh(b'{"request":"only"}\n', runner=runner)
+            request_raw = minimal_operation_request()
+            output, provenance = rgb._pinned_ssh(request_raw, runner=runner)
         command = captured["command"]
         self.assertEqual(output, b"canonical placeholder\n")
         self.assertIn("ForwardAgent=no", command)
@@ -53,7 +97,7 @@ class RGBTopologyOrchestratorTests(unittest.TestCase):
         self.assertIn("GlobalKnownHostsFile=/dev/null", command)
         self.assertEqual(command[-2:], [ssh_policy._AUTHORIZED_SSH_DESTINATION,
                                        rgb.REMOTE_ENDPOINT_COMMAND])
-        self.assertEqual(captured["input"], b'{"request":"only"}\n')
+        self.assertEqual(captured["input"], minimal_operation_request())
         self.assertEqual(captured["env"]["SSH_AUTH_SOCK"], "/run/user/1000/agent.sock")
         self.assertNotIn("SSH_AUTH_SOCK", command)
         self.assertEqual(captured["stderr"], subprocess.PIPE)
@@ -85,16 +129,64 @@ class RGBTopologyOrchestratorTests(unittest.TestCase):
                                       "code": "DEVICE_OPEN_FAILED"})
         host = {"algorithm": "ssh-ed25519", "fingerprint": "SHA256:" + "A" * 43}
         def runner(*_args, **_kwargs):
-            return SimpleNamespace(returncode=2, stdout=refusal, stderr=b"secret /path")
+            return SimpleNamespace(returncode=2,
+                                   stdout=supervisor_result(minimal_operation_request(), refusal, 2),
+                                   stderr=b"secret /path")
         with mock.patch.object(ssh_policy, "_read_pinned_source", return_value=(b"pin\n", host, (1, 2))), \
              mock.patch.object(ssh_policy, "_validated_local_ssh_auth_sock", return_value=("/agent", (3, 4))), \
              mock.patch.object(ssh_policy, "_probe_local_ssh_agent"), \
              mock.patch.object(ssh_policy, "_revalidate_local_ssh_auth_sock"), \
              mock.patch.object(ssh_policy, "_validate_private_pin"):
             with self.assertRaisesRegex(rgb.Refusal, "DEVICE_OPEN_FAILED") as caught:
-                rgb._pinned_ssh(b"request", runner=runner)
+                rgb._pinned_ssh(minimal_operation_request(), runner=runner)
         self.assertEqual(caught.exception.remote_state, "REMOTE_PROCESS_CONFIRMED_EXITED")
         self.assertNotIn("secret", str(caught.exception))
+
+    def test_supervisor_contract_rejects_operation_and_unsigned_result_substitution(self):
+        request = minimal_operation_request()
+        child = endpoint.canonical({"schema": "fk0957-remote-acquisition-v1",
+                                    "status": "REFUSED", "phase": "DEVICE_OPEN",
+                                    "code": "DEVICE_OPEN_FAILED"})
+        valid = endpoint._parse_canonical(supervisor_result(request, child, 2), 1024 * 1024)
+        cases = [
+            {**valid, "operation_id": "d" * 32},
+            {**valid, "authorization_id": "d" * 64},
+            {**valid, "state": "EXITED_SUCCESS"},
+            {**valid, "exit_code": 0},
+            {**valid, "result_sha256": "0" * 64},
+            {**valid, "result_b64": base64.b64encode(b"altered child result").decode("ascii")},
+            {key: item for key, item in valid.items() if key != "reaped_ns"},
+            {**valid, "publication_state": "PUBLISHED"},
+        ]
+        for field, forged in (("start_identity", 12345),
+                              ("launcher_sha256", int("1" * 64)),
+                              ("argv_sha256", int("2" * 64)),
+                              ("pid", True), ("parent_pid", "50")):
+            process = dict(valid["process"], **{field: forged})
+            cases.append({**valid, "process": process})
+        for case in cases:
+            with self.subTest(case=list(case)):
+                with self.assertRaises(rgb.Refusal):
+                    rgb._decode_supervisor_result(endpoint.canonical(case), request, 2)
+        decoded, operation = rgb._decode_supervisor_result(
+            endpoint.canonical(valid), request, 2)
+        self.assertEqual(decoded, child)
+        self.assertEqual(operation["operation_id"], "a" * 32)
+        self.assertEqual(operation["state"], "EXITED_REFUSAL")
+
+    def test_supervisor_contract_rejects_null_type_substitution_in_every_field(self):
+        request = minimal_operation_request()
+        child = endpoint.canonical({"schema": "fk0957-remote-acquisition-v1",
+                                    "status": "REFUSED", "phase": "DEVICE_OPEN",
+                                    "code": "DEVICE_OPEN_FAILED"})
+        valid = endpoint._parse_canonical(supervisor_result(request, child, 2), 1024 * 1024)
+        for field in valid:
+            if valid[field] is None:
+                continue
+            changed = dict(valid)
+            changed[field] = None
+            with self.subTest(field=field), self.assertRaises(rgb.Refusal):
+                rgb._decode_supervisor_result(endpoint.canonical(changed), request, 2)
 
     def test_ssh_255_never_confirms_remote_exit_even_with_refusal_bytes(self):
         refusal = endpoint.canonical({"schema": "fk0957-remote-acquisition-v1",
@@ -163,7 +255,7 @@ class RGBTopologyOrchestratorTests(unittest.TestCase):
         self.assertEqual(provenance["remote_process_state"], "REMOTE_PROCESS_CONFIRMED_EXITED")
 
     def test_rejected_or_malformed_remote_output_never_reaches_signing(self):
-        context = {"operation_id": "1" * 32}
+        context = {"operation_id": "1" * 32, "authorization_id": "2" * 64}
         with mock.patch.object(rgb, "_validated_local_context", return_value=context), \
              mock.patch.object(rgb, "_consume_local_auth") as consume, \
              mock.patch.object(rgb, "_pinned_ssh", return_value=(endpoint.canonical({

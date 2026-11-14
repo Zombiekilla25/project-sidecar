@@ -14,6 +14,7 @@ from pathlib import Path
 import secrets
 import stat
 import sys
+import re
 from typing import Any, Sequence
 
 import phk2_fk0957_idcode_gate as identity_gate
@@ -418,6 +419,7 @@ def _success_summary(payload: dict[str, Any], evidence_path: Path,
     return {
         "status": "SIGNED",
         "target": "FK0957",
+        "operation_id": payload.get("operation_id"),
         "scan_a_tck_count": 591,
         "scan_b_tck_count": 586,
         "total_tck_count": 1177,
@@ -431,11 +433,64 @@ def _success_summary(payload: dict[str, Any], evidence_path: Path,
         "evidence_path": str(evidence_path),
         "evidence_sha256": evidence_sha256,
         "signature_verified": True,
+        "publication_state": "PUBLISHED",
         "write_count": 0,
         "reset_count": 0,
         "program_count": 0,
         "jtag_operation_count": 1,
     }
+
+
+class _PublicationProgress:
+    """Publisher-owned monotonic state bound to the validated operation/result."""
+
+    _STATES = ("SIGNED_STAGED", "PUBLISHING", "PUBLISHED")
+
+    def __init__(self, operation_id: str | None, evidence_sha256: str,
+                 observer: Any = None):
+        if operation_id is not None and (
+                type(operation_id) is not str or re.fullmatch(r"[0-9a-f]{32}", operation_id) is None):
+            raise ValueError("publication operation identity rejected")
+        if type(evidence_sha256) is not str or re.fullmatch(r"[0-9a-f]{64}", evidence_sha256) is None:
+            raise ValueError("publication evidence identity rejected")
+        self.operation_id = operation_id
+        self.evidence_sha256 = evidence_sha256
+        self._state = "SIGNED_STAGED"
+        self._observer = observer
+
+    @property
+    def state(self) -> str:
+        return self._state
+
+    @property
+    def published(self) -> bool:
+        return self._state == "PUBLISHED"
+
+    def begin(self, operation_id: str | None, evidence_sha256: str) -> None:
+        if (self._state != "SIGNED_STAGED" or operation_id != self.operation_id or
+                evidence_sha256 != self.evidence_sha256):
+            raise ValueError("publication operation/result binding rejected")
+        if self._observer is not None:
+            self._observer.publication_started(operation_id, evidence_sha256)
+        self._state = "PUBLISHING"
+
+    def prepare_commit(self, operation_id: str | None, evidence_sha256: str) -> None:
+        if (self._state != "PUBLISHING" or operation_id != self.operation_id or
+                evidence_sha256 != self.evidence_sha256):
+            raise ValueError("publication commit binding rejected")
+
+    def commit(self) -> None:
+        # Called only after the destination inode has been verified. This
+        # terminal transition is deliberately non-failing after atomic publish.
+        self._state = "PUBLISHED"
+        if self._observer is not None:
+            try:
+                self._observer.evidence_published(self.operation_id, self.evidence_sha256)
+            except BaseException:
+                # The caller invokes commit only after the final link has been
+                # inode-verified. A later observer/reporting fault cannot undo
+                # that publication or downgrade it to REFUSED.
+                pass
 
 
 def _verify_output_parent(path: Path, parent_fd: int,
@@ -458,7 +513,7 @@ def _verify_output_parent(path: Path, parent_fd: int,
 
 
 def _publish_evidence_atomic(path: Path, data: bytes,
-                             publish_state: list[str] | None = None) -> None:
+                             progress: _PublicationProgress | None = None) -> None:
     """Publish a validated record only while its original parent path stays bound."""
     path = Path(path)
     if not path.name or path.name in (".", "..") or ".." in path.parts:
@@ -524,10 +579,9 @@ def _publish_evidence_atomic(path: Path, data: bytes,
                 raise ValueError("evidence output changed before publish")
 
             link_error = None
-            if publish_state is not None:
-                if publish_state[0] != "SIGNED_STAGED":
-                    raise ValueError("evidence publish state transition is invalid")
-                publish_state[0] = "PUBLISHING"
+            if progress is not None:
+                progress.begin(progress.operation_id, hashlib.sha256(data).hexdigest())
+                progress.prepare_commit(progress.operation_id, hashlib.sha256(data).hexdigest())
             try:
                 # linkat-style publication is atomic and refuses an existing
                 # destination. The held dirfd prevents redirection by a
@@ -567,8 +621,8 @@ def _publish_evidence_atomic(path: Path, data: bytes,
                     raise
 
             published = True
-            if publish_state is not None:
-                publish_state[0] = "EVIDENCE_PUBLISHED"
+            if progress is not None:
+                progress.commit()
             try:
                 os.unlink(temp_name, dir_fd=temp_fd)
                 temp_file_created = False
@@ -639,11 +693,12 @@ def run_once(descriptor_path: Path, output_path: Path) -> tuple[bytes, int]:
         evidence_bytes = orchestrator.canonical(signed) + b"\n"
         summary = _success_summary(payload, output_path, hashlib.sha256(evidence_bytes).hexdigest())
         summary_bytes = orchestrator.canonical(summary) + b"\n"
-        publish_state = ["SIGNED_STAGED"]
-        _publish_evidence_atomic(output_path, evidence_bytes, publish_state)
+        progress = _PublicationProgress(payload.get("operation_id"),
+                                        hashlib.sha256(evidence_bytes).hexdigest())
+        _publish_evidence_atomic(output_path, evidence_bytes, progress)
         return summary_bytes, 0
     except BaseException:
-        if "publish_state" in locals() and publish_state[0] == "EVIDENCE_PUBLISHED":
+        if "progress" in locals() and progress.published:
             return (b"FK0957_POST_SUCCESS_REPORTING_FAULT=YES EVIDENCE_PUBLISHED=YES\n", 3)
         return _fallback_refusal("INTERNAL_REFUSAL", "INTERNAL_REFUSAL") + b"\n", 2
 

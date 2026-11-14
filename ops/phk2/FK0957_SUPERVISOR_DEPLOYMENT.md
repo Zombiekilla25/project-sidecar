@@ -94,6 +94,17 @@ incomplete, or unavailable status is projected to `state=UNKNOWN`,
 USB ownership only when the operation ID matches and `restore_eligible` is
 exactly `true`; all other states require manual recovery.
 
+The one-shot `--supervisor-client run` command returns a separate canonical
+`fk0957-supervisor-client-result-v1` envelope. It carries the supervisor's
+terminal operation and authorization identities, child identity, terminal
+state/exit code, and a SHA256 plus base64 encoding of the exact child result.
+The RGB orchestrator validates this envelope against the signed request before
+parsing the child result. It retains the supervisor terminal state through
+unsigned-result validation, local signing, and evidence publication. The local
+publisher advances the same operation-bound progress from `SIGNED_STAGED` to
+`PUBLISHING` and `PUBLISHED`; a report failure after the verified final link is
+reported as post-success and cannot become a refusal.
+
 ## Authorization identity and consumption
 
 The signed release authorization's `authorization_id`, canonical payload

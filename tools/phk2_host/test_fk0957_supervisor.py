@@ -231,6 +231,30 @@ class SupervisorProtocolTests(unittest.TestCase):
         self.assertEqual(envelope["state"], "UNKNOWN")
         self.assertNotIn("secret", output.getvalue().decode())
 
+    def test_supervisor_client_preserves_terminal_operation_contract_in_stdout(self):
+        import io
+        child_result = b'{"schema":"fk0957-remote-acquisition-v1","status":"REFUSED"}\n'
+        detailed = {"schema": client.CLIENT_RESULT_SCHEMA, "operation_id": "a" * 32,
+                    "authorization_id": "b" * 64, "authorization_sha256": "c" * 64,
+                    "handoff_sha256": "d" * 64, "manifest_sha256": "e" * 64,
+                    "production_head": "f" * 40, "transaction_profile_sha256": "9" * 64,
+                    "target": "FK0957", "one_shot": True, "registered_ns": 1,
+                    "state": "EXITED_REFUSAL", "process": {"pid": 10},
+                    "exit_code": 2, "reaped_ns": 2,
+                    "result_sha256": hashlib.sha256(child_result).hexdigest(),
+                    "result_b64": base64.b64encode(child_result).decode("ascii")}
+        output = io.BytesIO()
+        with mock.patch.object(client, "_run_once_detailed", return_value=detailed), \
+                mock.patch.object(client.sys, "stdin", type("Stdin", (), {"buffer": io.BytesIO(b"request")})()), \
+                mock.patch.object(client.sys, "stdout", type("Stdout", (), {"buffer": output})()):
+            self.assertEqual(client.main(["run"]), 2)
+        response = supervisor.parse_message(output.getvalue())
+        self.assertEqual(response, detailed)
+        self.assertEqual(response["operation_id"], "a" * 32)
+        self.assertEqual(response["state"], "EXITED_REFUSAL")
+        self.assertEqual(hashlib.sha256(base64.b64decode(response["result_b64"])).hexdigest(),
+                         response["result_sha256"])
+
 
 if __name__ == "__main__":
     unittest.main()
