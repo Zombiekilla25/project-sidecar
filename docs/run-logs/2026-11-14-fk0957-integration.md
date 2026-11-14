@@ -53,3 +53,15 @@ The isolated release worktree now has source candidate `50fe500558495273501f643e
 - Initial queue harness attempts had working-directory/output-path assumptions; those failures were retained in the private queue journal, the runner was corrected, and the completed candidate runs above passed.
 
 The read-only operations compatibility checker accepts the candidate identity but still reports six deployment/integration blockers: there is no production manifest signature or provisioned trust root; the controller and transaction profile remain pinned to the prior production identity/entrypoint and source hashes; and the signed permit/handoff contract does not explicitly bind supervisor authorization identity. The current manifest is unsigned integrity evidence only. No production authorization, privileged installation, live permit, or live acquisition occurred. Production trust and deployment remain blocked.
+
+
+## Independent audit addendum — 2026-11-14 (later checkpoint)
+
+The independent workstream subsequently reviewed the same source candidate `50fe500` and release-evidence revision `684770d`, ran its **473-test host baseline** and a **170-checkpoint** disposable-install recovery campaign, and issued an explicit **FAIL** verdict. This supersedes any interpretation that Middle's earlier passing suites establish full candidate correctness.
+
+- **Malformed refusal/status values** can raise uncaught `TypeError` exceptions. The operations/runtime boundary needs explicit input validation and regression tests for malformed data, with conservative refusal behavior.
+- **Installer parent-path replacement** can leave orphan staging artifacts. Middle's passing hard-kill recovery tests do not cover every relevant path-identity/cleanup condition; recovery and path safety need a new independent test matrix.
+- The audit-only changes were pushed to the existing auditor branch and verified remotely at `dde7430c48a39abdbdca09270baec450a1cceab2`. The public `main` documentation is a separate reporting channel, not proof that local candidate source was published.
+- The independent background watcher/integration campaign was still running when the results were reviewed; its final results were not yet available.
+
+**Next software gates:** preserve Right's minimal reproductions, fix workstream-owned code in isolated development trees, re-run relevant full suites, and have Right independently verify the **new exact integrated HEAD**. Keep production signing, installation, and deployment blocked.
