@@ -1,0 +1,58 @@
+{
+  "candidate_commit": "abe81bc2791b52b546985fdab9db986063a1e721",
+  "cases": 12,
+  "hardware_access": false,
+  "network_access": false,
+  "pass": false,
+  "schema": "fk0957-independent-parent-identity-matrix-v1",
+  "violations": [
+    {
+      "checkpoint": "after_installed_verify",
+      "checkpoint_reached": true,
+      "cleanup_pending": false,
+      "exception_type": null,
+      "old_install": false,
+      "renamed_parent_target_exists": true,
+      "renamed_parent_target_valid": true,
+      "reported_success_at_wrong_path": true,
+      "requested_target_exists": false,
+      "returned": "SUCCESS"
+    },
+    {
+      "checkpoint": "before_finalize",
+      "checkpoint_reached": true,
+      "cleanup_pending": false,
+      "exception_type": null,
+      "old_install": false,
+      "renamed_parent_target_exists": true,
+      "renamed_parent_target_valid": true,
+      "reported_success_at_wrong_path": true,
+      "requested_target_exists": false,
+      "returned": "SUCCESS"
+    },
+    {
+      "checkpoint": "after_installed_verify",
+      "checkpoint_reached": true,
+      "cleanup_pending": true,
+      "exception_type": null,
+      "old_install": true,
+      "renamed_parent_target_exists": true,
+      "renamed_parent_target_valid": true,
+      "reported_success_at_wrong_path": true,
+      "requested_target_exists": false,
+      "returned": "SUCCESS"
+    },
+    {
+      "checkpoint": "before_finalize",
+      "checkpoint_reached": true,
+      "cleanup_pending": true,
+      "exception_type": null,
+      "old_install": true,
+      "renamed_parent_target_exists": true,
+      "renamed_parent_target_valid": true,
+      "reported_success_at_wrong_path": true,
+      "requested_target_exists": false,
+      "returned": "SUCCESS"
+    }
+  ]
+}

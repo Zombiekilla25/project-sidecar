@@ -1,0 +1,184 @@
+{
+  "candidate_commit": "684770dd9657d070c982ce98fe84c839016456a6",
+  "cases": 237,
+  "duplicate_key_outcomes": [
+    "UNKNOWN",
+    "UNKNOWN"
+  ],
+  "hardware_access": false,
+  "network_access": false,
+  "raw_exception_count": 28,
+  "raw_exceptions": [
+    {
+      "exception": "TypeError",
+      "field": "local_state",
+      "parser": "publication",
+      "type": "list"
+    },
+    {
+      "exception": "TypeError",
+      "field": "local_state",
+      "parser": "publication",
+      "type": "dict"
+    },
+    {
+      "exception": "TypeError",
+      "field": "local_state",
+      "parser": "publication",
+      "type": "list"
+    },
+    {
+      "exception": "TypeError",
+      "field": "local_state",
+      "parser": "publication",
+      "type": "dict"
+    },
+    {
+      "exception": "TypeError",
+      "field": "supervisor_state",
+      "parser": "publication",
+      "type": "list"
+    },
+    {
+      "exception": "TypeError",
+      "field": "supervisor_state",
+      "parser": "publication",
+      "type": "dict"
+    },
+    {
+      "exception": "TypeError",
+      "field": "supervisor_state",
+      "parser": "publication",
+      "type": "list"
+    },
+    {
+      "exception": "TypeError",
+      "field": "supervisor_state",
+      "parser": "publication",
+      "type": "dict"
+    },
+    {
+      "exception": "TypeError",
+      "field": "publication_state",
+      "parser": "publication",
+      "type": "list"
+    },
+    {
+      "exception": "TypeError",
+      "field": "publication_state",
+      "parser": "publication",
+      "type": "dict"
+    },
+    {
+      "exception": "TypeError",
+      "field": "publication_state",
+      "parser": "publication",
+      "type": "list"
+    },
+    {
+      "exception": "TypeError",
+      "field": "publication_state",
+      "parser": "publication",
+      "type": "dict"
+    },
+    {
+      "exception": "TypeError",
+      "field": "code",
+      "parser": "supervisor",
+      "type": "list"
+    },
+    {
+      "exception": "TypeError",
+      "field": "code",
+      "parser": "supervisor",
+      "type": "dict"
+    },
+    {
+      "exception": "TypeError",
+      "field": "code",
+      "parser": "supervisor",
+      "type": "list"
+    },
+    {
+      "exception": "TypeError",
+      "field": "code",
+      "parser": "supervisor",
+      "type": "dict"
+    },
+    {
+      "exception": "TypeError",
+      "field": "publication_state",
+      "parser": "supervisor",
+      "type": "list"
+    },
+    {
+      "exception": "TypeError",
+      "field": "publication_state",
+      "parser": "supervisor",
+      "type": "dict"
+    },
+    {
+      "exception": "TypeError",
+      "field": "publication_state",
+      "parser": "supervisor",
+      "type": "list"
+    },
+    {
+      "exception": "TypeError",
+      "field": "publication_state",
+      "parser": "supervisor",
+      "type": "dict"
+    },
+    {
+      "exception": "TypeError",
+      "field": "operation_state",
+      "parser": "supervisor",
+      "type": "list"
+    },
+    {
+      "exception": "TypeError",
+      "field": "operation_state",
+      "parser": "supervisor",
+      "type": "dict"
+    },
+    {
+      "exception": "TypeError",
+      "field": "operation_state",
+      "parser": "supervisor",
+      "type": "list"
+    },
+    {
+      "exception": "TypeError",
+      "field": "operation_state",
+      "parser": "supervisor",
+      "type": "dict"
+    },
+    {
+      "exception": "TypeError",
+      "field": "close_from_state",
+      "parser": "supervisor",
+      "type": "list"
+    },
+    {
+      "exception": "TypeError",
+      "field": "close_from_state",
+      "parser": "supervisor",
+      "type": "dict"
+    },
+    {
+      "exception": "TypeError",
+      "field": "close_from_state",
+      "parser": "supervisor",
+      "type": "list"
+    },
+    {
+      "exception": "TypeError",
+      "field": "close_from_state",
+      "parser": "supervisor",
+      "type": "dict"
+    }
+  ],
+  "schema": "fk0957-independent-malformed-type-matrix-v1",
+  "unexpected_accept_count": 0,
+  "unexpected_accepts": []
+}

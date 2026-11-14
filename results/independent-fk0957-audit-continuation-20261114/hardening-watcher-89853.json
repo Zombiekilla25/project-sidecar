@@ -1,0 +1,34 @@
+{
+  "audit_complete": true,
+  "candidate_head": "89853ae15f435ae2069a6f6b2d627e5a14cecd18",
+  "complete_candidate_declarations": [],
+  "complete_candidate_declared_for_this_head": false,
+  "detached_worktree": "/home/rmann/project-sidecar-phk2-fk0957-longrun-audit-20261112/worktrees/production-89853ae15f435ae2069a6f6b2d627e5a14cecd18",
+  "suites": {
+    "acceptance": {
+      "exit_code": 0,
+      "stderr_path": "/home/rmann/project-sidecar-phk2-fk0957-longrun-audit-20261112/results/candidate-89853ae15f435ae2069a6f6b2d627e5a14cecd18/acceptance.stderr",
+      "stdout_path": "/home/rmann/project-sidecar-phk2-fk0957-longrun-audit-20261112/results/candidate-89853ae15f435ae2069a6f6b2d627e5a14cecd18/acceptance.stdout"
+    },
+    "campaign": {
+      "exit_code": 0,
+      "stderr_path": "/home/rmann/project-sidecar-phk2-fk0957-longrun-audit-20261112/results/candidate-89853ae15f435ae2069a6f6b2d627e5a14cecd18/campaign.stderr",
+      "stdout_path": "/home/rmann/project-sidecar-phk2-fk0957-longrun-audit-20261112/results/candidate-89853ae15f435ae2069a6f6b2d627e5a14cecd18/campaign.stdout"
+    },
+    "diff_check": {
+      "exit_code": 0,
+      "stderr_path": "/home/rmann/project-sidecar-phk2-fk0957-longrun-audit-20261112/results/candidate-89853ae15f435ae2069a6f6b2d627e5a14cecd18/diff_check.stderr",
+      "stdout_path": "/home/rmann/project-sidecar-phk2-fk0957-longrun-audit-20261112/results/candidate-89853ae15f435ae2069a6f6b2d627e5a14cecd18/diff_check.stdout"
+    },
+    "native_runtime": {
+      "exit_code": 0,
+      "stderr_path": "/home/rmann/project-sidecar-phk2-fk0957-longrun-audit-20261112/results/candidate-89853ae15f435ae2069a6f6b2d627e5a14cecd18/native_runtime.stderr",
+      "stdout_path": "/home/rmann/project-sidecar-phk2-fk0957-longrun-audit-20261112/results/candidate-89853ae15f435ae2069a6f6b2d627e5a14cecd18/native_runtime.stdout"
+    },
+    "oracle": {
+      "exit_code": 1,
+      "stderr_path": "/home/rmann/project-sidecar-phk2-fk0957-longrun-audit-20261112/results/candidate-89853ae15f435ae2069a6f6b2d627e5a14cecd18/oracle.stderr",
+      "stdout_path": "/home/rmann/project-sidecar-phk2-fk0957-longrun-audit-20261112/results/candidate-89853ae15f435ae2069a6f6b2d627e5a14cecd18/oracle.stdout"
+    }
+  }
+}
