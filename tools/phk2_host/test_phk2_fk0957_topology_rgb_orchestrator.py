@@ -164,6 +164,7 @@ class RGBTopologyOrchestratorTests(unittest.TestCase):
                               ("pid", True), ("parent_pid", "50")):
             process = dict(valid["process"], **{field: forged})
             cases.append({**valid, "process": process})
+        cases.append({**valid, "state": []})
         for case in cases:
             with self.subTest(case=list(case)):
                 with self.assertRaises(rgb.Refusal):

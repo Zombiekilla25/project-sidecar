@@ -112,6 +112,7 @@ class AcquisitionProgress:
                             state: str, exit_code: int) -> None:
         if (self.local_state != "AUTHORIZATION_CONSUMED" or
                 operation_id != self.operation_id or authorization_id != self.authorization_id or
+                type(state) is not str or
                 state not in {"EXITED_SUCCESS", "EXITED_REFUSAL", "EXITED_FAILURE"} or
                 type(exit_code) is not int or
                 (state == "EXITED_SUCCESS" and exit_code != 0) or
@@ -263,7 +264,8 @@ def _decode_supervisor_result(raw: bytes, request_raw: bytes,
             not re.fullmatch(r"[0-9a-f]{64}", process["argv_sha256"])):
         raise Refusal("supervisor operation result binding invalid", remote_state="REMOTE_STATE_UNKNOWN")
     state, code = value["state"], value["exit_code"]
-    if (state not in {"EXITED_SUCCESS", "EXITED_REFUSAL", "EXITED_FAILURE"} or
+    if (type(state) is not str or
+            state not in {"EXITED_SUCCESS", "EXITED_REFUSAL", "EXITED_FAILURE"} or
             (state == "EXITED_SUCCESS" and code != 0) or
             (state == "EXITED_REFUSAL" and code != 2) or
             (state == "EXITED_FAILURE" and code in (0, 2))):

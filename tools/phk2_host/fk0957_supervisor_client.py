@@ -92,6 +92,7 @@ def _run_once_detailed(request_raw: bytes) -> dict[str, Any]:
             process.get("executable_sha256") != supervisor_protocol.PYTHON_EXECUTABLE_SHA256 or
             type(process.get("argv_sha256")) is not str or
             not HEX64.fullmatch(process["argv_sha256"]) or
+            type(response.get("state")) is not str or
             response.get("state") not in {
             "EXITED_SUCCESS", "EXITED_REFUSAL", "EXITED_FAILURE"}):
         raise ValueError("supervisor did not confirm a terminal child state")
