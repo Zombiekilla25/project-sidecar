@@ -104,11 +104,14 @@ class RGBCLIEndToEndTests(unittest.TestCase):
         digest = "c" * 64
         progress.locally_signed("a" * 32, "b" * 64, digest)
         progress.publication_started("a" * 32, digest)
-        report = json.loads(cli._status_report(progress, "REFUSED", "PUBLISH_FAILED"))
+        report = json.loads(cli._status_report(progress, "REFUSED", "REMOTE_RGB_FLOW_FAILED"))
         self.assertTrue(cli._status_matches_operation(report, progress))
         for replacement in ("NOT_STARTED", "SIGNED_STAGED", "PUBLISHED", "caller-stage"):
             forged = dict(report, publication_state=replacement)
             self.assertFalse(cli._status_matches_operation(forged, progress))
+        for replacement in ("SIGNED", "POST_SUCCESS_REPORTING_FAULT"):
+            self.assertFalse(cli._status_matches_operation(dict(report, status=replacement), progress))
+        self.assertFalse(cli._status_matches_operation(dict(report, code="INJECTED"), progress))
         with self.assertRaises(AttributeError):
             progress.publication_state = "NOT_STARTED"
         with self.assertRaises(Exception):

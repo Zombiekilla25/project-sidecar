@@ -53,11 +53,16 @@ def _status_matches_operation(value: object, progress: rgb.AcquisitionProgress) 
             value["evidence_sha256"] == progress.evidence_sha256):
         return False
     if value["status"] == "REFUSED":
-        return value["publication_state"] != "PUBLISHED" and value["evidence_path"] == "none"
+        return (value["code"] == "REMOTE_RGB_FLOW_FAILED" and
+                value["publication_state"] != "PUBLISHED" and
+                value["evidence_path"] == "none")
     if value["status"] == "POST_SUCCESS_REPORTING_FAULT":
-        return value["publication_state"] == "PUBLISHED" and value["evidence_path"] != "none"
+        return (value["code"] == "EVIDENCE_ALREADY_PUBLISHED" and
+                value["publication_state"] == "PUBLISHED" and
+                value["evidence_path"] != "none")
     if value["status"] == "SIGNED":
-        return (value["publication_state"] == "PUBLISHED" and
+        return (value["code"] == "NONE" and
+                value["publication_state"] == "PUBLISHED" and
                 value["supervisor_state"] == "EXITED_SUCCESS" and
                 value["evidence_path"] != "none")
     return False
