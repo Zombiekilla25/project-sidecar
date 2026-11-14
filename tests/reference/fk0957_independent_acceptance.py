@@ -7,6 +7,7 @@ conditions as failures; it is not a production validator.
 from __future__ import annotations
 
 import argparse
+import base64
 import datetime
 import hashlib
 import json
@@ -33,6 +34,23 @@ def _probe(script: Path, updates: dict[str, str]) -> dict[str, Any]:
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                             check=False)
         return {"marker_executed": marker.exists(), "exit_code": cp.returncode}
+
+
+def _production_issuer_keys_provisioned(repo: Path, endpoint_module: Any) -> bool:
+    """Do not mistake a hash-pinned empty template for issuer authority."""
+    template = repo / "ops/phk2/FK0957_REMOTE_TRUST_TEMPLATE.json"
+    try:
+        raw = template.read_bytes()
+        if hashlib.sha256(raw).hexdigest() != endpoint_module.TRUST_CONFIG_SHA256:
+            return False
+        value = json.loads(raw)
+        return all(
+            type(value.get(field)) is str and
+            len(base64.b64decode(value[field], validate=True)) == 32
+            for field in ("release_issuer_ed25519_b64", "handoff_issuer_ed25519_b64")
+        )
+    except (OSError, ValueError, TypeError):
+        return False
 
 
 def startup_attacks(host: Path) -> dict[str, Any]:
@@ -295,7 +313,17 @@ def provenance_tamper_fixture(repo: Path) -> dict[str, Any]:
     endpoint_source = Path(endpoint.__file__).read_text(encoding="utf-8")
     release_code = "_verify_signed" in endpoint_source and "_verify_runtime_manifest" in endpoint_source
     release_pin_configured = bool(endpoint.TRUST_CONFIG_SHA256)
-    manifest_complete = release_paths == expected_release_paths
+    # RELEASE_SOURCE_PATHS grew to include the whole signed release inventory
+    # (RGB components, supervisor package, policy files, and the operator
+    # manifest verifier).  The original 12-path list remains the independent
+    # critical-path minimum; equality incorrectly marked a larger, complete
+    # inventory as incomplete.
+    manifest_complete = expected_release_paths <= release_paths
+    source_inventory_complete = (
+        len(release_paths) == len(endpoint.RELEASE_SOURCE_PATHS) and
+        all((repo / relative).is_file() for relative in release_paths)
+    )
+    issuer_keys_provisioned = _production_issuer_keys_provisioned(repo, endpoint)
     return {"one_byte_change_changes_runtime_hash": outcomes,
             "transport_hash_is_subset_not_complete_release_manifest": not all(outcomes.values()),
             "complete_release_manifest_paths": sorted(release_paths),
@@ -305,8 +333,11 @@ def provenance_tamper_fixture(repo: Path) -> dict[str, Any]:
             "self_consistent_transport_hash": dirty_tree_gate and git_head_gate,
             "release_authorization_code_present": release_code,
             "release_issuer_pin_configured": release_pin_configured,
-            "complete_runtime_source_provenance": manifest_complete and dirty_tree_gate and
-                git_head_gate and release_code and release_pin_configured}
+            "manifest_source_inventory_complete": source_inventory_complete,
+            "production_issuer_keys_provisioned": issuer_keys_provisioned,
+            "complete_runtime_source_provenance": manifest_complete and
+                source_inventory_complete and dirty_tree_gate and git_head_gate and
+                release_code and release_pin_configured and issuer_keys_provisioned}
 
 
 def malformed_boundary(repo: Path, count: int = 20000) -> dict[str, int]:
@@ -484,6 +515,7 @@ def bridge_gate_attack(repo: Path) -> dict[str, Any]:
     sys.path.insert(0, str(repo / "tools/phk2_host"))
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import fk0957_endpoint_acceptance
+    import phk2_fk0957_remote_topology_endpoint as endpoint
     report = fk0957_endpoint_acceptance.run(repo)
     fields = ("missing_handoff", "unsigned_handoff", "stale_handoff",
               "wrong_bridge_hash", "bridge_still_active", "wrong_clients",
@@ -494,7 +526,8 @@ def bridge_gate_attack(repo: Path) -> dict[str, Any]:
     refused = [name for name, result in outcomes.items()
                if not (type(result) is str and result in accepted_labels)]
     return {"cases": outcomes, "refused_cases": refused,
-            "issuer_provisioned_in_production": bool(report.get("production_trust_configured", False)),
+            "trust_config_hash_pinned": bool(endpoint.TRUST_CONFIG_SHA256),
+            "issuer_provisioned_in_production": _production_issuer_keys_provisioned(repo, endpoint),
             "endpoint_fake_transport_calls": report.get("endpoint_full_request_replay", {}).get(
                 "physical_transport_calls", 0),
             "real_device_open_possible_in_fixture": False}
@@ -560,6 +593,9 @@ def remote_signing_and_handoff_gates(repo: Path) -> dict[str, Any]:
         "release_manifest_covers_RGB_orchestrator": "tools/phk2_host/phk2_fk0957_topology_rgb_orchestrator.py" in release_sources,
         "release_manifest_covers_launcher": "tools/phk2_host/fk0957_safe_launcher.c" in release_sources,
         "release_issuer_pin_configured": bool(trust_pins),
+        "production_issuer_keys_provisioned": (
+            _production_issuer_keys_provisioned(repo, endpoint_module)
+            if release_sources else False),
         "wrong_production_head_gate_present": "RUNTIME_GIT_STATE_MISMATCH" in endpoint and
             "_production_git_state" in endpoint,
     }
