@@ -1,0 +1,42 @@
+{
+  "controller": {
+    "_live_argv_producer": "build_operation_argv",
+    "_live_first_statement_calls": [],
+    "_live_has_pre_release_guard": false,
+    "_live_route": "LEGACY_ORCHESTRATOR",
+    "_live_runner_consumes_argv": true,
+    "dead_candidate_helper_does_not_change_route": true,
+    "guardian_cli_refuses_without_call": false,
+    "hidden_guardian_branch_calls": [
+      "guardian_main",
+      "str",
+      "str",
+      "str",
+      "str",
+      "str",
+      "str"
+    ],
+    "present": true,
+    "public_live_calls_unconditional_guard": false,
+    "public_live_refuses_before_precheck": true
+  },
+  "external_execution": false,
+  "guardian": {
+    "accepts_caller_supplied_self_hash": true,
+    "calls_guardian_worker": true,
+    "direct_import_guard": false,
+    "present": true
+  },
+  "head": "d8f4fe665cbb181faa0f1b07176925896cde4271",
+  "orchestrator": {
+    "legacy_main_calls_acquire_and_sign": true,
+    "public_api_calls_runner_or_test_helper": true,
+    "public_api_has_pre_release_guard_first": false,
+    "test_helper_calls_runner": false,
+    "test_helper_default_is_real_subprocess": false,
+    "test_helper_reaches_signing": false,
+    "unguarded_test_helper_present": false
+  },
+  "root": "/tmp/fk0957-source-audit-d8f4fe66",
+  "source_derived": true
+}

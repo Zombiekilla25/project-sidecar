@@ -1,0 +1,39 @@
+{
+  "controller": {
+    "_live_argv_producer": "build_operation_argv",
+    "_live_first_statement_calls": [
+      "require_pre_release_authorization_api"
+    ],
+    "_live_has_pre_release_guard": true,
+    "_live_route": "LEGACY_ORCHESTRATOR",
+    "_live_runner_consumes_argv": true,
+    "dead_candidate_helper_does_not_change_route": true,
+    "guardian_cli_refuses_without_call": true,
+    "hidden_guardian_branch_calls": [
+      "print",
+      "print"
+    ],
+    "present": true,
+    "public_live_calls_unconditional_guard": true,
+    "public_live_refuses_before_precheck": false
+  },
+  "external_execution": false,
+  "guardian": {
+    "accepts_caller_supplied_self_hash": true,
+    "calls_guardian_worker": true,
+    "direct_import_guard": false,
+    "present": true
+  },
+  "head": "bb7fa2958a6d4808cfbef73812f83a9ab9060a44",
+  "orchestrator": {
+    "legacy_main_calls_acquire_and_sign": false,
+    "public_api_calls_runner_or_test_helper": true,
+    "public_api_has_pre_release_guard_first": true,
+    "test_helper_calls_runner": true,
+    "test_helper_default_is_real_subprocess": true,
+    "test_helper_reaches_signing": true,
+    "unguarded_test_helper_present": true
+  },
+  "root": "/tmp/fk0957-left-auth-audit-bb7",
+  "source_derived": true
+}
