@@ -265,7 +265,12 @@ def main():
     except Exception as e:
         record('INITIAL_AUDIT_ERROR '+type(e).__name__)
         update_state(status='FAILED',failure_class=type(e).__name__); return 1
-    previous=refs_snapshot(); stable={}; audited=set(previous.values())
+    previous=refs_snapshot(); stable={}
+    report_dir=OUT/'sha-reports'
+    audited={p.stem for p in report_dir.glob('????????????????????????????????????????.json')
+             if re.fullmatch(r'[0-9a-f]{40}',p.stem)}
+    audited.add(sha)
+    latest_audited=sha
     while time.monotonic()-start < MAX_SECONDS and not stop_requested():
         time.sleep(POLL_SECONDS)
         if stop_requested(): break
@@ -279,11 +284,12 @@ def main():
                 value,count=stable[ref]; stable[ref]=(value,count+1)
                 if count+1>=1 and sha not in audited:
                     finding=audit_sha(sha,[ref]); audited.add(sha)
-                    update_state(status='MONITORING_LOCAL_REFS',latest_audited_sha=sha,
+                    latest_audited=sha
+                    update_state(status='MONITORING_LOCAL_REFS',latest_audited_sha=latest_audited,
                                  audited_shas=sorted(audited),last_poll_utc=now())
                     del stable[ref]
         previous=current
-        update_state(status='MONITORING_LOCAL_REFS',latest_audited_sha=next(reversed(sorted(audited)),None),
+        update_state(status='MONITORING_LOCAL_REFS',latest_audited_sha=latest_audited,
                      audited_shas=sorted(audited),last_poll_utc=now(),elapsed_seconds=int(time.monotonic()-start))
     status='STOPPED_BY_FLAG' if stop_requested() else 'QUEUE_COMPLETE_TIMEOUT'
     update_state(status=status,finished_utc=now(),elapsed_seconds=int(time.monotonic()-start),audited_shas=sorted(audited))
