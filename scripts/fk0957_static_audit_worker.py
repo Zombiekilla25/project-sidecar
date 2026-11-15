@@ -32,11 +32,17 @@ PRODUCTION_FILES = [
  'tools/phk2_host/fk0957_supervisor_status_contract.py',
  'tools/phk2_host/fk0957_supervisor.py',
  'tools/phk2_host/fk0957_supervisor_client.py',
+ 'tools/phk2_host/phk2_fk0957_topology_signing.py',
+ 'tools/phk2_host/fk0957_rgb_cli_contract.py',
+ 'tools/phk2_host/fk0957_safe_bootstrap.py',
 ]
 MANIFEST='results/fk0957-release-candidate-source-manifest.json'
 
 
 def now(): return datetime.now(timezone.utc).isoformat()
+def stop_requested():
+    try: return STOP.read_text(encoding='ascii').strip() == 'STOP'
+    except OSError: return False
 def record(msg):
     OUT.mkdir(parents=True, exist_ok=True)
     with LOG.open('a', encoding='utf-8') as f: f.write(f'{now()} {msg}\n'); f.flush(); os.fsync(f.fileno())
@@ -93,15 +99,41 @@ def route_checks(sources):
     ssh_calls=[]
     if ssh:
         ssh_calls=[call_name(n.func) for n in ast.walk(ssh) if isinstance(n,ast.Call)]
-    runner=min((i for i,x in enumerate(ssh_calls) if x.endswith('runner')),default=10**6)
-    local_validate=min((i for i,x in enumerate(ssh_calls) if x.endswith('_validated_local_context')),default=10**6)
-    local_consume=min((i for i,x in enumerate(ssh_calls) if x.endswith('_consume_local_auth')),default=10**6)
+    def first_call_line(suffix):
+        return min((n.lineno for n in ast.walk(ssh) if isinstance(n,ast.Call) and call_name(n.func).endswith(suffix)),default=10**6) if ssh else 10**6
+    runner=first_call_line('runner')
+    local_validate=first_call_line('_validated_local_context')
+    local_consume=first_call_line('_consume_local_auth')
     ssh_guard=(local_validate<runner and local_consume<runner)
     legacy_func=next((n for n in ast.walk(ast.parse(legacy)) if isinstance(n,ast.FunctionDef) and n.name=='_acquire_and_sign_for_test'),None) if legacy else None
     legacy_calls=[call_name(n.func) for n in ast.walk(legacy_func) if isinstance(n,ast.Call)] if legacy_func else []
-    legacy_default_runner=bool(legacy_func and any(a.arg=='runner' and isinstance(a.annotation,ast.Name) for a in legacy_func.args.args))
+    legacy_default_runner=bool(legacy_func and 'runner: Callable = subprocess.run' in legacy)
     legacy_live_surface=bool(legacy_func and any(x in legacy_calls for x in ('runner','subprocess.run')) and
                              ('signature = key.sign(encoded)' in legacy))
+    signer_source=sources.get('tools/phk2_host/phk2_fk0957_topology_signing.py',b'').decode('utf-8','replace')
+    signer_tree=ast.parse(signer_source)
+    signer=next((n for n in ast.walk(signer_tree) if isinstance(n,ast.FunctionDef) and n.name=='_sign_validated_remote_record'),None)
+    signer_direct=bool(signer and any(isinstance(n,ast.Call) and call_name(n.func).endswith('.sign') for n in ast.walk(signer))
+                        and not any(a.arg in {'capability','validated_operation','sealed_context'} for a in signer.args.args))
+    rgb_cli=sources.get('tools/phk2_host/phk2_fk0957_topology_rgb_cli.py',b'').decode('utf-8','replace')
+    rgb_cli_tree=ast.parse(rgb_cli)
+    rgb_main=next((n for n in ast.walk(rgb_cli_tree) if isinstance(n,ast.FunctionDef) and n.name=='main'),None)
+    rgb_main_text='\n'.join(rgb_cli.splitlines()[rgb_main.lineno-1:rgb_main.end_lineno]) if rgb_main else ''
+    rgb_launcher_guard=any(t in rgb_main_text for t in ('TRUSTED_LAUNCHER','safe_bootstrap','launcher_capability'))
+    live_cli=sources.get('tools/phk2_host/phk2_fk0957_topology_live_cli.py',b'').decode('utf-8','replace')
+    live_cli_tree=ast.parse(live_cli)
+    live_main=next((n for n in ast.walk(live_cli_tree) if isinstance(n,ast.FunctionDef) and n.name=='main'),None)
+    live_main_text='\n'.join(live_cli.splitlines()[live_main.lineno-1:live_main.end_lineno]) if live_main else ''
+    live_launcher_guard='TRUSTED_LAUNCHER_REQUIRED' in live_main_text
+    signer_public=next((n for n in ast.walk(signer_tree) if isinstance(n,ast.FunctionDef) and n.name=='perform_fk0957_topology_discovery_once'),None)
+    signer_public_text='\n'.join(signer_source.splitlines()[signer_public.lineno-1:signer_public.end_lineno]) if signer_public else ''
+    live_cli_stubbed=('raise Refusal("combined local acquisition and signing is disabled")' in signer_public_text)
+    status_source=sources.get('tools/phk2_host/fk0957_supervisor_status_contract.py',b'').decode('utf-8','replace')
+    status_tree=ast.parse(status_source)
+    pre=next((n for n in ast.walk(status_tree) if isinstance(n,ast.FunctionDef) and n.name=='validate_pre_release_status'),None)
+    pre_text='\n'.join(status_source.splitlines()[pre.lineno-1:pre.end_lineno]) if pre else ''
+    pre_non_authorizing=bool(pre and 'state != NOT_STARTED' in pre_text and '"authorizes_release": "NO"' in pre_text and
+                             '"query_mutates_authorization": "NO"' in pre_text)
     # In-memory mutations validate that the source-derived guard predicates detect removal/addition.
     removed_guard=controller.replace('    require_pre_release_authorization_api()\n','',1)
     mutation_detects_removed_guard=('require_pre_release_authorization_api()' not in removed_guard.split('def _live',1)[1].split('\ndef ',1)[0])
@@ -112,6 +144,12 @@ def route_checks(sources):
             'direct_ssh_helper_guard':'PASS' if ssh_guard else 'FAIL',
             'legacy_test_support_live_surface':'PRESENT' if legacy_live_surface else 'ABSENT',
             'legacy_test_support_is_manifested':legacy_path in manifest_paths(CURRENT_SHA),
+            'legacy_test_support_default_real_runner':legacy_default_runner,
+            'direct_rgb_cli_launcher_guard':'PASS' if rgb_launcher_guard else 'FAIL',
+            'direct_signer_api':'FAIL' if signer_direct else 'PASS',
+            'direct_live_cli_entry_guard':'PASS' if live_launcher_guard else 'FAIL',
+            'live_cli_operation_stubbed':'YES' if live_cli_stubbed else 'NO',
+            'pre_release_status_non_authorizing':'PASS' if pre_non_authorizing else 'FAIL',
             'route_mutation_checks_detect_removed_controller_guard':mutationDetects(removed_guard),
             'route_mutation_checks_detect_added_ssh_guard':mutationDetectsAdded(synthetic_guard),
             'legacy_default_runner_declared':legacy_default_runner}
@@ -161,6 +199,16 @@ def audit_sha(sha,refnames):
             findings['static_ast']='FAIL'; findings['errors'].append(f'{path}:{type(e).__name__}')
     findings['function_count']=sum(map(len,functions_by_file.values()))
     findings['import_time_calls']=import_calls
+    try:
+        c_launcher=blob(sha,'tools/phk2_host/fk0957_safe_launcher.c').decode('utf-8')
+        findings['static_launcher_contract']={
+            'runtime_hash_buildid_verification':all(x in c_launcher for x in ('verify_runtime_pin','runtime_pins')),
+            'bootstrap_manifest_trust_open':all(x in c_launcher for x in ('open_verified_bootstrap','open_verified_manifest','open_verified_trust_config')),
+            'isolated_python_flags':('"-I"' in c_launcher and '"-S"' in c_launcher),
+            'clean_environment':('clearenv()' in c_launcher),
+            'execve_used':('execve(' in c_launcher),
+        }
+    except Exception as e: findings['static_launcher_contract']={'error_class':type(e).__name__}
     findings['live_capable_functions']={p:{n:v for n,v in fs.items() if any(
         c.endswith(('subprocess.run','subprocess.Popen','_pinned_ssh','run_fk0957_topology_discovery',
                     '_run_consumed_permit','_sign_validated_remote_record','_remote_block','_ssh_probe'))
@@ -201,10 +249,10 @@ def refs_snapshot():
 def main():
     OUT.mkdir(parents=True,exist_ok=True)
     start=time.monotonic(); update_state(status='STARTING',source_sha='c56b0edf7ea5087db7b6823580b2b7b613778bc8',tasks_completed=0,
-       task_count=5,blocked_tests=['dynamic candidate tests: isolation unavailable; bwrap net namespace denied'],
+       task_count=7,blocked_tests=['dynamic candidate tests: isolation unavailable; bwrap net namespace denied'],
        mode='READ_ONLY_GIT_AST_JSON_HASH_ONLY',network='NO',candidate_imports=0)
     record('WORKER_START pid='+str(os.getpid()))
-    if STOP.exists(): update_state(status='STOPPED_BY_FLAG'); return 0
+    if stop_requested(): update_state(status='STOPPED_BY_FLAG'); return 0
     try:
         refs=refs_snapshot()
         candidates={sha:[r for r,s in refs.items() if s==sha] for sha in set(refs.values())}
@@ -212,15 +260,15 @@ def main():
         sha='c56b0edf7ea5087db7b6823580b2b7b613778bc8'
         if not file_exists(sha,'results/fk0957-release-candidate-source-manifest.json'):
             raise RuntimeError('INITIAL_CANDIDATE_MANIFEST_MISSING')
-        finding=audit_sha(sha,candidates.get(sha,[])); update_state(status='MONITORING_LOCAL_REFS',tasks_completed=5,
+        finding=audit_sha(sha,candidates.get(sha,[])); update_state(status='MONITORING_LOCAL_REFS',tasks_completed=7,
             latest_audited_sha=sha,initial_audit=finding['route_checks'],last_poll_utc=now())
     except Exception as e:
         record('INITIAL_AUDIT_ERROR '+type(e).__name__)
         update_state(status='FAILED',failure_class=type(e).__name__); return 1
     previous=refs_snapshot(); stable={}; audited=set(previous.values())
-    while time.monotonic()-start < MAX_SECONDS and not STOP.exists():
+    while time.monotonic()-start < MAX_SECONDS and not stop_requested():
         time.sleep(POLL_SECONDS)
-        if STOP.exists(): break
+        if stop_requested(): break
         try: current=refs_snapshot()
         except Exception as e:
             record('POLL_ERROR '+type(e).__name__); update_state(status='MONITORING_LOCAL_REFS',last_poll_error=type(e).__name__); continue
@@ -237,7 +285,7 @@ def main():
         previous=current
         update_state(status='MONITORING_LOCAL_REFS',latest_audited_sha=next(reversed(sorted(audited)),None),
                      audited_shas=sorted(audited),last_poll_utc=now(),elapsed_seconds=int(time.monotonic()-start))
-    status='STOPPED_BY_FLAG' if STOP.exists() else 'QUEUE_COMPLETE_TIMEOUT'
+    status='STOPPED_BY_FLAG' if stop_requested() else 'QUEUE_COMPLETE_TIMEOUT'
     update_state(status=status,finished_utc=now(),elapsed_seconds=int(time.monotonic()-start),audited_shas=sorted(audited))
     record('WORKER_STOP status='+status)
     return 0
