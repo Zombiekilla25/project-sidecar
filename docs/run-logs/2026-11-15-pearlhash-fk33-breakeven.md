@@ -132,6 +132,13 @@ same MAC definition and include prep, fill, steady state, drain, and result
 return. Use `tools/pearlhash_breakeven.py` to enter measured FPGA cycles and
 transport parameters. It is stdlib-only and never launches a benchmark.
 
+For eventual empirical first-silicon records, keep using the existing
+Sidecar benchmark artifact contract: matched job fingerprint and batch size,
+plus separate host preparation, transport-in, FPGA compute, transport-out,
+composition, CPU verification, and total end-to-end timings. The cycle
+calculator here is only a feasibility/roofline aid; it must not replace or
+reinterpret a measured benchmark artifact.
+
 ## Safety and status
 
 No CUDA benchmark ran because an active PearlHash workload occupied an RTX
