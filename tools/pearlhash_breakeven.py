@@ -37,8 +37,11 @@ def analyze(
     sync_count: int = 2,
     sync_us: float = 25.0,
     measured_cycles: int | None = None,
+    cycle_evidence: str | None = None,
+    gpu_rate_source: str | None = None,
     fpga_count: int = 1,
     cpu_stage_ms: dict[str, float] | None = None,
+    cpu_stage_evidence: str | None = None,
 ) -> dict[str, Any]:
     if type(work_macs) is not int or work_macs <= 0:
         raise ValueError("work_macs must be a positive integer")
@@ -52,6 +55,23 @@ def analyze(
         raise ValueError("fpga_count must be a positive integer")
     if measured_cycles is not None and (type(measured_cycles) is not int or measured_cycles <= 0):
         raise ValueError("measured_cycles must be a positive integer when supplied")
+    if gpu_rate_source is None:
+        if gpu_tmacs == OFFLINE_GPU_TMACS:
+            gpu_rate_source = "RETAINED_OFFLINE_MEASUREMENT"
+        elif gpu_tmacs == LIVE_LOGGED_GPU_TMACS:
+            gpu_rate_source = "RETAINED_LIVE_LOG"
+        else:
+            gpu_rate_source = "USER_INPUT"
+    if type(gpu_rate_source) is not str or gpu_rate_source not in {
+        "RETAINED_OFFLINE_MEASUREMENT", "RETAINED_LIVE_LOG", "ESTIMATE", "USER_INPUT"
+    }:
+        raise ValueError("unsupported gpu_rate_source")
+    if measured_cycles is None and cycle_evidence is not None:
+        raise ValueError("cycle_evidence requires measured_cycles")
+    if measured_cycles is not None and (
+        type(cycle_evidence) is not str or cycle_evidence not in {"MEASURED", "ESTIMATE"}
+    ):
+        raise ValueError("cycle_evidence must be MEASURED or ESTIMATE when cycles are supplied")
     for name, value in (
         ("gpu_tmacs", gpu_tmacs), ("fpga_clock_mhz", fpga_clock_mhz),
         ("pcie_effective_gbps", pcie_effective_gbps),
@@ -68,6 +88,10 @@ def analyze(
     for name, value in cpu_stage_ms.items():
         if type(value) not in (int, float) or not math.isfinite(value) or value < 0:
             raise ValueError(f"CPU time for {name} must be a nonnegative finite number")
+    if cpu_stage_ms and (type(cpu_stage_evidence) is not str or cpu_stage_evidence not in {"MEASURED", "ESTIMATE"}):
+        raise ValueError("cpu_stage_evidence must be MEASURED or ESTIMATE when CPU timings are supplied")
+    if not cpu_stage_ms and cpu_stage_evidence is not None:
+        raise ValueError("cpu_stage_evidence requires CPU timings")
 
     gpu_rate = gpu_tmacs * 1e12
     target_rate = gpu_rate * (1.0 + margin_percent / 100.0)
@@ -91,6 +115,8 @@ def analyze(
         e2e_seconds = compute_seconds + transfer_and_control
         e2e_rate = work_macs / e2e_seconds
         measured = {
+            "evidence_kind": cycle_evidence,
+            "is_measurement": cycle_evidence == "MEASURED",
             "cycles_per_accelerator_for_full_work_unit": measured_cycles,
             "fpga_compute_seconds": compute_seconds,
             "transfer_and_control_seconds": transfer_and_control,
@@ -107,7 +133,11 @@ def analyze(
             "regions": REGIONS if work_macs == DEFAULT_WORK_MACS else None,
             "macs_per_4096x4096_region": 4_096 * 4_096 * 4_096,
         },
-        "measured_gpu_reference": {
+        "gpu_reference": {
+            "source": gpu_rate_source,
+            "is_measurement": gpu_rate_source in {
+                "RETAINED_OFFLINE_MEASUREMENT", "RETAINED_LIVE_LOG"
+            },
             "requested_tmacs": gpu_tmacs,
             "equivalent_baseline_seconds_per_work_unit": gpu_seconds,
             "scope_warning": "Rate is the selected benchmark metric; equivalent time is arithmetic, not a new measurement.",
@@ -137,8 +167,10 @@ def analyze(
             "required_fpga_compute_tmacs": required_compute_rate / 1e12 if required_compute_rate else None,
             "target_feasible_with_transport": compute_budget > 0,
         },
-        "optional_measured_fpga_result": measured,
-        "optional_measured_cpu_stage_ms": {
+        "optional_fpga_cycle_result": measured,
+        "optional_cpu_stage_timings": {
+            "evidence_kind": cpu_stage_evidence,
+            "is_measurement": cpu_stage_evidence == "MEASURED",
             "values": cpu_stage_ms,
             "sum_ms": sum(cpu_stage_ms.values()) if cpu_stage_ms else None,
             "completeness": "COMPLETE" if set(cpu_stage_ms) == cpu_names else "PARTIAL_OR_UNAVAILABLE",
@@ -162,7 +194,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--sync-count", type=int, default=2)
     parser.add_argument("--sync-us", type=float, default=25.0)
     parser.add_argument("--measured-cycles", type=int)
-    parser.add_argument("--cpu-stage-ms-json", help="JSON object with optional measured CPU stage times")
+    parser.add_argument("--cycle-evidence", choices=("MEASURED", "ESTIMATE"), help="required with --measured-cycles")
+    parser.add_argument("--gpu-rate-source", choices=("RETAINED_OFFLINE_MEASUREMENT", "RETAINED_LIVE_LOG", "ESTIMATE", "USER_INPUT"))
+    parser.add_argument("--cpu-stage-ms-json", help="JSON object with CPU stage timings")
+    parser.add_argument("--cpu-stage-evidence", choices=("MEASURED", "ESTIMATE"), help="required with --cpu-stage-ms-json")
     parser.add_argument("--output", help="optional JSON output path")
     args = parser.parse_args(argv)
     values = {k: v for k, v in vars(args).items() if k not in {"output", "cpu_stage_ms_json"}}

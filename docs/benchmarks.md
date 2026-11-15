@@ -75,8 +75,14 @@ python3 -I -S tools/pearlhash_breakeven.py \
   --fpga-count 1 \
   --pcie-bytes 1073741824 \
   --pcie-effective-gbps 3.15 \
-  --measured-cycles 150000000
+  --measured-cycles 150000000 \
+  --cycle-evidence ESTIMATE
 ```
 
-This only calculates a model from supplied values; it does not launch a
-benchmark or touch CUDA/PCIe/FPGA APIs.
+Use `--cycle-evidence MEASURED` only for cycles collected from an actual
+measurement; use `ESTIMATE` for planning values. GPU rates can be labeled
+`RETAINED_OFFLINE_MEASUREMENT`, `RETAINED_LIVE_LOG`, `ESTIMATE`, or
+`USER_INPUT`; unrecognized rates default to `USER_INPUT`. CPU timing JSON also
+requires `--cpu-stage-evidence MEASURED` or `ESTIMATE`. This calculates only
+from supplied values; it does not launch a benchmark or touch CUDA/PCIe/FPGA
+APIs.
