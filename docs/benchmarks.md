@@ -54,3 +54,29 @@ Every result should report at least:
 - correctness result
 
 Do not report FPGA kernel speed alone as a sidecar speedup.
+
+## FK33 break-even reference
+
+The current local analysis and a reusable stdlib-only calculator are recorded
+in [`run-logs/2026-11-15-pearlhash-fk33-breakeven.md`](run-logs/2026-11-15-pearlhash-fk33-breakeven.md)
+and `tools/pearlhash_breakeven.py`. The matched offline RTX 3080 hurdle is
+75.454830 Tera-MAC/s for the production-shaped full grid; a short live logged
+rate is reported separately because its timing scope differs. The report
+does not claim an FK33 speedup. A GPU benchmark was not started while a GPU
+workload was active.
+
+The calculator accepts measured FPGA cycle counts and transfer parameters;
+for example:
+
+```sh
+python3 -I -S tools/pearlhash_breakeven.py \
+  --gpu-tmacs 75.454830 \
+  --fpga-clock-mhz 250 \
+  --fpga-count 1 \
+  --pcie-bytes 1073741824 \
+  --pcie-effective-gbps 3.15 \
+  --measured-cycles 150000000
+```
+
+This only calculates a model from supplied values; it does not launch a
+benchmark or touch CUDA/PCIe/FPGA APIs.
