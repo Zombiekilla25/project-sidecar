@@ -105,3 +105,16 @@ The local source candidate is now `be33af6`; its separate evidence revision is `
 - Right's final independent audit of `be33af6` remains pending. Production trust provisioning, controller/profile release alignment, administrator installation, and production authorization are still blocked.
 
 No hardware, USB/JTAG, production host, privileged installation, key provisioning, or live acquisition was used. No production-main code was changed.
+
+## Independent software-fix closure — evening of 2026-11-14 (Eastern)
+
+The independent auditor has now issued a **PASS verdict for the installer path-identity software fix**, superseding the earlier FAIL findings above. It inspected source candidate `be33af695079847cfab6a1dd6310a27cc31a4ca9` with evidence `6f0c27da54de098c9de43fe8d0311d9889f0efbf`, and also ran regressions on its test-only descendant `8c8cd5022e799b13eb998795196c6c73b845f94d`.
+
+- Original parent-path substitution matrix: **36/36** invalid substitutions refused, zero false successes. Expanded strict parent matrix: **42/42** refused.
+- Original target-inode substitution matrix: **12/12** refused, zero false successes. Expanded strict target matrix: **18/18** refused.
+- The minimal historical parent-path reproducer now refuses rather than returning success. Upgrade and interrupted-install tests preserved prior complete releases and neighboring paths.
+- On the exact `8c8cd50` test tree, **25 installer**, **485 FK0957-focused**, **589 full host**, and **871 operations** tests passed. The independent oracle accepted **28 valid** states and rejected **249,572 invalid** states with zero mismatches; **237 malformed inputs** produced no uncaught exceptions or unexpected acceptances.
+- Integrity checks matched **31/31 source** and **10/10 native runtime** objects; the manifest remains **unsigned**. The manifest pins the original `be33af6` source revision, distinct from the test-only descendant.
+- Detailed independent findings were pushed to the previously authorized audit branch at `7e7e37d1d113e54f0ce7584d133a0a9e5469a6f1`. The development release candidate itself remains local and was **not** published to public GitHub.
+
+**Scope of PASS:** the tested offline installer/path-identity software behavior. **Production release and live readiness remain BLOCKED** by unprovisioned production trust/issuer authorization, unsigned production manifest, incomplete controller/profile pins and trusted supervisor authorization binding, and unperformed privileged installation and real-deployment verification. No hardware, live-service or production-host operation occurred.
