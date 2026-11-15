@@ -5,8 +5,8 @@ Date: 2026-11-15. Scope: local committed source and retained evidence, plus docu
 ## Worker and checkpoint status
 
 - Existing FK0957 hardening watcher PID 1170327 is alive and was preserved. It watches the hardening branch and is not a multi-project test runner.
-- The prior static worker PID 3192414 is no longer running; its tmux session has ended. Its state has all 7 tasks completed, the journal records `STOPPED_BY_FLAG`, and a STOP file is present. It was not restarted or duplicated.
-- The prior worker stopped at candidate `c56b0edf7ea5087db7b6823580b2b7b613778bc8`; its dynamic tests were blocked because its required `bwrap` network namespace setup was denied. That result is historical, not substituted for current-candidate testing.
+- The prior static worker PID 3192414 is no longer running and its tmux session is absent. Its checkpoint says 7 tasks completed but still says `MONITORING_LOCAL_REFS`; the STOP file contains `RUN`, and the latest journal line has no shutdown record. Its termination is therefore unexplained. It was not restarted or duplicated.
+- Its latest audited candidate was `6525c1ca3b73207aef4acea1276c0a6f4b808f6a` (source `c56b0edf7ea5087db7b6823580b2b7b613778bc8`). Its dynamic tests were blocked because the required `bwrap` network namespace setup was denied. That result is historical, not substituted for current-candidate testing.
 
 ## Project 1 — FK0957
 
