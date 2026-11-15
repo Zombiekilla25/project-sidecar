@@ -1,0 +1,26 @@
+{
+  "source_commit":"be33af695079847cfab6a1dd6310a27cc31a4ca9",
+  "evidence_commit":"6f0c27da54de098c9de43fe8d0311d9889f0efbf",
+  "watcher_pid":1170327,
+  "hardware_access":false,
+  "production_modification":false,
+  "results":{
+    "parent_36_case_false_success":0,
+    "parent_strict_42_cases_refused":42,
+    "target_12_case_false_success":0,
+    "target_strict_18_cases_refused":18,
+    "malformed_237_uncaught_exceptions":0,
+    "manifest_source_match":"31/31",
+    "manifest_runtime_match":"10/10",
+    "manifest_authenticated":false,
+    "focused_tests":{"passed":484,"seconds":141.950},
+    "full_host_tests":{"passed":588,"seconds":164.675,"environment":"existing isolated blake3 venv"},
+    "installer_tests":{"passed":24,"seconds":32.067},
+    "operations_tests":{"passed":871,"seconds":108.045},
+    "oracle":{"valid":28,"invalid":249572,"valid_rejected":0,"invalid_accepted":0,"focused_tests":70},
+    "compileall":"PASS",
+    "diff_check":"PASS"
+  },
+  "software_verdict":"PASS for parent-path and target-inode substitution defects",
+  "release_verdict":"BLOCKED: unsigned manifest and no production trust keys"
+}

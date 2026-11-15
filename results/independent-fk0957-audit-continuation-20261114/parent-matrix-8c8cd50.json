@@ -1,0 +1,10 @@
+{
+  "candidate_commit": "8c8cd5022e799b13eb998795196c6c73b845f94d",
+  "cases": 36,
+  "elapsed_seconds": 10.901,
+  "hardware_access": false,
+  "network_access": false,
+  "pass": true,
+  "schema": "fk0957-independent-parent-identity-matrix-v1",
+  "violations": []
+}

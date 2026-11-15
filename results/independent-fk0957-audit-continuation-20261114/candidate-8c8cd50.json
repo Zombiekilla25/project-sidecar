@@ -1,0 +1,22 @@
+{
+  "release_branch_head":"8c8cd5022e799b13eb998795196c6c73b845f94d",
+  "runtime_source_head":"be33af695079847cfab6a1dd6310a27cc31a4ca9",
+  "evidence_revision":"6f0c27da54de098c9de43fe8d0311d9889f0efbf",
+  "hardware_access":false,"production_modification":false,
+  "checks":{
+    "original_parent_matrix":{"cases":36,"false_success":0},
+    "strict_parent_matrix":{"cases":42,"refused":42,"unsafe":0},
+    "original_target_matrix":{"cases":12,"false_success":0},
+    "strict_target_matrix":{"cases":18,"refused":18,"unsafe":0},
+    "malformed_status":{"cases":237,"uncaught_exceptions":0,"unexpected_accepts":0},
+    "source_manifest":{"sources":"31/31","runtime_objects":"10/10","authenticated":false},
+    "installer_tests":{"passed":25,"seconds":35.862},
+    "fk0957_focused":{"passed":485,"seconds":143.775},
+    "full_host":{"passed":589,"seconds":165.773,"environment":"existing isolated blake3 venv"},
+    "operations":{"passed":871,"seconds":107.943,"runs":4},
+    "oracle":{"valid":28,"invalid":249572,"valid_rejected":0,"invalid_accepted":0,"focused_tests":70},
+    "compileall":"PASS","git_diff_check":"PASS"
+  },
+  "software_verdict":"PASS for parent-path and target-inode substitution fixes",
+  "release_verdict":"BLOCKED: unsigned manifest, no provisioned production trust keys or authorization"
+}

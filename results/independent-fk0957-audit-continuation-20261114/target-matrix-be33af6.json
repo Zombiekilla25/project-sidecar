@@ -1,0 +1,10 @@
+{
+  "candidate_commit": "be33af695079847cfab6a1dd6310a27cc31a4ca9",
+  "cases": 12,
+  "elapsed_seconds": 3.995,
+  "hardware_access": false,
+  "network_access": false,
+  "pass": true,
+  "schema": "fk0957-independent-target-identity-matrix-v1",
+  "violations": []
+}
