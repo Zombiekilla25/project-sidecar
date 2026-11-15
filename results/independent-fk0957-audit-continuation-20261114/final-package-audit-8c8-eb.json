@@ -1,0 +1,56 @@
+{
+  "controller_in_runtime_manifest": false,
+  "controller_rgb_cli_integration": false,
+  "evidence_revision": "eb534fff681e23fb24bd821e1d09a21a1b15a1a3",
+  "focused_integration_tests": {
+    "duration_seconds": 1.412,
+    "passed": 144
+  },
+  "hardware_access": false,
+  "latest_left_code_commit_in_source_lineage": "4d760d542534ee518219511ab57a0b3e7216965e",
+  "latest_operations_handoff_commit_in_source_lineage": false,
+  "launcher_sha256": "603a57568f5ab09c700223ce3ddae48954540e22e4242d2141a35da92f4dd33f",
+  "malformed_status": {
+    "cases": 237,
+    "uncaught_exceptions": 0,
+    "unexpected_accepts": 0
+  },
+  "manifest_authenticated": false,
+  "manifest_sha256": "416c96afddce7926a77209720c0a505f5057295ed1cd707b55f4a9f209bcbce6",
+  "manifested_source_revision": "be33af695079847cfab6a1dd6310a27cc31a4ca9",
+  "matrix": {
+    "parent_expanded": {
+      "cases": 42,
+      "unsafe": 0
+    },
+    "parent_original": {
+      "cases": 36,
+      "violations": 0
+    },
+    "target_expanded": {
+      "cases": 18,
+      "unsafe": 0
+    },
+    "target_original": {
+      "cases": 12,
+      "violations": 0
+    }
+  },
+  "packaging_reproducible": true,
+  "prior_exact_candidate_suites": {
+    "focused_host": 485,
+    "full_host": 589,
+    "installer": 25,
+    "operations": 871,
+    "oracle_invalid": 249572,
+    "oracle_mismatches": 0,
+    "oracle_valid": 28
+  },
+  "production_authorization_available": false,
+  "production_modification": false,
+  "runtime_hashes_and_build_ids_match": "10/10",
+  "schema": "fk0957-independent-final-package-audit-v1",
+  "software_release_verdict": "BLOCKED",
+  "source_candidate": "8c8cd5022e799b13eb998795196c6c73b845f94d",
+  "source_hashes_match": "31/31"
+}
