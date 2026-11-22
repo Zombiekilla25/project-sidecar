@@ -10,6 +10,22 @@ GPU + FPGA cooperative compute research for PearlHash/PRL using NVIDIA RTX GPUs 
 
 Project Sidecar is testing whether an FK33 pod can accelerate selected PearlHash stages alongside a GPU. The project evaluates end-to-end work, including transfer, synchronization, scheduling, FPGA processing, and host verification.
 
+### Active PRL mainnet and Testnet2 work — November 22, 2026
+
+**Goal:** develop a real, measurable Pearl (PRL) mining accelerator using NVIDIA RTX hardware and eight SQRL FK33 FPGA cards. Work is split between today's V3 mainnet candidate/proof pipeline and a separate V4 FP8/H100-arithmetic path on **PRL Testnet2**. Neither workstream is claimed to be a production-qualified FPGA miner.
+
+**PRL Testnet2 (V4 FP8):** a locally operated node/gateway path has acquired authentic V4 mining jobs, and source-locked CPU/GPU experiments have produced proofs accepted by the unchanged **local** verifier. RTX 3080 execution and proof-consumer lineage have been tested on bounded workloads; no reproducible end-to-end GPU speedup has been established. These tests do **not** demonstrate an FK33 generating a live target-valid Testnet2 proof, a node-accepted block, or a network-accepted share.
+
+**FK33 V4 FPGA implementation:** a four-lane K=1024 FP8 board-top candidate has been synthesized, placed, and routed using licensed Vivado 2026.1 on the VU33P target. A square-root-pipeline routed candidate reported setup WNS **-1.808 ns** (23 failing endpoints); a subsequent CDC-cleanup routed candidate completed with setup WNS **-2.072 ns**, TNS **-46.132 ns**, and 23 setup endpoints still failing, with hold WHS **+0.010 ns**. The later implementation still reports six **TIMING-35** methodology critical warnings and uses a **conditional 30 MHz JTAG/TAP timing scenario**, not physically established FK0957 board timing. A routed checkpoint exists, but **timing/CDC signoff is incomplete, no bitstream has been generated for this candidate, and no V4 FPGA silicon or Testnet2 mining run has been demonstrated**.
+
+**PRL V3 mainnet path:** archived V64/V64b FPGA and host work, physical FK0957 KAT evidence, and separately developed candidate scheduling and target-hit-filter RTL are being reconciled. The current filter passes bounded offline reference/RTL tests for CPU-supplied digests. The recovered fixed-window endpoint cannot yet generate arbitrary candidate digests or complete proofs; official candidate-specific commitments, noise, arithmetic, digest computation and proof binding remain integration blockers. Passing standalone CPU proof fixtures is not an end-to-end FPGA mining result.
+
+**Next verified milestones:** (1) resolve real VU33P setup timing and TAP clock/CDC constraints; (2) integrate and independently verify a candidate-specific official PRL compute-to-proof chain; (3) qualify the **same** image on one designated nonproduction FK33 with confirmed silicon revision, exact identity and rollback; (4) obtain a fresh Testnet2 V4 job, produce a verified target-valid proof using actual FPGA computation, and retain node-level acceptance and canonical-chain evidence before claiming success. Keep existing production miners untouched until an explicitly authorized maintenance window.
+
+See [the ongoing public-safe engineering log](https://github.com/Zombiekilla25/project-sidecar/issues/3). Numerical results are implementation snapshots under their stated constraints, not measured hashrates or revenue.
+
+### Earlier PHK1/PHK2 milestones (retained for history)
+
 ### PHK1 diagnostic path
 
 The PHK1 work now has a candidate-aware diagnostic launcher, a versioned evidence capture flow, split USER3 error reporting, and a bounded RAW_BSCAN transport backend. Target/peer checks fail closed, and the control path has modeled rollback and recovery behavior. The candidate runtime has passed target-host no-hardware fixtures and deployment-binding checks.
