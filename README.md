@@ -8,7 +8,24 @@ GPU + FPGA cooperative compute research for PearlHash/PRL using NVIDIA RTX GPUs 
 
 ## Current status — November 2026
 
-### Latest FP8 / PRL V4 milestone — November 24, 2026
+### Latest PRL FP8 (V4) milestone — November 25, 2026
+
+**Bottom line:** Real RTX 3080 CUDA FP8 arithmetic and local verification work; a previously SM86-generated H100-profile candidate passed **local-only** unchanged full-block validation. The latest B200 v1.3 search engine is faster than its matched CPU baseline, but a full v1.3 GPU-search-to-local-block run and public Testnet2 acceptance remain **unverified**.
+
+| Area | Latest qualified engineering evidence | Still missing |
+| --- | --- | --- |
+| **RTX 3080 B200 CUDA search** | **182.95 candidate attempts/s** vs **132.61/s** matched CPU (**+37.96%**) in five bounded 200-candidate tests | Full integrated miner throughput and public network acceptance |
+| **Earlier H100 CUDA search** | **288.70 attempts/s** in a separate source-locked benchmark | This differs in profile and test scope; **do not compare the rates directly** |
+| **GPU-A mining integration** | Authentic job/cancellation ABI, 16/16 offline tests, local proof verification | Source-matched **v1.3** GPU candidate → certificate → full-block validation |
+| **MIDDLE CPU optimizations** | Patches and offline regression evidence preserved | Independent measured improvement in the **merged** CUDA miner |
+| **LEFT fleet packaging** | **v1.2.0** offline package, 21 offline tests | Per-GPU runtime qualification, live job worker, distribution license review |
+| **RIGHT FK33** | Offline PCIe/XDMA readiness harness **18/18** tests | Verified physical endpoint/link, approved DMA qualification, actual co-processing speedup |
+
+Production miners were kept separate from these experimental results. **No public V4 block/share has been accepted from an RTX 30-series GPU, no FK33 V4 acceleration is physically proven, and no production/developer-fee release is qualified.** The immediate gate is unifying GPU-A's authentic job pipeline and GPU-B's immutable B200 v1.3 engine for one complete, unchanged local consensus-validation run.
+
+**Detailed [November 25 FP8 engineering milestone](docs/milestones/2026-11-25-prl-fp8-status.md)** — public-safe summary of all five terminals, measured results, remaining blockers, and next verification gates.
+
+### Previous FP8 / PRL V4 milestone — November 24, 2026
 
 **Current priorities:** (1) keep NVIDIA RTX 30-series GPUs viable for PRL's proposed **FP8 (V4)** update; (2) use FK33 FPGAs as GPU co-processors **only when measured end-to-end benefits justify it**; (3) explore independent FK33 mining afterward. Existing V3 production mining has not been replaced by this experimental work.
 
