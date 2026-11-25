@@ -8,9 +8,25 @@ GPU + FPGA cooperative compute research for PearlHash/PRL using NVIDIA RTX GPUs 
 
 ## Current status — November 2026
 
+### Latest FP8 / PRL V4 milestone — November 24, 2026
+
+**Current priorities:** (1) keep NVIDIA RTX 30-series GPUs viable for PRL's proposed **FP8 (V4)** update; (2) use FK33 FPGAs as GPU co-processors **only when measured end-to-end benefits justify it**; (3) explore independent FK33 mining afterward. Existing V3 production mining has not been replaced by this experimental work.
+
+| Workstream | Demonstrated result | Qualification boundary |
+| --- | --- | --- |
+| **RTX 3080 FP8 arithmetic** | Real SM86 CUDA execution reproduced pinned H100- and B200-profile arithmetic; CUDA-produced proof/certificate outputs passed unchanged **local** official verification | Does **not** demonstrate public-network eligibility or production mining |
+| **RTX 3080 full-block validation** | An SM86-generated H100-profile candidate passed unchanged **local** V4 full-block validation on an isolated easy-target chain, including negative controls | Not a public Testnet2 block or share |
+| **V4 search performance** | In one matched 12-thread campaign, optimized CPU search reached **159.77 attempts/s**, versus original CPU **110.61 attempts/s**; optimized GPU hybrid reached **137.19 attempts/s** | These are bounded local workload measurements, **not** accepted network work rates. The hybrid did not beat the optimized CPU |
+| **Fleet support** | Offline source-locked compatibility/rollback packaging and RTX 3080 testing completed | The other RTX 30-series device classes are not yet independently qualified for FP8 V4 |
+| **FK33 co-processing** | Offline reference-matched RTL/transport prototypes were preserved | No physical FK33 V4 speedup, qualified high-bandwidth link, board timing signoff, or production bitstream |
+
+The current CUDA approach relies on **software reproduction** of supported H100/B200 FP8 arithmetic, not native RTX 30-series FP8 Tensor Cores. Whether the actual V4 network permits using a supported-profile certificate computed on Ampere remains **unconfirmed under public Testnet2 consensus**. A local Testnet2 node provided genuine work templates, but no fresh RTX 3080-produced target-winning candidate was submitted or accepted. A proposed V4 activation/eligibility rule should not be confused with a verified mainnet switch.
+
+**Next evidence gates:** (1) qualify the exact deployed V4 consensus rules and a fresh-job end-to-end candidate; (2) optimize *complete* GPU search throughput against the strongest matched CPU baseline while preserving exact arithmetic; (3) demonstrate public Testnet2 acceptance only with real qualifying work; (4) measure an actual FK33 link before expanding FPGA offload. No experimental outcome above should be interpreted as verified PRL revenue.
+
 Project Sidecar is testing whether an FK33 pod can accelerate selected PearlHash stages alongside a GPU. The project evaluates end-to-end work, including transfer, synchronization, scheduling, FPGA processing, and host verification.
 
-### Active PRL mainnet and Testnet2 work — November 22, 2026
+### Engineering baseline — November 22, 2026 (historical snapshot)
 
 **Goal:** develop a real, measurable Pearl (PRL) mining accelerator using NVIDIA RTX hardware and eight SQRL FK33 FPGA cards. Work is split between today's V3 mainnet candidate/proof pipeline and a separate V4 FP8/H100-arithmetic path on **PRL Testnet2**. Neither workstream is claimed to be a production-qualified FPGA miner.
 
