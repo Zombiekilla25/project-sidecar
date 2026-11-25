@@ -8,22 +8,22 @@ GPU + FPGA cooperative compute research for PearlHash/PRL using NVIDIA RTX GPUs 
 
 ## Current status — November 2026
 
-### Latest PRL FP8 (V4) milestone — November 25, 2026
+### Latest PRL FP8 (V4) milestone — November 25, 2026 (afternoon)
 
-**Bottom line:** Real RTX 3080 CUDA FP8 arithmetic and local verification work; a previously SM86-generated H100-profile candidate passed **local-only** unchanged full-block validation. The latest B200 v1.3 search engine is faster than its matched CPU baseline, but a full v1.3 GPU-search-to-local-block run and public Testnet2 acceptance remain **unverified**.
+**Major local integration milestone:** An actual RTX 3080 executed the B200-profile **v1.3** GPU candidate search and its plain and wrapped proofs passed the unchanged verifier; the resulting **61,769-byte block passed full validation on a reconstructed, source-matched local RegressionNet test chain** with an intentionally achievable target. GPU-A reports **121 candidates at 184.64 attempts/s**, **18/18 unit tests**, and **5/5 adapter negative/control checks**. The preexisting V3 miner was restored and an ordinary share was observed. This is **not public Testnet2 acceptance**.
 
-| Area | Latest qualified engineering evidence | Still missing |
+| Workstream | Most recent evidence | Remaining gate |
 | --- | --- | --- |
-| **RTX 3080 B200 CUDA search** | **182.95 candidate attempts/s** vs **132.61/s** matched CPU (**+37.96%**) in five bounded 200-candidate tests | Full integrated miner throughput and public network acceptance |
-| **Earlier H100 CUDA search** | **288.70 attempts/s** in a separate source-locked benchmark | This differs in profile and test scope; **do not compare the rates directly** |
-| **GPU-A mining integration** | Authentic job/cancellation ABI, 16/16 offline tests, local proof verification | Source-matched **v1.3** GPU candidate → certificate → full-block validation |
-| **MIDDLE CPU optimizations** | Patches and offline regression evidence preserved | Independent measured improvement in the **merged** CUDA miner |
-| **LEFT fleet packaging** | **v1.2.0** offline package, 21 offline tests | Per-GPU runtime qualification, live job worker, distribution license review |
-| **RIGHT FK33** | Offline PCIe/XDMA readiness harness **18/18** tests | Verified physical endpoint/link, approved DMA qualification, actual co-processing speedup |
+| **GPU-A — local full-block integration** | RTX 3080 B200 candidate → verified plain/wrapped proof → unchanged **local** full-block validation: **PASS** | Public Testnet2 validator eligibility, authentic target-valid candidate and public acceptance |
+| **GPU-B — worker recovery** | Exact pinned searcher/persistent worker recovered, hash-verified; source-matched local RegressionNet full-block result; earlier B200 search **182.95 GPU/s vs 132.61 CPU/s** in a *different* matched benchmark | Sustainable full mining throughput and public acceptance; clean rebuild binary differs from pinned binary |
+| **MIDDLE — independent QA** | Pinned-source audit identified source/test-file drift; full-block independent requalification **blocked** until trusted re-freeze | Re-run exactly sourced independent checks, no unqualified policy patch promotion |
+| **LEFT — distribution** | Offline FP8 miner **v1.3.0**, **43 tests passed**, 4,756 source files verified | No runtime GPU mining qualification of other RTX models; licensing and service deployment pending |
+| **RIGHT — source/provenance** | Recovered CPU-mode local worker passed unchanged verifier and negative controls; detected stale handoff checksum manifest | Reseal immutable handoff before coordinated release; FK33 XDMA remains physically unqualified |
+| **QUANTUS-FK33 — new separate lane** | Independent Poseidon2 / QPoW oracle/test work started, [tracked in issue #4](https://github.com/Zombiekilla25/project-sidecar/issues/4) | Official-reference correctness, FPGA implementation timing and later approved one-card silicon validation |
 
-Production miners were kept separate from these experimental results. **No public V4 block/share has been accepted from an RTX 30-series GPU, no FK33 V4 acceleration is physically proven, and no production/developer-fee release is qualified.** The immediate gate is unifying GPU-A's authentic job pipeline and GPU-B's immutable B200 v1.3 engine for one complete, unchanged local consensus-validation run.
+**Network status:** No GPU-produced PRL FP8 block or share has been accepted on **public Testnet2**. A fresh public job passed read-only checks, but no public-target search or submission occurred. GPU-A's stated model estimated roughly **31.8 years per qualifying result** at this search rate and specific target; it is an estimate, not production profitability. No FK33 FP8 physical acceleration or standalone Quantus mining has been demonstrated.
 
-**Detailed [November 25 FP8 engineering milestone](docs/milestones/2026-11-25-prl-fp8-status.md)** — public-safe summary of all five terminals, measured results, remaining blockers, and next verification gates.
+**[Detailed November 25 FP8 engineering report](docs/milestones/2026-11-25-prl-fp8-status.md)** · **[Quantus FK33 issue #4](https://github.com/Zombiekilla25/project-sidecar/issues/4)**
 
 ### Previous FP8 / PRL V4 milestone — November 24, 2026
 
