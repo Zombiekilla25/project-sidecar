@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — 2026-11-26
+
+- Add a sanitized deploy7/FP8 release-readiness update and draft setup, compatibility, troubleshooting, licensing, and release-note documentation.
+- Document the separate inactive 1.3.2-rc1 setup-tools candidate; its local profile is not consumed by the deploy7 worker. No deploy7 GPU execution or public Testnet2 acceptance is claimed.
+- Preserve the external redistribution block pending target-specific license closure and binary rights. No binary is published.
+
+
 Project changes are recorded here when prepared for public release. This file does not itself announce a published release.
 
 ## Unreleased — 2026-11-14
