@@ -9,6 +9,8 @@
 
 The deploy7 archive remains an inactive, offline candidate. A separate local 1.3.2-rc1 setup-tools candidate adds a private-profile wizard, read-only GPU inventory, and host dependency preflight. Its generated profile is not consumed by the deploy7 worker. No deploy7 CUDA execution or public Testnet2 acceptance is claimed. GPU-B has reported a separate local R1 wrapped-certificate verifier pass, but its watchdog/worker campaign remains incomplete; this does not qualify deploy7.
 
+A separate internal **1.3.3-rc1 user-release candidate** now adds an interactive private setup wizard, read-only host/GPU metadata preflight, a JSON-backed terminal status view, and dry-run-by-default version staging/rollback. It passed 51 focused offline tests plus clean archive extraction and an actual no-write install dry-run. The candidate is not part of this PR, has not used a GPU or pool, and is not cleared for external binary redistribution. Its ABI v2 worker remains CPU-only and paired Gateway outcome integration is incomplete. See [1.3.3 setup and support status](docs/fp8-1.3.3-rc1-user-setup.md).
+
 | Device | Architecture | 1.3.2-rc1 runtime qualification |
 | --- | --- | --- |
 | RTX 3060 / 3060 Ti / 3070 | SM86 | Not tested; unqualified |
