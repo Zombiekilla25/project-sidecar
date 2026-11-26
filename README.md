@@ -4,6 +4,22 @@
 
 # Project Sidecar
 
+
+## FP8 release engineering update — November 26, 2026
+
+The deploy7 archive remains an inactive, offline candidate. A separate local 1.3.2-rc1 setup-tools candidate adds a private-profile wizard, read-only GPU inventory, and host dependency preflight. Its generated profile is not consumed by the deploy7 worker. No deploy7 CUDA execution or public Testnet2 acceptance is claimed. GPU-B has reported a separate local R1 wrapped-certificate verifier pass, but its watchdog/worker campaign remains incomplete; this does not qualify deploy7.
+
+| Device | Architecture | 1.3.2-rc1 runtime qualification |
+| --- | --- | --- |
+| RTX 3060 / 3060 Ti / 3070 | SM86 | Not tested; unqualified |
+| RTX 3080 | SM86 | Deploy7 not tested; prior other-release evidence does not transfer |
+| RTX 3090 | SM86 | Not tested; unqualified |
+
+Redistribution remains blocked pending target-specific dependency/license closure and written rights for packaged binaries. Public Testnet2 acceptance remains unverified. No production miner, service, pool, fee or payout configuration was changed.
+
+**Candidate guides:** [setup and installation](docs/fp8-1.3.2-rc1-installation.md) · [device compatibility](docs/fp8-1.3.2-rc1-compatibility.md) · [troubleshooting](docs/fp8-1.3.2-rc1-troubleshooting.md) · [license and host requirements](docs/fp8-1.3.2-rc1-licensing.md) · [release notes](docs/fp8-1.3.2-rc1-release-notes.md)
+
+
 GPU + FPGA cooperative compute research for PearlHash/PRL using NVIDIA RTX GPUs and SQRL FK33 accelerators.
 
 ## Current status — November 2026
