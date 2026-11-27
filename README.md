@@ -7,20 +7,15 @@
 
 ## FP8 release engineering update — November 26, 2026
 
-The deploy7 archive remains an inactive, offline candidate. A separate local 1.3.2-rc1 setup-tools candidate adds a private-profile wizard, read-only GPU inventory, and host dependency preflight. Its generated profile is not consumed by the deploy7 worker. No deploy7 CUDA execution or public Testnet2 acceptance is claimed. GPU-B has reported a separate local R1 wrapped-certificate verifier pass, but its watchdog/worker campaign remains incomplete; this does not qualify deploy7.
+The sealed deploy6 and deploy7 packages remain preserved. The separate internal **1.3.4-rc1** candidate adds configuration import and wizard improvements. It passed 59 focused offline checks, clean-extraction tests after the documented bootstrap step, source-lock verification, and a no-write installer dry-run. The archive is private and is not included here.
 
-A separate internal **1.3.3-rc1 user-release candidate** now adds an interactive private setup wizard, read-only host/GPU metadata preflight, a JSON-backed terminal status view, and dry-run-by-default version staging/rollback. It passed 51 focused offline tests plus clean archive extraction and an actual no-write install dry-run. The candidate is not part of this PR, has not used a GPU or pool, and is not cleared for external binary redistribution. Its ABI v2 worker remains CPU-only and paired Gateway outcome integration is incomplete. See [1.3.3 setup and support status](docs/fp8-1.3.3-rc1-user-setup.md).
+This is not GPU or pool qualification. The 1.3.4 candidate has not queried a GPU, launched CUDA, connected to a pool, installed a service, or changed production mining. Prior RTX 3080 results apply to different exact releases. RTX 3060, 3060 Ti, 3070, 3080, and 3090 remain unqualified for this candidate; HiveOS and RabidOS remain unverified.
 
-| Device | Architecture | 1.3.2-rc1 runtime qualification |
-| --- | --- | --- |
-| RTX 3060 / 3060 Ti / 3070 | SM86 | Not tested; unqualified |
-| RTX 3080 | SM86 | Deploy7 not tested; prior other-release evidence does not transfer |
-| RTX 3090 | SM86 | Not tested; unqualified |
+MIDDLE's R3 manifest is source-verified. GPU-B separately reports native ABI parity and a patched supervisor smoke reaching `QUEUED`; final peer receipt ingress is not connected in the frozen candidate, and public acceptance remains unverified. R3 has not been integrated into 1.3.4.
 
-Redistribution remains blocked pending target-specific dependency/license closure and written rights for packaged binaries. Public Testnet2 acceptance remains unverified. No production miner, service, pool, fee or payout configuration was changed.
+Redistribution remains blocked pending complete target-specific dependency/license/notice closure and written rights for any packaged native binaries. This is an evidence/permission gate, not a blanket incompatibility finding. No binaries or private handoffs are included in this PR.
 
-**Candidate guides:** [setup and installation](docs/fp8-1.3.2-rc1-installation.md) · [device compatibility](docs/fp8-1.3.2-rc1-compatibility.md) · [troubleshooting](docs/fp8-1.3.2-rc1-troubleshooting.md) · [license and host requirements](docs/fp8-1.3.2-rc1-licensing.md) · [release notes](docs/fp8-1.3.2-rc1-release-notes.md)
-
+See [the 1.3.4 internal candidate boundary and test summary](docs/fp8-1.3.4-rc1-internal.md), [setup and installation](docs/fp8-1.3.2-rc1-installation.md), [device compatibility](docs/fp8-1.3.2-rc1-compatibility.md), [troubleshooting](docs/fp8-1.3.2-rc1-troubleshooting.md), and [license and host requirements](docs/fp8-1.3.2-rc1-licensing.md).
 
 GPU + FPGA cooperative compute research for PearlHash/PRL using NVIDIA RTX GPUs and SQRL FK33 accelerators.
 
