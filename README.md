@@ -6,9 +6,9 @@ Project Sidecar explores Pearl (PRL) mining software for NVIDIA RTX GPUs and pos
 
 There is no supported public FP8 miner release or downloadable binary. The current internal candidate is inactive; its start gate remains closed. Do not install it over another miner, enable services, change pool/payout settings, or treat local tests as network mining.
 
-The internal work has source-pinned local RTX 3080 computation and receipt evidence. A separate two-RTX-3080 search experiment reported 729.93 attempts/s versus 674.49 for its matched packed-warp control in a bounded benchmark. That search binary is not integrated into the miner runtime. Neither result demonstrates a public pool share, accepted block, sustained end-to-end rate, or profitability.
+The internal work now has source-pinned local RTX 3080 computation and receipt evidence. A separate GPU-B dual-RTX-3080 candidate passed ABI-v2 CUDA parity on both cards and a local fixture verified 24 certificates (20 local ACKs, four intentional rejects). Its 8x1 local proof fixture measured 0.03772 certificates/s versus 0.03590 for 4x2. A 20-pair sustained legacy-search test measured 816.60 attempts/s at 2,400-attempt shards versus 790.33 at 1,200 (+3.32%; paired 95% interval +24.75 to +27.82; 1.44M attempts per layout). That shard result applies only to the legacy fixture CLI, not the authenticated ABI-v2 worker. These are local results, not public pool acceptance, block acceptance, or profitability.
 
-Four proof threads remain the default in the internal candidate. Two threads are a lower-memory comparison. Eight threads is an opt-in experiment and is not hardware-qualified.
+Four proof threads remain the RC5/R6 default. A separate GPU-B runtime recorded 8x1 local proof fixtures, but its source manifest differs from MIDDLE R1 (11 shared-path hash differences and two unique paths per side). The runtime is not integrated into RC5 or MIDDLE R1; a combined source lock and Gateway/runtime regression are still required before integration.
 
 ## Supported hardware and operating systems
 
