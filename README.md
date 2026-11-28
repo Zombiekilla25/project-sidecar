@@ -8,7 +8,7 @@ There is no supported public FP8 miner release or downloadable binary. The curre
 
 The internal work now has source-pinned local RTX 3080 computation and receipt evidence. A separate GPU-B dual-RTX-3080 candidate passed ABI-v2 CUDA parity on both cards and a local fixture verified 24 certificates (20 local ACKs, four intentional rejects). Its 8x1 local proof fixture measured 0.03772 certificates/s versus 0.03590 for 4x2. A 20-pair sustained legacy-search test measured 816.60 attempts/s at 2,400-attempt shards versus 790.33 at 1,200 (+3.32%; paired 95% interval +24.75 to +27.82; 1.44M attempts per layout). That shard result applies only to the legacy fixture CLI, not the authenticated ABI-v2 worker. These are local results, not public pool acceptance, block acceptance, or profitability.
 
-Four proof threads remain the RC5/R6 default. A separate GPU-B runtime recorded 8x1 local proof fixtures, but its source manifest differs from MIDDLE R1 (11 shared-path hash differences and two unique paths per side). The runtime is not integrated into RC5 or MIDDLE R1; a combined source lock and Gateway/runtime regression are still required before integration.
+Four proof threads remain the RC6 internal default and rollback control. Two threads is comparative; eight threads is explicit and unqualified in that package. Proof threads are separate from search settings: ABI-v2 remains at four search threads per GPU and 32-attempt authenticated leases. The 2,400-attempt result is only for the legacy fixture CLI. A separate GPU-B runtime recorded 8x1 local proof fixtures, but it is not the RC6/MIDDLE R1 packaged runtime. The newest MIDDLE R1 admission manifest (`c8e832db…`) passes source and dual-device admission preflight, but integrated CUDA-to-peer testing remains pending. Its nested runtime still differs from the GPU-B runtime in the supervisor and scheduler (48 common files, two differing files, plus a MIDDLE-only CPU policy file). The common ABI-v2 worker hash does not qualify the surrounding runtime. Keep the existing rollback until an exact combined source pin and Gateway/R1 receipt-recovery regression pass.
 
 ## Supported hardware and operating systems
 
@@ -25,7 +25,7 @@ The minimum NVIDIA driver and full deployment matrix are still being established
 
 ## Installation
 
-There is no supported installation command yet. Setup tools and service templates in internal candidates are not a public installer. Do not run a miner from a development branch or copy internal executables to another system. A release will be announced here only after public acceptance, rollback, dependency, licensing, and device qualification gates are satisfied.
+There is no supported installation command yet. Internal RC6 adds a read-only OS/GPU doctor and clearer setup/profile previews, but these tools and service templates are not a public installer. Device detection reads `nvidia-smi` metadata only and does not qualify a GPU. Do not run a miner from a development branch or copy internal executables to another system. A release will be announced here only after public acceptance, rollback, dependency, licensing, and device qualification gates are satisfied.
 
 The project uses placeholder values in examples. Never put real wallets or passwords in URLs, command lines, logs, or GitHub issues.
 
